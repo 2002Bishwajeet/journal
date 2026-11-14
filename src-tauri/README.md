@@ -79,6 +79,28 @@ The desktop icons (`icons/`: `.icns`, `.ico` and the PNGs) are generated with
 `tauri icon` by `scripts/generate-desktop-icons.mjs` from the same feather as
 the iOS and Android icons; its header has the command.
 
+## Benchmark build
+
+The cargo feature `encfs-bench` (#1245) adds benchmark-only endpoints for the
+encryption spike's gate G7 (`src/bench.rs`): the commands `bench_blob_put`,
+`bench_blob_get`, `bench_reset` and `bench_token`, and `PUT`/`GET /__bench/blob`
+on the loopback server, which answer only with the per-launch token in the
+`X-Journal-Bench` header. Both write `bench.bin` in the app's data directory.
+The app prints "encfs-bench endpoints are ENABLED: not a release build" at
+startup. Never ship a build with this feature.
+
+The pglite-cipher bench page is the frontend. Build it there first
+(`npm ci && npm run bench:build`), then, in this repository:
+
+```bash
+npx tauri build --features encfs-bench --config '{"build":{"frontendDist":"<path to pglite-cipher>/bench/dist","beforeBuildCommand":""}}'
+```
+
+`tauri ios build` and `tauri android build` take the same flags. The commands'
+capability is `capabilities/encfs-bench/`, which `build.rs` reads only with the
+feature; a test in `src/lib.rs` fails if the feature is on by default or
+implied by another feature.
+
 ## Desktop releases and updates
 
 `.github/workflows/desktop-release.yml` builds the signed and notarised

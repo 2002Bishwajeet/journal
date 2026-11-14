@@ -1,0 +1,10 @@
+{
+  "$schema": "../../gen/schemas/desktop-schema.json",
+  "identifier": "encfs-bench",
+  "description": "Benchmark-only commands (src/bench.rs). build.rs reads this folder only with the encfs-bench feature.",
+  "windows": ["main"],
+  "remote": {
+    "urls": ["http://localhost:47821"]
+  },
+  "permissions": ["allow-bench-blob-put", "allow-bench-blob-get", "allow-bench-reset", "allow-bench-token"]
+}

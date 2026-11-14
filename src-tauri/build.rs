@@ -16,6 +16,21 @@ fn main() {
             .commands(&["set_style"])
             .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
     );
+    // Benchmark-only commands (src/bench.rs, #1245). Their capability is in
+    // capabilities/encfs-bench/, read only with the feature. The app's own
+    // permissions are the generated ones for these commands and nothing in
+    // ./permissions, where a bench build leaves its generated files behind.
+    let bench = std::env::var_os("CARGO_FEATURE_ENCFS_BENCH").is_some();
+    let commands: &[&str] = if bench {
+        &["bench_blob_put", "bench_blob_get", "bench_reset", "bench_token"]
+    } else {
+        &[]
+    };
+    attributes = attributes.app_manifest(tauri_build::AppManifest::new().commands(commands).permissions_path_pattern("./permissions/*.toml"));
+    if !bench {
+        println!("cargo:rerun-if-changed=capabilities");
+        attributes = attributes.capabilities_path_pattern("./capabilities/*.json");
+    }
     let mut names = Vec::new();
     if Path::new("../native/rust/mod.rs").exists() {
         println!("cargo:rustc-cfg=journal_premium");
