@@ -9,12 +9,16 @@ name: Desktop Release
 # Asset names carry no version, so `releases/latest/download/<name>` always gets
 # the newest build (the site's download page links those).
 #
-# manual-release.yml calls this after it creates the release, once the repo
-# variable DESKTOP_RELEASES is 'true'. Run it by hand to (re)build a release.
+# manual-release.yml calls this after it creates the release as a draft, once the
+# repo variable DESKTOP_RELEASES is 'true'. Published releases are immutable, so the
+# assets go to the draft, and the last job publishes it after every build and the
+# checksums succeed. If a build fails, the release stays a draft: run this by hand
+# with the tag and publish on (or re-run the failed jobs) to finish it.
 #
 # The build includes the paid code from the private submodule native/, checked out
 # with GH_TOKEN. With publish off it builds, signs and notarises the same way but only
-# uploads the installers as workflow artifacts: no release, tag or latest.json change.
+# uploads the installers as workflow artifacts: no release, tag or latest.json change,
+# and no draft is needed.
 on:
   workflow_dispatch:
     inputs:
@@ -22,7 +26,7 @@ on:
         description: 'App release tag to build and attach to (e.g. v2.66.8)'
         required: true
       publish:
-        description: 'Attach to the release and update latest.json (off: workflow artifacts only)'
+        description: 'Attach to the draft release, update latest.json and publish it (off: workflow artifacts only)'
         type: boolean
         default: false
   workflow_call:
@@ -73,6 +77,23 @@ jobs:
             if [ -z "${!name}" ]; then echo "::error::Actions secret $name is not set (#299)"; missing=1; fi
           done
           exit $missing
+
+      # Assets can only be added to a draft (immutable releases). The draft's id is
+      # given to tauri-action, which can't look a draft up by its tag.
+      - name: Find the draft release
+        id: release
+        if: inputs.publish
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          id=$(gh release view "$TAG" -R "$GITHUB_REPOSITORY" --json databaseId,isDraft -q 'select(.isDraft) | .databaseId')
+          if [ -z "$id" ]; then
+            echo "::error::Release $TAG is published, and published releases are immutable: assets can only be added to a draft"
+            exit 1
+          fi
+          echo "id=$id" >> "$GITHUB_OUTPUT"
 
       - name: Checkout
         uses: actions/checkout@v7
@@ -166,8 +187,8 @@ jobs:
           VITE_BILLING_URL: ${{ vars.DESKTOP_BILLING_URL }}
           JOURNAL_BILLING_URL: ${{ vars.DESKTOP_BILLING_URL }}
         with:
-          # No tag: tauri-action builds and uploads nothing.
-          tagName: ${{ inputs.publish && inputs.tag || '' }}
+          # No release id (publish off): tauri-action builds and uploads nothing.
+          releaseId: ${{ steps.release.outputs.id }}
           args: ${{ matrix.args }} --config src-tauri/tauri.release.conf.json
           # Journal-darwin-universal.dmg, Journal-windows-x64-setup.exe, Journal-windows-x64.msi,
           # Journal-linux-amd64.AppImage, Journal-linux-amd64.deb (+ updater bundles and .sig files).
@@ -236,3 +257,16 @@ jobs:
           sha256sum Journal-* > SHA256SUMS.txt
           cat SHA256SUMS.txt >> "$GITHUB_STEP_SUMMARY"
           gh release upload "$TAG" SHA256SUMS.txt -R "$GITHUB_REPOSITORY" --clobber
+
+  # Last: the release is immutable once published, so every asset must be on it first.
+  publish:
+    needs: checksums
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --draft=false --latest
