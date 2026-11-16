@@ -34,9 +34,9 @@ if (back) {
   // Paid or on its way: no second buy button under the message. A failed payment keeps them, to try again.
   if (back !== 'failed') document.querySelectorAll<HTMLElement>('.buy-panel > :not(#buy-done)').forEach((el) => (el.hidden = true));
   if (back === 'succeeded' && kind === 'renew') {
-    show('Updates renewed', 'Your key now has another year of updates. Journal+ picks it up at its next check, so there is nothing to enter.');
+    show('Updates renewed', 'Your key now has another year of updates. The app picks it up at its next check, so there is nothing to enter.');
   } else if (back === 'succeeded') {
-    show('Payment done', 'Check your email for your license key. It comes with your receipt. Enter the key in Journal+ to unlock the app.');
+    show('Payment done', 'Check your email for your license key. It comes with your receipt. Enter the key in Journal to unlock the app.');
   } else if (back === 'processing') {
     show('Payment processing', 'Your bank is still confirming the payment. The email with your key follows when it clears.');
   } else {

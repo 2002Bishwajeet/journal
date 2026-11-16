@@ -88,6 +88,8 @@ jobs:
           VITE_BILLING_LIVE: 'true'
           # The download page's installer links (#305): on since v2.71.1 published the first desktop release.
           VITE_DOWNLOADS_LIVE: 'true'
+          # The App Store and Google Play badges on the home and download pages: 'true' once both phone apps are live.
+          VITE_STORES_LIVE: 'false'
 
       # --branch is explicit: wrangler otherwise reads it from git, and the
       # detached tag checkout would land on a `head` preview alias.

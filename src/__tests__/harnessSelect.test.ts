@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 // @ts-expect-error -- plain ESM dev script, no type declarations
-import { parseDependsOn, parseVerification, parseRouting, classify } from '../../scripts/harness/select.mjs';
+import { parseDependsOn, parseVerification, parseRouting, classify, isMergeEligible } from '../../scripts/harness/select.mjs';
 
 const meta = (depLine: string) => `## Goal\nx\n\n## Metadata\n${depLine}\nSize: S\nArea: x\n`;
 
@@ -95,5 +95,19 @@ describe('classify', () => {
         ],
     ])('skips with "%s"', (reason, i, c) => {
         expect(classify(i, c)).toEqual({ ready: false, reason });
+    });
+});
+
+describe('isMergeEligible', () => {
+    it('allows a ready PR without hold', () => {
+        expect(isMergeEligible({ isDraft: false, labels: [{ name: 'agent-harness' }] })).toBe(true);
+    });
+
+    it('rejects a draft', () => {
+        expect(isMergeEligible({ isDraft: true, labels: [] })).toBe(false);
+    });
+
+    it('rejects a hold label', () => {
+        expect(isMergeEligible({ isDraft: false, labels: [{ name: 'hold' }] })).toBe(false);
     });
 });

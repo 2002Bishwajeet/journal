@@ -40,6 +40,7 @@ import { ContextMenuWrapper, RowOptionsMenu, type ContextMenuItemConfig } from "
 import { ConfirmDialog, ShareFolderDialog, SignOutConfirmDialog } from "@/components/modals";
 import { cn } from "@/lib/utils";
 import { TrialChip } from "@/components/license/License";
+import { APP_NAME } from "@/lib/native";
 import type { Folder } from "@/types";
 import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { useSyncService } from "@/hooks/useSyncService";
@@ -51,7 +52,6 @@ import { BarTitle, LargeTitle } from "./LargeTitle";
 import { MobileSyncPill } from "./MobileSyncPill";
 import { largeTitleBarClass } from "./largeTitleClasses";
 import { useCanEdit } from "@/hooks/useCanEdit";
-import { appName } from "@/lib/native";
 
 interface SidebarProps {
   folders: Folder[];
@@ -337,7 +337,7 @@ export default function Sidebar({
         {!isDesktop ? (
           <div className={cn(largeTitleBarClass(largeTitle.collapsed), largeTitle.collapsed && "border-sidebar-border")}>
             {isPhone && <MobileSyncPill />}
-            <BarTitle show={largeTitle.collapsed}>{appName()}</BarTitle>
+            <BarTitle show={largeTitle.collapsed}>{APP_NAME}</BarTitle>
           </div>
         ) : (
         <div
@@ -352,7 +352,7 @@ export default function Sidebar({
             <div className="flex items-center gap-2">
                <OwnerImage size="xs" />
                <span className="text-sm font-semibold text-sidebar-foreground">
-                 {appName()}
+                 {APP_NAME}
                </span>
             </div>
           )}
@@ -394,7 +394,7 @@ export default function Sidebar({
             <>
               {/* The owner's picture sits at the end of the title row, as in the iOS App Store. */}
               <div className="flex items-center pr-4 [&>h2]:min-w-0 [&>h2]:flex-1">
-                <LargeTitle titleRef={largeTitle.ref}>{appName()}</LargeTitle>
+                <LargeTitle titleRef={largeTitle.ref}>{APP_NAME}</LargeTitle>
                 <OwnerImage size="custom" className="size-9 shrink-0" />
               </div>
               {topRows}

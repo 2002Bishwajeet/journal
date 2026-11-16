@@ -41,6 +41,7 @@ export function headTags(id: string, html: string): string {
       '@context': 'https://schema.org',
       '@type': 'WebApplication',
       name: 'Journal',
+      alternativeHeadline: plain(/<h1[^>]*>([\s\S]*?)<\/h1>/.exec(html)?.[1] ?? ''),
       url: APP_URL,
       description: meta(html, 'description'),
       applicationCategory: 'ProductivityApplication',

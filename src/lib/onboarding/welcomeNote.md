@@ -1,6 +1,6 @@
 ## Start here
 
-Journal+ keeps your notes on your own Homebase, and they work offline. This note shows a few things to try. Delete it whenever you like.
+Journal keeps your notes on your own Homebase, and they work offline. This note shows a few things to try. Delete it whenever you like.
 
 - [ ] Type `/` on an empty line to open the commands
 - [ ] Select some text to format it
@@ -21,7 +21,7 @@ Journal+ keeps your notes on your own Homebase, and they work offline. This note
 <details>
 <summary>Where do my notes live?</summary>
 
-On your Homebase identity. Journal+ never sends them anywhere else.
+On your Homebase identity. Journal never sends them anywhere else.
 
 </details>
 

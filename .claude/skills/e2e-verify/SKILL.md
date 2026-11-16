@@ -1,6 +1,6 @@
 ---
 name: e2e-verify
-description: Use when implementing or verifying a Journal issue: run/add Playwright e2e specs and attach evidence
+description: Use when implementing or verifying a Journal issue: add Playwright e2e specs; CI runs them and posts the screenshots
 ---
 
 # E2E verify
@@ -9,10 +9,12 @@ Read `e2e/README.md` first — it is the canonical reference for layers, convent
 
 ## Loop
 
-1. Iterate: `npm run e2e:dev -- <spec>` (Vite dev server on `:5174`, HMR, server reused across runs).
-2. Before opening a PR: `npm run e2e -- <spec>` (preview build on `:4173` — the real built bundle, same as CI).
-3. Run only the specs your change adds or touches. Never run the full `npm run e2e` and never wait for CI: CI's sharded runs cover the full suite, and the orchestrating session watches CI and merges. Push, open the PR and exit. A full local run is only for reproducing a CI failure.
-4. Never run e2e concurrently with `npm run build`, `npm run test`, or `npm run lint` — they compete for RAM on the same machine. If `~/.claude/bin/heavy` exists in your environment, wrap each of those commands with it, e.g. `~/.claude/bin/heavy npm run e2e`; it's a per-machine lock for hosts running several agents in parallel, and a harmless no-op to skip if the script isn't there (CI, other developers' machines).
+Agents never run e2e or Playwright locally, nor anything else that starts a browser (#1324): on the 16 GB machine, Chromium, Firefox and the Node workers starved everything else. Developers can still run e2e by hand.
+
+1. Write or update the specs your change needs, and have them take the screenshots the issue asks for (see Evidence).
+2. Check they load: `npx playwright test --list <spec>` starts no browser.
+3. Run lint, `npm run build` and the unit tests for the changed files (`vitest related`) — never the full suites, and never two at once. If `~/.claude/bin/heavy` exists in your environment, wrap each with it; it's a per-machine lock for hosts running several agents in parallel, and a harmless no-op to skip if the script isn't there.
+4. Push, open the PR and exit; never wait for CI. CI runs every e2e spec, and the orchestrating session watches CI and merges. To fix a CI e2e failure, read the CI log and the `playwright-report-*` artifact (`gh run download`), not a local run.
 
 ## Adding a spec
 
@@ -20,7 +22,7 @@ Follow the "Adding a spec" section of `e2e/README.md`: file path and area, impor
 
 ## Evidence
 
-Before marking an issue verified, paste the `list` reporter output, attach `playwright-report/` screenshots of the key assertion step, and link a trace for any failure you had to fix — see "Evidence for a PR" in `e2e/README.md`.
+A spec takes the screenshots the issue asks for itself: `await page.screenshot({ path: test.info().outputPath('<what>-<theme>-<viewport>.png') })`. On a PR from an `agent/…` branch or labelled `agent-harness`, CI's `e2e-evidence` job pushes the screenshots that passing specs the PR changes took to the `agent-evidence` branch and posts them as one PR comment. Paste the `--list` output in the PR — see "Evidence for a PR" in `e2e/README.md`.
 
 ## Safety
 

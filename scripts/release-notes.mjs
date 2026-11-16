@@ -6,6 +6,11 @@
 // RELEASE_NOTES.md's "## Unreleased". The used files are deleted.
 // Exits 1 when there are no notes, so a release never ships without notes.
 // Usage: node scripts/release-notes.mjs <version> <yyyy-mm-dd>
+//
+// --store prints a released version's notes from RELEASE_NOTES.md as plain text of at
+// most <limit> characters, for the App Store's What's New and Google Play's release
+// notes (ios-release.yml, android-release.yml).
+// Usage: node scripts/release-notes.mjs --store <version> <limit>
 import { readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
@@ -41,7 +46,41 @@ export function stampRelease(markdown, version, date, fragments = []) {
   return { markdown: markdown.replace(match[0], stamped), body };
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+/** A version's notes as plain text of at most `limit` characters, cut at a line. */
+export function storeNotes(markdown, version, limit) {
+  const escaped = version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = new RegExp(`^## ${escaped}[ \\t]+\\(.*\\r?\\n([\\s\\S]*?)(?=^## |(?![\\s\\S]))`, 'm').exec(markdown);
+  if (!match) throw new Error(`RELEASE_NOTES.md has no "## ${version}" section`);
+  const lines = [];
+  for (const line of match[1].split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    const heading = /^#+\s+(.+?)\s*$/.exec(line);
+    const text = (heading ? heading[1] : line.replace(/^\s*[-*]\s+/, '• '))
+      .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+      .replace(/\*\*|`/g, '');
+    lines.push(heading && lines.length ? `\n${text}` : text);
+  }
+  const text = lines.join('\n');
+  if (text.length <= limit) return text;
+  const kept = [];
+  for (const line of lines) {
+    if ([...kept, line, '…'].join('\n').length > limit) break;
+    kept.push(line);
+  }
+  // Never end on a section name with nothing under it.
+  while (kept.length && !kept.at(-1).startsWith('•')) kept.pop();
+  return kept.length ? [...kept, '…'].join('\n') : `${text.slice(0, limit - 1)}…`;
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url) && process.argv[2] === '--store') {
+  const [version, limit] = process.argv.slice(3);
+  try {
+    process.stdout.write(`${storeNotes(readFileSync('RELEASE_NOTES.md', 'utf8'), version, Number(limit))}\n`);
+  } catch (err) {
+    console.error(`::error::${err.message}`);
+    process.exit(1);
+  }
+} else if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const [version, date] = process.argv.slice(2);
   if (!version || !date) {
     console.error('usage: release-notes.mjs <version> <yyyy-mm-dd>');

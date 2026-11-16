@@ -2,6 +2,7 @@ import { useRegisterSW } from 'virtual:pwa-register/react';
 import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { isRunningBuild } from '@/lib/swBuild';
+import { isNativeApp } from '@/lib/native';
 
 export function UpdatePrompt() {
   const registrationRef = useRef<ServiceWorkerRegistration | undefined>(undefined);
@@ -14,13 +15,16 @@ export function UpdatePrompt() {
       registrationRef.current = registration;
     },
     onOfflineReady() {
+      // The native apps ship their files, so they are always offline-capable.
+      if (isNativeApp()) return;
       toast.success("App ready to work offline");
     },
     async onNeedRefresh() {
       // A launch after a deploy already runs the new bundle (the root page comes from the network)
       // while its worker waits behind the old one: let it take over without asking or reloading.
       const waiting = (await navigator.serviceWorker.getRegistration())?.waiting;
-      if (await isRunningBuild(waiting)) {
+      // Native updates come from the store or desktop updater: a waiting worker just takes over.
+      if (isNativeApp() || (await isRunningBuild(waiting))) {
         setNeedRefresh(false);
         toast.dismiss("sw-update");
         waiting?.postMessage({ type: 'SKIP_WAITING' });

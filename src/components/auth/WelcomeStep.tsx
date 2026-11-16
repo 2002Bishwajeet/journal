@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { WelcomeTrial } from "@/components/license/License";
+import { APP_NAME } from "@/lib/native";
 
 /** Homebase's sign-up page (closed beta). The native app opens it in the in-app browser (#1188). */
 export const HOMEBASE_SIGN_UP_URL = "https://homebase.id";
@@ -11,12 +12,12 @@ const pressable =
  * The sign-in page's first screen on a device no identity signed in on (#1282): what the app
  * is, why it needs a Homebase identity, the trial in a store build, and the two ways on.
  */
-export function WelcomeStep({ appName, onHaveIdentity }: { appName: string; onHaveIdentity: () => void }) {
+export function WelcomeStep({ onHaveIdentity }: { onHaveIdentity: () => void }) {
   return (
     <>
       <div className="text-center space-y-4">
         <h2 className="text-2xl font-medium tracking-tight text-foreground">
-          Welcome to {appName}
+          Welcome to {APP_NAME}
         </h2>
         <p className="text-muted-foreground text-sm">
           A notebook that works offline and syncs across your devices.

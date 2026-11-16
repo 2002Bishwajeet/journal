@@ -9,7 +9,7 @@ import { assertTestOrigin } from '../support/origin-guard';
 
 const HTML = { Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' };
 const COOKIE = { Cookie: 'journal_session=1' };
-const LANDING_TITLE = 'Journal: your notes stay home';
+const LANDING_TITLE = 'Journal: private notes, encrypted';
 // __journalE2E is not set on the edge origin (src/lib/e2e/testHooks.ts), so wait for the app's sidebar.
 const appShown = (page: Page) => expect(page.getByRole('complementary', { name: 'Sidebar' })).toBeVisible({ timeout: 20_000 });
 const hasCookie = (cookies: { name: string }[]) => cookies.some((c) => c.name === 'journal_session');
@@ -71,7 +71,7 @@ for (const path of ['/welcome', '/06cf9262-4eae-4276-b0d1-8ca3cf5be6f4/abc', '/s
 test('a signed-out browser sees the landing page at /, and Open Journal signs in', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(LANDING_TITLE);
-  await expect(page.getByRole('heading', { name: 'Your notes stay home', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Private notes, encrypted.', exact: true })).toBeVisible();
   expect(new URL(page.url()).pathname).toBe('/');
 
   await page.getByRole('main').getByRole('link', { name: 'Open Journal' }).first().click();

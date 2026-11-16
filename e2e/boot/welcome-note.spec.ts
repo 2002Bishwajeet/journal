@@ -2,7 +2,7 @@ import { test, expect, waitForAppReady, withFencedPage } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
 import { waitForNoteSaved } from '../support/actions';
 
-// #1283: the first sign-in of an identity with no notes gets one "Welcome to Journal+" note, opened.
+// #1283: the first sign-in of an identity with no notes gets one "Welcome to Journal" note, opened.
 // The hermetic storage state skips it for every other spec (e2e-skip-welcome-note); this one lifts that.
 test('a fresh identity gets one welcome note, opened, and never a second', async ({ browser }) => {
   await withFencedPage(browser, { storageState: 'e2e/fixtures/hermetic-auth.json' }, async (page) => {
@@ -11,11 +11,11 @@ test('a fresh identity gets one welcome note, opened, and never a second', async
     await assertTestOrigin(page);
     await waitForAppReady(page);
 
-    const rows = page.getByTestId('note-row').filter({ hasText: 'Welcome to Journal+' });
+    const rows = page.getByTestId('note-row').filter({ hasText: 'Welcome to Journal' });
     await expect(rows).toHaveCount(1);
     await expect(page.locator('.ProseMirror:visible').getByText('Start here')).toBeVisible();
     await expect(page.locator('.ProseMirror:visible').getByRole('table')).toBeVisible();
-    await page.screenshot({ path: test.info().outputPath('welcome-note.png') });
+    await page.screenshot({ path: test.info().outputPath('welcome-note-light-desktop.png') });
 
     await waitForNoteSaved(page);
     await page.reload();

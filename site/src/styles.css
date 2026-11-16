@@ -153,6 +153,13 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
   .ctas { display: grid; grid-template-columns: 1fr; width: 100%; }
   .ctas .btn { width: 100%; }
 }
+/* The App Store and Google Play badges (VITE_STORES_LIVE), at one visible height with a quarter of it between them.
+   The Google Play artwork has its own clear space (41 of its 250px each side), taken back by the negative margin. */
+.store-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.store-badge { display: inline-flex; border-radius: 8px; }
+.store-badge img { height: 48px; width: auto; }
+.store-badge-play img { height: calc(48px * 250 / 168); margin: calc(-48px * 41 / 168); }
+.hero-actions .store-badges { grid-column: 1 / -1; }
 
 /* ---- Navigation ---- */
 .nav {
@@ -216,17 +223,48 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .frame { padding: clamp(6px, 0.8vw, 12px); border-radius: 18px; background: var(--band); } /* a mat of tone, not an outline */
 .band .frame, .band-2 .frame { background: var(--bg); }
 .frame img, .frame video { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; border-radius: 10px; background: var(--bg); }
-.hero-media { margin-top: clamp(28px, 3vw, 40px); }
 .frame-page img { aspect-ratio: auto; } /* the public page below its header, at its own height */
-.share-page img { aspect-ratio: 16 / 9; } /* the published note ends before the frame does */
 
-/* Phone pictures: a screen in a tone-filled case. */
-.phone { padding: 6px; border-radius: 26px; background: var(--band); }
-.phone img { width: 100%; aspect-ratio: 390 / 844; object-fit: cover; object-position: top; border-radius: 20px; }
+/* A desktop capture in a plain macOS window: a title bar with the three traffic lights, rounded corners and a
+   soft shadow, drawn here so every desktop picture shares it. The capture sits under the bar at its own size. */
+:root { --window-bar: #ECEAE3; --window-edge: rgb(28 27 26 / 0.08); --window-shadow: rgb(28 27 26 / 0.24); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) { --window-bar: #2E2D2A; --window-edge: rgb(255 255 255 / 0.14); --window-shadow: rgb(0 0 0 / 0.5); }
+}
+:root[data-theme='dark'] { --window-bar: #2E2D2A; --window-edge: rgb(255 255 255 / 0.14); --window-shadow: rgb(0 0 0 / 0.5); }
+.window {
+  --bar: clamp(22px, 2.1vw, 30px);
+  position: relative; overflow: hidden;
+  padding-top: var(--bar); border-radius: clamp(8px, 0.8vw, 12px);
+  background: var(--window-bar);
+  box-shadow: 0 0 0 1px var(--window-edge), 0 24px 56px -24px var(--window-shadow); /* taste-skill-ignore: the owner's window has a soft shadow (#1294) */
+}
+.window::before {
+  --dot: calc(var(--bar) * 0.4);
+  content: ''; position: absolute; top: calc((var(--bar) - var(--dot)) / 2); left: calc(var(--bar) / 2);
+  width: var(--dot); height: var(--dot); border-radius: 50%;
+  background: #FF5F57; box-shadow: calc(var(--dot) * 1.6) 0 #FEBC2E, calc(var(--dot) * 3.2) 0 #28C840; /* taste-skill-ignore: the traffic lights */
+}
+.window img, .window video { width: 100%; height: auto; }
+
+/* A capture in Apple's iPhone bezel, flattened into one picture (scripts/device-frames.ts). */
+.device img { width: 100%; height: auto; }
+
+/* The hero: the app's window, and in front of its lower right corner the same kind of note on an iPhone.
+   A phone shows only the iPhone; a tablet only the window. */
+.hero-media { position: relative; margin-top: clamp(28px, 3vw, 40px); }
 .hero-phone { display: none; max-width: 300px; margin: 0 auto; }
 @media (max-width: 599px) {
   .frame-hero { display: none; }
   .hero-phone { display: block; }
+}
+@media (min-width: 900px) {
+  .hero .hero-media { padding-bottom: clamp(32px, 4vw, 56px); }
+  .frame-hero { width: 86%; }
+  .hero-phone {
+    display: block; position: absolute; right: 0; bottom: 0; width: 18%; max-width: none; margin: 0;
+    filter: drop-shadow(0 24px 32px var(--window-shadow)); /* taste-skill-ignore: the phone stands in front of the window */
+  }
 }
 
 /* ---- Where notes live: three filled steps, pointing on ---- */
@@ -247,54 +285,13 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
   .step-2 { margin-left: -22px; padding-left: 62px; clip-path: polygon(0 0, calc(100% - 28px) 0, 100% 50%, calc(100% - 28px) 100%, 0 100%, 28px 50%); }
   .step:last-child { margin-left: -22px; padding-left: 62px; border-radius: 0 12px 12px 0; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 28px 50%); }
 }
-.flow-facts { display: grid; gap: 20px; margin-top: clamp(32px, 4vw, 48px); }
-.flow-facts li { max-width: 36ch; }
-.flow-facts strong { display: block; margin-bottom: 4px; font-size: var(--fs-sub); line-height: 1.3; font-weight: 620; letter-spacing: -0.015em; }
-@media (min-width: 860px) {
-  .flow-facts { grid-template-columns: repeat(3, 1fr); gap: 0; }
-  .flow-facts li { padding: 0 32px 0 40px; } /* the same left edge as the step text above it */
-}
-
-/* ---- Feature moments: crops of the real app with their copy ---- */
-.moment-copy { display: grid; gap: 12px; align-content: start; max-width: 40ch; }
+/* ---- Crops of the real app on a tone mat (agents page) ---- */
 .crop { padding: clamp(12px, 2.4vw, 32px); border-radius: 16px; background: var(--band); min-width: 0; }
 .band .crop { background: var(--bg); }
 .crop img { width: 100%; border-radius: 10px; }
-.crop-dialog img { max-width: 560px; margin-inline: auto; }
-.crop-result { padding: clamp(10px, 1.4vw, 16px); }
 .crop-grants { padding: clamp(12px, 2vw, 24px); }
-/* On a phone the phone capture of the same note stands in for the desktop crop. The math note ends under its code. */
-@media (max-width: 599px) {
-  .crop-math picture img { aspect-ratio: 390 / 535; object-fit: cover; object-position: top; } /* ends under the code block */
-  .crop-math picture.only-dark img { aspect-ratio: 390 / 430; } /* the dark capture starts lower in the note */
-}
-@media (min-width: 600px) {
-  .crop-math img { max-width: 540px; margin-inline: auto; } /* about its size in the app, so the equation and code stay readable */
-}
 
-/* The Trip plan on a computer with its caption, beside the same note on a phone with its own. */
-.stage { display: grid; gap: 28px; }
-.stage > *, .stage-main, .stage-side { min-width: 0; }
-.stage-main, .stage-side { display: grid; gap: clamp(20px, 2.4vw, 28px); align-content: start; }
-.stage-phone { display: none; }
-.stage-copy { display: grid; gap: 10px; align-content: start; max-width: 46ch; }
-@media (min-width: 900px) {
-  .stage { grid-template-columns: minmax(0, 1fr) 372px; gap: var(--gap); align-items: start; }
-  .stage-phone { display: block; }
-  .stage-phone img { aspect-ratio: auto; } /* the capture ends under the table */
-}
-/* Math beside its crop; under the math copy, version history with its own. */
-.moments { display: grid; gap: 24px var(--gap); margin-top: clamp(64px, 8vw, 104px); grid-template-areas: 'math-copy' 'math' 'history'; }
-.moments > * { min-width: 0; }
-.math-copy { grid-area: math-copy; }
-.crop-math { grid-area: math; }
-.moment-history { grid-area: history; display: grid; gap: 20px; margin-top: 32px; }
-@media (min-width: 900px) {
-  .moments { grid-template-columns: 1fr 1fr; grid-template-rows: auto 1fr; grid-template-areas: 'math-copy math' 'history math'; align-items: start; }
-  .moment-history { margin-top: 24px; }
-}
-.also { display: grid; gap: 28px; margin-top: clamp(64px, 8vw, 96px); }
-/* Three groups of three, each item an icon, a name and one line; two carry a tiny demo of themselves. */
+/* ---- Features: three groups of three, each item an icon, a name and one line; note links carry a tiny demo ---- */
 .also-groups { display: grid; gap: 36px var(--gap); }
 @media (min-width: 760px) { .also-groups { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .also-group { display: grid; gap: 14px; align-content: start; }
@@ -316,33 +313,11 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 @keyframes ld-link { 0%, 35% { text-decoration-color: transparent; } 50%, 90% { text-decoration: underline; text-decoration-color: currentColor; text-underline-offset: 0.2em; } 100% { text-decoration-color: transparent; } }
 @keyframes ld-bracket { 0%, 35% { opacity: 1; } 50%, 90% { opacity: 0; } 100% { opacity: 1; } }
 
-/* Galleries: the four layouts, drawn as tone blocks. */
-.gallery-demo { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; max-width: 240px; }
-.gallery-demo > span { display: grid; gap: 2px; height: 36px; padding: 3px; border-radius: 6px; background: var(--band); }
-.gallery-demo i { display: block; border-radius: 2px; background: var(--accent); }
-.g-row { grid-template-columns: repeat(3, 1fr); }
-.g-grid { grid-template-columns: 1fr 1fr; }
-.g-masonry { grid-template-columns: 1fr 1fr; grid-template-rows: 2fr 1fr 2fr; }
-.g-masonry i:nth-child(1) { grid-row: span 2; }
-.g-masonry i:nth-child(4) { grid-column: 1; grid-row: 3; }
-.g-masonry i:nth-child(3) { grid-row: span 2; }
-.g-carousel { grid-template-columns: 0.4fr 1fr 0.4fr; }
-.g-carousel i:not(:nth-child(2)) { opacity: 0.5; }
-
-/* ---- Sharing: the public page across the full width, the Share dialog hanging off its lower right ---- */
-.share-stage { display: grid; gap: 16px; }
-@media (max-width: 599px) {
-  .share-page picture img { aspect-ratio: 390 / 676; } /* ends under the opening paragraph */
-}
-@media (min-width: 900px) {
-  /* The dialog's top sits under the page's diagram, near the frame's bottom edge, clear of its text. */
-  .share-stage { position: relative; padding-bottom: 20%; }
-  .share-dialog {
-    position: absolute; right: 2%; bottom: 0; width: 36%;
-    padding: 10px; border-radius: 20px; background: var(--band-2); /* a mat of the band's tone sets the dialog off the page */
-  }
-}
-.share-dialog img { width: 100%; border-radius: 12px; }
+/* ---- Sharing: the public page across the full width in its window; on a phone, on the iPhone ---- */
+.share-page img { aspect-ratio: 16 / 9; object-fit: cover; object-position: top; } /* the page continues below, as in a window */
+.share-phone { width: min(100%, 300px); margin-inline: auto; }
+@media (max-width: 599px) { .share-page { display: none; } }
+@media (min-width: 600px) { .share-phone { display: none; } }
 .two { display: grid; gap: 32px; margin-top: clamp(40px, 5vw, 64px); }
 @media (min-width: 860px) { .two { grid-template-columns: 1fr 1fr; gap: var(--gap); } }
 .mode { display: grid; gap: 10px; align-content: start; max-width: 52ch; }
@@ -353,8 +328,9 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .split-copy { display: grid; gap: 20px; align-content: start; justify-items: start; }
 @media (min-width: 980px) {
   .split { grid-template-columns: 5fr 7fr; gap: var(--gap); }
-  .agents-teaser { grid-template-columns: 4fr 8fr; } /* the note at about its own size */
 }
+/* Agents under the live blocks they can write: a smaller heading, its line and the way on. */
+.agents-note { display: grid; gap: 12px; justify-items: start; margin-top: clamp(12px, 2vw, 28px); }
 
 .playground { display: grid; border-radius: 16px; overflow: hidden; }
 .pg-pane { display: grid; grid-template-rows: auto 1fr; }
@@ -380,22 +356,6 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .pg-render svg { max-width: 100%; height: auto; }
 .pg-status[data-error] { color: #A0442F; }
 :root[data-theme='dark'] .pg-status[data-error] { color: #E3A08F; }
-
-/* ---- A prompt someone types to an agent: a chat bubble on a tone step, labelled ---- */
-.ask-bubble { display: grid; gap: 8px; justify-items: start; }
-/* Landing agents teaser: the request laid over the note it produced. */
-.result-stage { display: grid; gap: 16px; min-width: 0; }
-@media (min-width: 980px) {
-  .result-stage { position: relative; padding-top: 96px; } /* the bubble overlaps the mat, not the note */
-  .result-stage .ask-bubble { position: absolute; top: 0; left: -40px; z-index: 1; }
-}
-.ask-bubble figcaption { font-size: var(--fs-small); color: var(--muted); }
-.ask-bubble blockquote {
-  max-width: 30ch; padding: 14px 20px;
-  border-radius: 18px 18px 18px 6px;
-  background: var(--sand-soft); color: var(--ink);
-  font-size: var(--fs-sub); line-height: 1.4; font-weight: 500;
-}
 
 /* ---- Pricing teaser on the home page: a heading and one line, side by side ---- */
 .teaser-row { display: grid; gap: 24px; }
@@ -639,33 +599,6 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .buy-includes { display: grid; gap: 12px; align-content: start; }
 /* The app's name beside the app itself, on a phone. */
 .buy-phone { width: min(100%, 320px); justify-self: center; }
-/* The buy page's phone in its device: a metal rim, a black bezel, side buttons, a Dynamic Island.
-   The screen keeps a real phone's 393 × 852 proportions: a drawn status bar above the capture (which has
-   none) and the note's own paper below it. Inside, sizes are in cqw of the screen's width, from iOS points. */
-.phone-frame {
-  position: relative; container-type: inline-size;
-  padding: 10px; border: 2px solid #4A4844; border-radius: 54px; background: #0E0E0D;
-}
-.phone-frame::before, .phone-frame::after { content: ''; position: absolute; width: 3px; background: #4A4844; }
-.phone-frame::before { /* volume up, and volume down as its copy */
-  left: -5px; top: 150px; height: 56px; border-radius: 2px 0 0 2px; box-shadow: 0 68px 0 #4A4844;
-}
-.phone-frame::after { right: -5px; top: 186px; height: 88px; border-radius: 0 2px 2px 0; } /* side button */
-.phone-screen {
-  position: relative; overflow: hidden; aspect-ratio: 393 / 852;
-  border-radius: 14cqw; background: var(--bg); color: var(--ink);
-}
-.phone-screen::before, .phone-screen::after { content: ''; position: absolute; inset-inline: 0; margin-inline: auto; }
-.phone-screen::before { top: 2.8cqw; width: 32cqw; height: 9.4cqw; border-radius: 9.4cqw; background: #000; } /* Dynamic Island */
-.phone-screen::after { bottom: 2cqw; width: 34cqw; height: 1.3cqw; border-radius: 1cqw; background: var(--ink); } /* home indicator */
-.phone-status {
-  display: grid; grid-template-columns: 1fr 32cqw 1fr; align-items: center; height: 13.7cqw; padding-top: 0.6cqw;
-  font-size: 4.3cqw; font-weight: 620; letter-spacing: -0.01em; text-align: center;
-}
-.phone-status-icons { grid-column: 3; display: flex; justify-content: center; align-items: center; gap: 1.4cqw; }
-.phone-status-icons svg { height: 3.1cqw; width: auto; fill: currentColor; }
-.phone-status-icons svg:last-child { height: 3.3cqw; }
-.phone-screen img { width: 100%; }
 @media (min-width: 980px) { .buy-name { grid-template-columns: 7fr 5fr; } }
 
 /* ---- Download page: the claim beside the installers, the app below them ---- */
@@ -716,6 +649,7 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .footer-cols a[aria-current='page'] { color: var(--ink); text-decoration: underline; } /* the page you are on: underlined, never at the heads' weight */
 @media (hover: hover) and (pointer: fine) { .footer-cols a:hover { color: var(--ink); text-decoration: underline; } }
 .credit { margin-top: 48px; font-size: var(--fs-small); color: var(--muted); }
+.credit + .credit { margin-top: 12px; } /* the store trademarks under a picture credit */
 
 /* ---- Entrance: each part of a section rises 8px into place, once ---- */
 @media (prefers-reduced-motion: no-preference) {

@@ -44,7 +44,7 @@ const VERIFY_SCHEMA = {
         type: 'object',
         properties: {
           command: { type: 'string' },
-          exitCode: { type: 'string', description: 'number, or "owner-run" / "skipped"' },
+          exitCode: { type: 'string', description: 'number, or "ci" / "owner-run" / "skipped"' },
           tail: { type: 'string', description: 'last 10 lines of output' },
         },
         required: ['command', 'exitCode', 'tail'],
@@ -52,8 +52,7 @@ const VERIFY_SCHEMA = {
     },
     problems: { type: 'array', items: { type: 'string' } },
     ownerOnly: { type: 'array', items: { type: 'string' }, description: 'acceptance boxes only the owner can check' },
-    evidence: { type: 'array', items: { type: 'string' }, description: 'absolute paths of screenshots/traces the issue asks for' },
-    e2eList: { type: 'string', description: 'verbatim `npx playwright test --list` output for the specs run, if any' },
+    e2eList: { type: 'string', description: 'verbatim `npx playwright test --list` output for the specs the branch adds or touches, if any' },
   },
   required: ['verdict', 'checks', 'problems'],
 }
@@ -69,13 +68,14 @@ const slug = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g
 // The implementer's worktree may be auto-removed once its tree is clean; the branch survives.
 const cdInto = (impl) => `\`cd ${impl.worktreePath}\` first (if it no longer exists: \`git -C ${repoRoot} worktree add ${impl.worktreePath} ${impl.branch}\`, then cd and \`git submodule update --init native || true\`)`
 
-const HEAVY = `Run every build/test/lint/e2e/vitest/tsc/npm ci command ONLY as \`${repoRoot}/scripts/harness/serial.sh <cmd> > /tmp/agent-<issue>-<step>.log 2>&1; echo exit=$?\` (machine-wide lock, 16 GB machine), in the foreground with a 600000 ms timeout — never run_in_background: you must see the exit code before you return. Never let full output into your context: read only \`tail -40\` of the log, plus \`grep -nE 'FAIL|Error|error|✗|×' <log> | head -40\` when it failed.`
+const HEAVY = `Run every build/test/lint/vitest/tsc/npm ci command ONLY as \`${repoRoot}/scripts/harness/serial.sh <cmd> > /tmp/agent-<issue>-<step>.log 2>&1; echo exit=$?\` (machine-wide lock, 16 GB machine), in the foreground with a 600000 ms timeout — never run_in_background: you must see the exit code before you return. Never let full output into your context: read only \`tail -40\` of the log, plus \`grep -nE 'FAIL|Error|error|✗|×' <log> | head -40\` when it failed.`
 
 // Owner rule 2026-11-11: agents verify only what the change touches, push, open the PR and exit. CI's sharded runs do the full suites; the orchestrating session watches CI and merges.
-const SCOPE = `Run only what the change touches: lint, build, the unit tests for changed files (\`vitest related <changed files>\` or the specific test files) and the e2e specs this change adds or touches. Never run the full unit suite or the full e2e suite, and never wait for or poll CI (\`gh pr checks\`) — CI runs the full suites.`
+// Owner rule 2026-11-16 (#1324): no e2e or Playwright run on the 16 GB machine; CI runs every e2e spec.
+const SCOPE = `Run only what the change touches: lint, build and the unit tests for changed files (\`vitest related <changed files>\` or the specific test files). Never run e2e or Playwright locally, nor anything else that starts a browser: CI runs every e2e spec. Listing specs with \`npx playwright test --list <spec>\` starts no browser and is allowed. Never run the full unit suite, and never wait for or poll CI (\`gh pr checks\`) — CI runs the full suites.`
 
 // playwright.config.ts only screenshots failures, so a passing run has no pictures unless the spec takes them.
-const SHOTS = `If the issue asks for screenshots, its e2e spec must take them itself: \`await page.screenshot({ path: test.info().outputPath('<what>-<theme>-<viewport>.png') })\` for every state the issue lists (theme via \`page.emulateMedia({ colorScheme })\`, viewport via \`page.setViewportSize\`). Hermetic origin only — never dev.dotyou.cloud or a real identity.`
+const SHOTS = `If the issue asks for screenshots, its e2e spec must take them itself: \`await page.screenshot({ path: test.info().outputPath('<what>-<theme>-<viewport>.png') })\` for every state the issue lists (theme via \`page.emulateMedia({ colorScheme })\`, viewport via \`page.setViewportSize\`). Hermetic origin only — never dev.dotyou.cloud or a real identity. Write the spec but do not run it: CI runs it and posts its screenshots on the PR (the e2e-evidence job).`
 
 function implementPrompt(issue) {
   const branch = `agent/${issue.number}-${slug(issue.title)}`
@@ -84,7 +84,7 @@ function implementPrompt(issue) {
 1. You are in a fresh git worktree. Run \`pwd\` and \`git checkout -b ${branch} origin/main\`. If \`node_modules\` is missing, \`ln -s ${repoRoot}/node_modules node_modules\`. Then \`git submodule update --init native || true\`: the private, optional premium submodule (AGENTS.md "Private native features"); it may be unavailable, and then only the stub builds.
 2. Read the issue: \`gh issue view ${issue.number} -R ${REPO} --comments\`. Read only the AGENTS.md sections relevant to the issue (\`grep -n '^#' AGENTS.md\` first). Follow the issue exactly, including its STOP conditions. If a STOP condition applies, stop and return status "stopped" with the condition and details — do not improvise around it.
    If the issue touches phone or tablet UI (Area includes mobile, or the title says Mobile, iPad or iOS), first read \`~/.claude/skills/mobile-native/SKILL.md\` and \`~/.claude/skills/emil-design-eng/SKILL.md\` (skip any that is missing) and follow them for the UI work.
-3. ${HEAVY}
+3. ${HEAVY} ${SCOPE}
 4. Stay inside this worktree — never edit files under ${repoRoot} itself. Stay inside the issue's Scope.
 5. ${SHOTS}
 6. Commit your work on the branch (conventional commit message referencing #${issue.number}; no Co-Authored-By or other attribution lines). Work for the submodule goes inside \`native/\`: commit there on a branch of the same name (\`git -C native checkout -b ${branch}\` first), then \`git add native\` in the journal commit. Do NOT push, do NOT open a PR — a later stage does that.
@@ -105,10 +105,9 @@ function verifyPrompt(issue, impl) {
   return `You are the verifier for issue #${issue.number} of ${REPO}. The implementation is committed on branch ${impl.branch} in the worktree ${impl.worktreePath}. ${cdInto(impl)} and work only there. You are READ-ONLY on source files: never edit, commit or push.
 
 - Read the issue: \`gh issue view ${issue.number} -R ${REPO}\`. If \`.claude/skills/e2e-verify/SKILL.md\` exists in the worktree, read and follow it.
-- Run the commands in the issue's \`## Verification\` section in order, but e2e ones (\`npm run e2e…\`) first. ${SCOPE} Where a command is a full-suite run (\`npm run test\`, \`npm run e2e\` with no spec), run the scoped equivalent instead and record that. ${HEAVY}
-- Never run \`npm run e2e:live\` — record it as exitCode "owner-run". If the section says e2e is blocked on #196 and \`playwright.config.ts\` is missing, run its interim checks instead.
+- Run the commands in the issue's \`## Verification\` section in order, except the e2e and Playwright ones: record each of those as exitCode "ci" (live-tier ones, \`e2e:live\`, as "owner-run") and run none of them. Instead, run \`npx playwright test --list <the specs this branch adds or touches>\` once and put its output in e2eList. ${SCOPE} Where a command is a full-suite run (\`npm run test\`), run the scoped equivalent instead and record that. ${HEAVY}
 - Check each \`## Acceptance criteria\` box you can check by command; list the ones only the owner can do (real identity, e2e:live) in ownerOnly.
-- Screenshots the issue asks for are yours to check, not the owner's: after the e2e run, find them with \`find test-results -name '*.png'\`, open each with the Read tool, and confirm it shows what the issue describes (right state, nothing blank, clipped, overlapping or unreadable in that theme). Put their absolute paths — images only, no logs — in evidence. A missing or bad screenshot is an entry in problems (the fix: the spec takes it, see "${SHOTS}"). Only a judgement of taste ("visual review before merge") stays in ownerOnly.
+- Screenshots the issue asks for: read the spec in the diff and check it takes one for every state, theme and viewport the issue lists. A missing one is an entry in problems (the fix: the spec takes it, see "${SHOTS}"). CI posts the images on the PR and the orchestrator checks them before merging; only a judgement of taste ("visual review before merge") stays in ownerOnly.
 - Review \`git diff origin/main...HEAD\` adversarially: look for real bugs and for files changed outside the issue's Scope. Each becomes a concrete, actionable entry in problems.
 - verdict = "pass" only if every command you ran exited 0 and problems is empty.
 Implementer summary: ${impl.summary}`
@@ -119,9 +118,9 @@ function fixPrompt(issue, impl, verdict) {
 ${verdict.problems.map((p) => `- ${p}`).join('\n')}
 
 Failed checks:
-${verdict.checks.filter((c) => c.exitCode !== '0' && c.exitCode !== 'owner-run').map((c) => `$ ${c.command} (exit ${c.exitCode})\n${c.tail}`).join('\n\n') || '(none)'}
+${verdict.checks.filter((c) => !['0', 'ci', 'owner-run'].includes(c.exitCode)).map((c) => `$ ${c.command} (exit ${c.exitCode})\n${c.tail}`).join('\n\n') || '(none)'}
 
-Fix them within the issue's Scope, re-run only the failing commands (scoped, never a full suite), and commit. ${SHOTS} ${HEAVY} If fixing would require going outside the Scope or a STOP condition now applies, return status "stopped". Do not push.`
+Fix them within the issue's Scope, re-run only the failing commands (scoped, never a full suite), and commit. ${SCOPE} ${SHOTS} ${HEAVY} If fixing would require going outside the Scope or a STOP condition now applies, return status "stopped". Do not push.`
 }
 
 function publishPrompt(issue, impl, verdict) {
@@ -136,10 +135,9 @@ No PR. Return result "stopped: <condition>".`
   return `Open the PR for issue #${issue.number} of ${REPO}. ${cdInto(impl)}. Do exactly this:
 1. \`gh label create agent-harness --color 5319E7 --description "PR opened by the agent harness" -R ${REPO} 2>/dev/null || true\`
 2. \`git push -u origin ${impl.branch}\` (never push to main).
-   If \`git diff origin/main --submodule=short -- native\` is non-empty, also \`git -C native push -u origin HEAD:${impl.branch}\`; after step 5, \`gh pr create -R 2002Bishwajeet/journal-native-features --base main --head ${impl.branch} --title <same title> --body "Mounted by <journal PR URL>"\` and add that PR's URL to the journal PR body (\`gh pr edit --body-file\`).
-3. For each evidence file in ${JSON.stringify(verdict.evidence || [])}: commit it to the \`agent-evidence\` branch (images on a draft release don't render in PR bodies) with \`gh api -X PUT repos/${REPO}/contents/${issue.number}/<basename> -f branch=agent-evidence -f message="evidence: #${issue.number} <basename>" -f content="$(base64 < <file>)"\`, adding \`-f sha=<sha>\` when \`gh api "repos/${REPO}/contents/${issue.number}/<basename>?ref=agent-evidence" -q .sha\` prints one; on a 409, repeat once. Its image URL is \`https://raw.githubusercontent.com/${REPO}/agent-evidence/${issue.number}/<basename>\`.
-4. Write the PR body to a file: first line \`Closes #${issue.number}\`; a \`## Summary\` for a reviewer: what changed and why, rewritten from the implementer notes below (drop anything about commits, pushing or PRs); a markdown table \`command | exit | result\` for every check below; each check's tail in a \`<details><summary>command</summary>\` block with a fenced code block; the e2e list output verbatim if present; owner-only items as unchecked \`- [ ]\` boxes; a \`## Evidence\` section showing every evidence image inline, never as bare links: a table with one row per state and one column per theme/viewport, each cell \`<a href="<url>"><img src="<url>" width="260"></a>\` (width 110 for phone-width shots). No attribution lines (no "Generated with Claude Code", no Co-Authored-By).
-5. \`gh pr create -R ${REPO} --base main --head ${impl.branch} --label agent-harness --title ${JSON.stringify(`${issue.title} (#${issue.number})`)} --body-file <file>\`
+   If \`git diff origin/main --submodule=short -- native\` is non-empty, also \`git -C native push -u origin HEAD:${impl.branch}\`; after step 4, \`gh pr create -R 2002Bishwajeet/journal-native-features --base main --head ${impl.branch} --title <same title> --body "Mounted by <journal PR URL>"\` and add that PR's URL to the journal PR body (\`gh pr edit --body-file\`).
+3. Write the PR body to a file: first line \`Closes #${issue.number}\`; a \`## Summary\` for a reviewer: what changed and why, rewritten from the implementer notes below (drop anything about commits, pushing or PRs); a markdown table \`command | exit | result\` for every check below; each check's tail in a \`<details><summary>command</summary>\` block with a fenced code block; the e2e list output verbatim if present; owner-only items as unchecked \`- [ ]\` boxes. Screenshots are not yours to add: CI's e2e-evidence job posts them as a PR comment. No attribution lines (no "Generated with Claude Code", no Co-Authored-By).
+4. \`gh pr create -R ${REPO} --base main --head ${impl.branch} --label agent-harness --title ${JSON.stringify(`${issue.title} (#${issue.number})`)} --body-file <file>\`
 Never merge, and do not wait for or poll CI (\`gh pr checks\`): return the PR URL straight after \`gh pr create\`; the orchestrating session watches CI and merges.
 
 Implementer notes: ${JSON.stringify(impl.summary)}

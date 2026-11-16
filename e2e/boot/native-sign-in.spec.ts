@@ -58,8 +58,8 @@ test('iOS app: sign-in runs in an auth session and external links open in the pl
   await page.getByRole('link', { name: 'Create your Homebase identity' }).click();
   await expect.poll(() => ipc).toEqual([{ cmd: 'plugin:browser|open_url', args: { url: 'https://homebase.id/' } }]);
   await expect(page).toHaveURL(/\/welcome$/);
-  // The iOS app is Journal+. Without the store plugin (journal-iap) it sells nothing: no trial line.
-  await expect(page.getByRole('heading', { name: 'Welcome to Journal+' })).toBeVisible();
+  // The iOS app is Journal. Without the store plugin (journal-iap) it sells nothing: no trial line.
+  await expect(page.getByRole('heading', { name: 'Welcome to Journal' })).toBeVisible();
   await expect(page.getByText(/Free for 3 days/)).toHaveCount(0);
 
   // A full navigation, as the web's return from the identity is.

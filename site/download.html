@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Download Journal+ for Mac, Windows and Linux</title>
-  <meta name="description" content="Journal+ is Journal as a desktop app for Mac, Windows and Linux. Download the installer, sign in with your Homebase identity, and the app keeps itself up to date." />
-  <meta property="og:title" content="Download Journal+ for Mac, Windows and Linux" />
-  <meta property="og:description" content="Journal as a desktop app for Mac, Windows and Linux. It keeps itself up to date." />
+  <title>Download Journal for Mac, Windows and Linux</title>
+  <meta name="description" content="Journal runs as a desktop app on Mac, Windows and Linux. Download the installer, sign in with your Homebase identity, and the app keeps itself up to date." />
+  <meta property="og:title" content="Download Journal for Mac, Windows and Linux" />
+  <meta property="og:description" content="Journal runs as a desktop app on Mac, Windows and Linux. It keeps itself up to date." />
   <!-- head -->
 </head>
 <body data-page="download">
@@ -16,8 +16,8 @@
     <section class="page-hero" aria-labelledby="download-title">
       <div class="wrap dl">
         <div class="dl-head">
-          <h1 class="display page-title" id="download-title" data-reveal>Journal+ on your desktop</h1>
-          <p class="lede" data-reveal style="--i:1">Journal+ is Journal as an app of its own for Mac, Windows and Linux. Sign in with your Homebase identity and your notes sync with the browser and your other devices.</p>
+          <h1 class="display page-title" id="download-title" data-reveal>Journal on your desktop</h1>
+          <p class="lede" data-reveal style="--i:1">Journal runs as an app of its own on Mac, Windows and Linux. Sign in with your Homebase identity and your notes sync with the browser and your other devices.</p>
           <ul class="ticks" data-reveal style="--i:2">
             <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Its own window, with its icon in the Dock or taskbar</li>
             <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Your notes stored on your computer, so it works offline</li>
@@ -30,7 +30,7 @@
           <!-- downloads-soon -->
           <div class="dl-soon">
             <h2 class="h3">Desktop apps coming soon</h2>
-            <p>Journal+ for Mac, Windows and Linux is in testing. The installers appear here when the first release is out. Until then, Journal in the browser is free and has every feature.</p>
+            <p>Journal for Mac, Windows and Linux is in testing. The installers appear here when the first release is out. Until then, Journal in the browser is free and has every feature.</p>
             <a class="btn btn-secondary" href="/welcome">Open Journal</a>
           </div>
           <!-- /downloads-soon -->
@@ -64,7 +64,7 @@
       </div>
 
       <div class="wrap">
-        <div class="frame hero-media" data-ui data-reveal style="--i:3">
+        <div class="window hero-media" data-ui data-reveal style="--i:3">
           <video class="hero-video only-light" muted loop playsinline preload="none" width="2560" height="1600"
             poster="/media/hero-poster-light.webp"
             aria-label="Journal in use: the sidebar with search and four folders, the notes list from today back to last week, and a Reading log note with a live chart. A Mermaid diagram is typed into the Publishing flow note, then the Reading log opens again.">
@@ -79,10 +79,35 @@
       </div>
     </section>
 
-    <section class="section band" aria-labelledby="phone-title">
+    <!-- Getting started: the same three steps as the app's welcome screen -->
+    <section class="section band" aria-labelledby="start-title">
+      <div class="wrap">
+        <div class="section-head head-wide">
+          <h2 class="h2" id="start-title" data-reveal>Getting started</h2>
+          <p class="lede" data-reveal style="--i:1">Three steps from download to your first note, the same ones the app shows when you first open it.</p>
+        </div>
+        <ol class="flow">
+          <li class="step step-1" data-reveal>
+            <h3 class="step-title">Install</h3>
+            <p>Get Journal for your computer or phone. Or open Journal in your browser and install it from there.</p>
+          </li>
+          <li class="step step-2" data-reveal style="--i:1">
+            <h3 class="step-title">Create a Homebase identity</h3>
+            <p>Journal signs in with a Homebase identity, a private space that belongs to you. Create one at <a href="https://homebase.id">homebase.id</a>, where sign-up is in <strong>closed beta</strong>.</p>
+          </li>
+          <li class="step step-3" data-reveal style="--i:2">
+            <h3 class="step-title">Sign in</h3>
+            <p>Open Journal and enter your identity. Your notes sync between the app, the browser and your other devices.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="phone-title">
       <div class="wrap split buy-name">
         <div class="split-copy">
           <h2 class="h2" id="phone-title" data-reveal>On your phone</h2>
+          <!-- stores-soon -->
           <p class="lede" data-reveal style="--i:1">The iPhone and Android apps are on their way. On a phone today, Journal in the browser installs to your home screen.</p>
           <dl class="covers" data-reveal style="--i:2">
             <div>
@@ -94,11 +119,16 @@
               <dd>Coming soon to Google Play.</dd>
             </div>
           </dl>
+          <!-- /stores-soon -->
+          <!-- stores-live -->
+          <p class="lede" data-reveal style="--i:1">Journal for iPhone and Android is a free download with a 3-day trial. In the App Store and Google Play it is listed as Journal - Private Notes.</p>
+          <!-- /stores-live -->
+          <!-- store-badges -->
           <a class="btn btn-secondary" href="/welcome" data-reveal style="--i:3">Open Journal in the browser</a>
         </div>
-        <figure class="phone buy-phone" data-ui data-reveal style="--i:1">
-          <img class="only-light" src="/media/phone-note-light.webp" width="1170" height="2064" loading="lazy" alt="Journal on a phone: a Trip plan note with a task list and a table." />
-          <img class="only-dark" src="/media/phone-note-dark.webp" width="1170" height="2064" loading="lazy" alt="Journal on a phone in dark mode: a Trip plan note with a task list and a table." />
+        <figure class="device buy-phone" data-ui data-reveal style="--i:1">
+          <img class="only-light" src="/media/phone-note-iphone-light.webp" width="882" height="1800" loading="lazy" alt="Journal on an iPhone: a Trip plan note with a task list and a table." />
+          <img class="only-dark" src="/media/phone-note-iphone-dark.webp" width="882" height="1800" loading="lazy" alt="Journal on an iPhone in dark mode: a Trip plan note with a task list and a table." />
         </figure>
       </div>
     </section>
@@ -108,13 +138,13 @@
       <div class="wrap split covers-split">
         <div class="split-copy">
           <h2 class="h2" id="install-title" data-reveal>Installing and updates</h2>
-          <p data-reveal style="--i:1">Each download is the latest release. Journal+ checks for a new one when it starts and once a day, downloads it in the background, and asks before it restarts.</p>
+          <p data-reveal style="--i:1">Each download is the latest release. The app checks for a new one when it starts and once a day, downloads it in the background, and asks before it restarts.</p>
           <p data-reveal style="--i:2">Prefer to build it yourself? The app is open source: see the <a href="https://github.com/2002Bishwajeet/journal/blob/main/src-tauri/README.md">build notes on GitHub</a>.</p>
         </div>
         <dl class="covers" data-reveal style="--i:1">
           <div>
             <dt>Mac</dt>
-            <dd>Open the .dmg and drag Journal+ to Applications. The app is signed and notarised by Apple.</dd>
+            <dd>Open the .dmg and drag Journal to Applications. The app is signed and notarised by Apple.</dd>
           </div>
           <div>
             <dt>Windows</dt>
