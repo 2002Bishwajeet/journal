@@ -12,8 +12,10 @@
 // JOURNAL_IOS_VERSION, and adds --no-sign for a dry run (build only, no upload).
 import { execFileSync } from 'node:child_process';
 import { cpSync, existsSync, rmSync, writeFileSync } from 'node:fs';
+import { checkEntitlements } from './ios-entitlements.mjs';
 
 const GEN = 'src-tauri/gen/apple';
+const ENTITLEMENTS = 'journal_iOS/journal_iOS.entitlements';
 const run = (cmd, args) => execFileSync(cmd, args, { stdio: 'inherit' });
 
 if (!existsSync(GEN)) run('npx', ['tauri', 'ios', 'init', '--ci']);
@@ -22,8 +24,13 @@ rmSync(`${GEN}/Assets.xcassets/AppIcon.appiconset`, { recursive: true, force: tr
 cpSync('src-tauri/ios', GEN, { recursive: true });
 // Re-run XcodeGen so the project picks up the copied PrivacyInfo.xcprivacy.
 run('xcodegen', ['generate', '--spec', `${GEN}/project.yml`]);
+// XcodeGen rewrites the entitlements file from project.yml, which Tauri's
+// template leaves empty: copy ours back, or Universal Links are gone (#1326).
+cpSync(`src-tauri/ios/${ENTITLEMENTS}`, `${GEN}/${ENTITLEMENTS}`);
 // XcodeGen just dropped any premium extension targets: add them back.
+// The targets script adds its App Group to the entitlements above.
 run('npm', ['run', 'native:ios:targets']);
+checkEntitlements(`${GEN}/${ENTITLEMENTS}`);
 
 if (process.argv.includes('--release')) {
   const build =

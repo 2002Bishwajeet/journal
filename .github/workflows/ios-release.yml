@@ -40,6 +40,11 @@ name: iOS Release
 #                          download once, when you make the key.
 # desktop-release.yml uses the same three APPLE_API_* secrets to notarise. If that key is not an Admin
 # key, make an Admin key and replace all three: notarisation works with it too.
+#
+# Universal Links (#1326): the app's entitlements have Associated Domains (applinks:journal.cloudx.run).
+# Automatic signing with the Admin key turns the capability on for the App ID. If a signed build fails
+# its entitlements check, turn it on once by hand: Certificates, Identifiers & Profiles → Identifiers →
+# com.biswa.journal → Associated Domains.
 on:
   push:
     branches: [main]
@@ -225,6 +230,19 @@ jobs:
           JOURNAL_IOS_BUILD_NUMBER: ${{ steps.versions.outputs.build_number }}
           JOURNAL_IOS_VERSION: ${{ steps.versions.outputs.version }}
         run: npm run tauri:ios:release
+
+      # #1326: a build without Associated Domains does not open journal.cloudx.run links.
+      # The unsigned dry run has no signature to read: check the project's entitlements file.
+      - name: Check the app's entitlements
+        run: |
+          if [ "$DRY_RUN" = true ]; then
+            node scripts/ios-entitlements.mjs src-tauri/gen/apple/journal_iOS/journal_iOS.entitlements
+            exit
+          fi
+          app=$(find src-tauri/gen/apple/build -path '*.xcarchive/Products/Applications/*.app' -prune | head -1)
+          if [ -z "$app" ]; then echo "::error::No archived .app under src-tauri/gen/apple/build"; exit 1; fi
+          codesign -d --entitlements - --xml "$app" > "$RUNNER_TEMP/entitlements.plist"
+          node scripts/ios-entitlements.mjs "$RUNNER_TEMP/entitlements.plist"
 
       - name: Submit to App Review
         if: env.MODE == 'submit' && env.DRY_RUN != 'true'
