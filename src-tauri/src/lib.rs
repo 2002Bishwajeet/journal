@@ -441,9 +441,15 @@ async fn update(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>
         return Ok(());
     };
     // A license key's updates cover the releases up to its updatesUntil (#1316), as the
-    // billing Worker confirms it. A skipped one isn't downloaded; the web view tells the user
-    // about it once.
-    let install = should_install(update.date, premium::updates_until(app, update.date).await);
+    // billing Worker confirms it, and every security release. A skipped one isn't
+    // downloaded; the web view tells the user about it once.
+    let security = is_security_release(&update.raw_json);
+    let until = if security {
+        None
+    } else {
+        premium::updates_until(app, update.date).await
+    };
+    let install = should_install(update.date, until, security);
     premium::set_skipped_update(app, (!install).then(|| update.version.clone()));
     if !install {
         return Ok(());
@@ -481,15 +487,27 @@ async fn update(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>
     Ok(())
 }
 
+/// Whether latest.json marks the release as a security release (`"security": true`, set by
+/// desktop-release.yml). The field isn't signed, which is fine: it can only make the updater
+/// install, and `download()` still checks the bundle's signature.
+#[cfg(desktop)]
+fn is_security_release(manifest: &serde_json::Value) -> bool {
+    manifest.get("security") == Some(&serde_json::Value::Bool(true))
+}
+
 /// Whether to install a release published at `pub_date` (latest.json) for a license key whose
-/// updates end at `updates_until` (#1316): on or before that date it is covered. No key (the
-/// trial, the read-only app, the public build) and an unknown date install, so a bad manifest
-/// or license never keeps anyone on an old build.
+/// updates end at `updates_until` (#1316): on or before that date it is covered. A security
+/// release, no key (the trial, the read-only app, the public build) and an unknown date
+/// install, so a bad manifest or license never keeps anyone on an old build.
 #[cfg(desktop)]
 fn should_install(
     pub_date: Option<time::OffsetDateTime>,
     updates_until: Option<time::OffsetDateTime>,
+    security: bool,
 ) -> bool {
+    if security {
+        return true;
+    }
     match (pub_date, updates_until) {
         (Some(published), Some(until)) => published <= until,
         _ => true,
@@ -704,16 +722,41 @@ mod tests {
             )
         };
         let until = at("2027-11-16T00:00:00Z");
-        assert!(should_install(at("2027-06-01T12:00:00Z"), until), "before");
-        assert!(should_install(at("2027-11-16T00:00:00Z"), until), "on it");
-        assert!(!should_install(at("2027-11-16T00:00:01Z"), until), "after");
-        assert!(should_install(at("2030-01-01T00:00:00Z"), None), "no key");
-        assert!(should_install(None, until), "unknown release date");
-        assert!(should_install(None, None));
+        assert!(should_install(at("2027-06-01T12:00:00Z"), until, false), "before");
+        assert!(should_install(at("2027-11-16T00:00:00Z"), until, false), "on it");
+        assert!(!should_install(at("2027-11-16T00:00:01Z"), until, false), "after");
+        assert!(should_install(at("2030-01-01T00:00:00Z"), None, false), "no key");
+        assert!(should_install(None, until, false), "unknown release date");
+        assert!(should_install(None, None, false));
         // A renewal moves the date: the skipped release installs at the next check.
         let release = at("2027-12-01T00:00:00Z");
-        assert!(!should_install(release, until));
-        assert!(should_install(release, at("2028-11-16T00:00:00Z")));
+        assert!(!should_install(release, until, false));
+        assert!(should_install(release, at("2028-11-16T00:00:00Z"), false));
+    }
+
+    #[cfg(desktop)]
+    #[test]
+    fn a_security_release_installs_after_the_updates_end() {
+        let at = |iso: &str| {
+            Some(
+                time::OffsetDateTime::parse(iso, &time::format_description::well_known::Rfc3339)
+                    .unwrap(),
+            )
+        };
+        // updates_until as the Worker confirmed it, and a release after it.
+        let (release, until) = (at("2027-12-01T00:00:00Z"), at("2027-11-16T00:00:00Z"));
+        assert!(should_install(release, until, true), "security release");
+        assert!(!should_install(release, until, false), "any other release");
+
+        let manifest = |extra: serde_json::Value| {
+            let mut m = serde_json::json!({ "version": "2.70.0", "pub_date": "2027-12-01T00:00:00Z", "platforms": {} });
+            m.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
+            is_security_release(&m)
+        };
+        assert!(manifest(serde_json::json!({ "security": true })));
+        assert!(!manifest(serde_json::json!({})));
+        assert!(!manifest(serde_json::json!({ "security": false })));
+        assert!(!manifest(serde_json::json!({ "security": "true" })));
     }
 
     #[test]
