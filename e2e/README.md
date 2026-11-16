@@ -37,7 +37,9 @@ This is the full epic contract (#196) — other issues rely on these names, so d
 
 The `E2E` GitHub Actions check (`.github/workflows/e2e.yml`) runs the `hermetic` project (the same `npm run e2e`) on every push/PR to `main`, with 2 retries. It also runs `npm run e2e:quarantine` as a following, `continue-on-error` step — its result is informational only and never blocks the check.
 
-On failure, the job uploads `playwright-report/` and `test-results/` (traces, screenshots, videos) as an artifact named `playwright-report-<run attempt>`, kept for 14 days. Download it from the failed run's Summary page (Artifacts section), unzip, then open `index.html` for the report or run `npx playwright show-trace <trace.zip>` for a specific trace.
+On failure, the job uploads `playwright-report/` and `test-results/` (traces, screenshots, videos; the mobile run's are in `test-results/mobile/`) as an artifact named `playwright-report-<shard>-<run attempt>`, kept for 14 days. Download it from the failed run's Summary page (Artifacts section), unzip, then open `index.html` for the report or run `npx playwright show-trace <trace.zip>` for a specific trace.
+
+**Screenshot evidence (#1324):** on a PR from an `agent/…` branch or labelled `agent-harness`, the `e2e-evidence` job (never a required check) takes the PNGs that passing tests of the specs the PR changes wrote on purpose (`test.info().outputPath(...)`; a failed attempt's folder is left out), pushes them to the `agent-evidence` branch under `<issue>/` (the issue from the PR's `Closes #N`), and posts or updates one PR comment, "E2E screenshots", that shows them from their raw URLs. The logic is `scripts/harness/evidence.mjs`.
 
 ## Mobile
 
@@ -56,10 +58,13 @@ Playwright's WebKit is not iOS Safari: viewport units, safe areas, the software 
 
 ## Agent loop
 
+Agents (the `/implement` harness and one-off agents) never run e2e or Playwright locally, nor anything else that starts a browser (#1324): on the 16 GB machine Chromium, Firefox and the Node workers took about 7 GB and got background jobs killed. They write and update specs, check them with `npx playwright test --list <spec>` (no browser), and run only lint, `npm run build` and the unit tests for changed files. CI runs every e2e spec, and publishes the screenshots (see CI above). To fix a CI e2e failure, an agent reads the CI log and the `playwright-report-*` artifact.
+
+By hand, a developer can still run e2e locally:
+
 1. Iterate: `npm run e2e:dev -- <spec>` (Vite dev server on `:5174`, HMR, server reused across runs).
 2. Before a PR: `npm run e2e -- <spec>` (preview build on `:4173` — the real built bundle, same as CI). Note: the `hermetic` project blocks service workers in both modes today, for safety (an SW fetch could bypass the network fence) — see the comment in `playwright.config.ts`.
-3. Once, right before opening the PR: the full `npm run e2e` (no spec filter).
-4. Never run e2e concurrently with `npm run build`, `npm run test`, or `npm run lint` — they compete for RAM on the same machine. If `~/.claude/bin/heavy` exists in your environment, wrap each of those commands with it, e.g. `~/.claude/bin/heavy npm run e2e`; it's a per-machine lock for hosts running several agents in parallel, and a harmless no-op to skip if the script isn't there (CI, other developers' machines).
+3. Never run e2e concurrently with `npm run build`, `npm run test`, or `npm run lint` — they compete for RAM on the same machine. If `~/.claude/bin/heavy` exists in your environment, wrap each of those commands with it, e.g. `~/.claude/bin/heavy npm run e2e`; it's a per-machine lock for hosts running several agents in parallel, and a harmless no-op to skip if the script isn't there (CI, other developers' machines).
 
 ## Adding a spec
 
@@ -74,7 +79,7 @@ Playwright's WebKit is not iOS Safari: viewport units, safe areas, the software 
 
 ## Evidence for a PR
 
-Paste the `list` reporter output, attach `playwright-report/` screenshots of the key assertion step, and link a trace for any failure you had to fix.
+Paste the `list` reporter output (an agent pastes `npx playwright test --list <spec>`), let the spec take the screenshots the issue asks for (`test.info().outputPath('<what>-<theme>-<viewport>.png')`, which CI's `e2e-evidence` job publishes for agent PRs), and link a trace for any failure you had to fix.
 
 ## Safety rules
 

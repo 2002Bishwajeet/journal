@@ -61,7 +61,9 @@ export function followKeyboardBottom(el: HTMLElement | null): (() => void) | und
  * what is left above the keyboard (followKeyboard, followKeyboardBottom). Instead, the focused
  * input or textarea is scrolled clear of the keyboard in its own container; the editor's caret has
  * its own (scrollCaretAboveKeyboard). A page taller than the window (a public share page) keeps its
- * scroll. Returns the cleanup.
+ * scroll. In the iOS app the native shell already stops that scroll before it is drawn
+ * (src-tauri/src/ios_keyboard.rs); this undo is for Safari, where it shows for a moment.
+ * Returns the cleanup.
  */
 export function keepPageInPlace(): () => void {
     const vv = window.visualViewport;

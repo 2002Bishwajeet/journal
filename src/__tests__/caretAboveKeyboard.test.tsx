@@ -31,7 +31,9 @@ function mountHook() {
     useKeyboardOffset(true, editorDom);
     return null;
   };
-  act(() => createRoot(document.createElement('div')).render(<Probe />));
+  const root = createRoot(document.createElement('div'));
+  act(() => root.render(<Probe />));
+  return root;
 }
 
 beforeEach(() => {
@@ -125,6 +127,47 @@ describe('useKeyboardOffset', () => {
     scroller.scrollTop = 0; // the reader scrolled away from the caret
     vv.dispatchEvent(new Event('scroll'));
     expect(first).toBeGreaterThan(0);
+    expect(scroller.scrollTop).toBe(0);
+  });
+});
+
+/**
+ * #1300: the iOS app no longer lets WebKit scroll the page for the keyboard, so innerHeight stays
+ * put. iPhone 17 simulator: 874pt screen, 301pt keyboard (top 573), toolbar 507-565. Focus moves
+ * into the note before the tap puts the caret on its line, and the toolbar is already held at the
+ * last keyboard height, so the keyboard arriving changes only the visible height.
+ */
+describe('useKeyboardOffset when the keyboard arrives at the held height', () => {
+  beforeEach(() => {
+    vv.height = 874;
+    Object.defineProperty(window, 'innerHeight', { value: 874, configurable: true });
+    Object.defineProperty(window, 'innerWidth', { value: 402, configurable: true });
+    Object.defineProperty(document.documentElement, 'clientHeight', { value: 874, configurable: true });
+    scroller.getBoundingClientRect = () => rect(0, 874);
+    toolbar.getBoundingClientRect = () => rect(507, 565);
+    // An earlier focus saw the 301pt keyboard (the hook keeps it per window width).
+    caretBottom = 300;
+    const earlier = mountHook();
+    vv.height = 573;
+    vv.dispatchEvent(new Event('resize'));
+    act(() => earlier.unmount());
+    vv.height = 874;
+  });
+
+  it('scrolls a caret below the toolbar and keyboard clear of both', () => {
+    mountHook();
+    expect(document.documentElement.style.getPropertyValue('--keyboard-offset')).toBe('301px');
+    caretBottom = 587; // the tap lands on a low line
+    vv.height = 573;
+    vv.dispatchEvent(new Event('resize'));
+    expect(scroller.scrollTop).toBe(587 - (507 - 16));
+  });
+
+  it('leaves a caret that is already clear alone', () => {
+    mountHook();
+    caretBottom = 400;
+    vv.height = 573;
+    vv.dispatchEvent(new Event('resize'));
     expect(scroller.scrollTop).toBe(0);
   });
 });
