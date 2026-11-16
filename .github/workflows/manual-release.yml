@@ -9,6 +9,9 @@ name: Manual Release
 # the installers and latest.json to it, then publishes it. If a desktop build fails,
 # the release stays a draft: re-run the failed jobs, or run Desktop Release by hand
 # with the tag and publish on. With DESKTOP_RELEASES off, the release is published at once.
+#
+# With STORE_BUILDS on, the iOS and Android builds of the tag are submitted too: App
+# Review, and the Play release track (ios-release.yml, android-release.yml, #1304).
 on:
   workflow_dispatch:
     inputs:
@@ -107,5 +110,29 @@ jobs:
       packages: read
     uses: ./.github/workflows/desktop-release.yml
     with:
+      tag: v${{ needs.release.outputs.version }}
+    secrets: inherit
+
+  # The App Store and Google Play builds of this release (#1304). Each one checks
+  # STORE_BUILDS itself, because a push to main also starts it.
+  ios-release:
+    needs: release
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/ios-release.yml
+    with:
+      mode: submit
+      tag: v${{ needs.release.outputs.version }}
+    secrets: inherit
+
+  android-release:
+    needs: release
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/android-release.yml
+    with:
+      mode: submit
       tag: v${{ needs.release.outputs.version }}
     secrets: inherit

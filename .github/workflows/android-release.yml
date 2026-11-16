@@ -1,0 +1,229 @@
+name: Android Release
+
+# Builds the Journal+ Play bundle (AAB, arm64 and armv7) on Linux and uploads it to
+# Google Play (#1304).
+#
+#   mode internal: every push to main (and a manual run). The bundle goes to the
+#                  internal testing track. A newer push cancels an older main build.
+#   mode submit:   manual-release.yml calls this after it pushes the tag. The bundle goes
+#                  to the release track with the release's notes, and Play sends it to
+#                  review. The track is the repo variable PLAY_RELEASE_TRACK: a closed
+#                  testing track until Play's 14-day closed test is done (default `alpha`,
+#                  Play's first closed track), then `production`:
+#                  `gh variable set PLAY_RELEASE_TRACK --body production`.
+#                  Nothing cancels a release build.
+# The release commit itself has [skip ci], so it gets only the submit build.
+#
+# versionCode is the commit count (scripts/android-release.mjs), so it goes up with
+# every commit on main; versionName is package.json's version (the tag's on a release).
+#
+# dry_run builds the bundle without signing it and stops: no upload. It needs only
+# GH_TOKEN, and runs even while STORE_BUILDS is off.
+#
+# Store builds set JOURNAL_BILLING_URL and never VITE_BILLING_URL (native/AGENTS.md):
+# the store sells the unlock there, not the website.
+#
+# Off until the secrets below are set: `gh variable set STORE_BUILDS --body true`
+# (ios-release.yml reads the same variable).
+#
+# Secrets (Settings → Secrets and variables → Actions). Never print them.
+#   GH_TOKEN                     Fine-grained token with Contents: read on the private repo
+#                                2002Bishwajeet/journal-native-features (desktop-release.yml uses it too).
+#   ANDROID_UPLOAD_KEYSTORE      The Play upload keystore (the storeFile in
+#                                ~/.journal-keys/journal-upload.properties), base64 encoded:
+#                                `base64 -i <keystore file> | pbcopy` on a Mac.
+#   ANDROID_UPLOAD_KEY_PASSWORD  The `password` in that properties file (store and key password).
+#   ANDROID_UPLOAD_KEY_ALIAS     The `keyAlias` in that properties file.
+#   PLAY_SERVICE_ACCOUNT_JSON    A JSON key of a Google Cloud service account with the Google Play
+#                                Android Developer API on. Make the account and key in Google Cloud
+#                                (IAM → Service accounts → Keys → Add key → JSON), then in Play Console →
+#                                Users and permissions invite its e-mail with access to Journal+ and the
+#                                "Release to testing tracks" and "Release to production" permissions.
+on:
+  push:
+    branches: [main]
+    # Skip pushes that can't change the app.
+    paths:
+      - '**'
+      - '!docs/**'
+      - '!release-notes/**'
+      - '!site/**'
+      - '!*.md'
+      - '!.github/**'
+      - '.github/workflows/android-release.yml'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'internal: the internal track. submit: the release track with the tag'
+        type: choice
+        options: [internal, submit]
+        default: internal
+      tag:
+        description: 'Release tag to build (e.g. v2.72.0), needed for submit. Empty: the selected branch'
+        default: ''
+      dry_run:
+        description: 'Build without signing and stop: no upload'
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      mode:
+        required: true
+        type: string
+      tag:
+        type: string
+        default: ''
+      dry_run:
+        type: boolean
+        default: false
+
+jobs:
+  android:
+    if: inputs.dry_run || vars.STORE_BUILDS == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: read
+    concurrency:
+      group: android-release-${{ inputs.dry_run && 'dry-' || '' }}${{ inputs.mode == 'submit' && inputs.tag || 'main' }}
+      cancel-in-progress: ${{ inputs.mode != 'submit' }}
+    env:
+      MODE: ${{ inputs.mode || 'internal' }}
+      TAG: ${{ inputs.tag }}
+      DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
+      AAB: src-tauri/gen/android/app/build/outputs/bundle/universalRelease/app-universal-release.aab
+      # License keys (#301): the Rust side compiles the billing Worker's origin in.
+      JOURNAL_BILLING_URL: https://journal-billing.cloudx.run
+      # The release port (PROD_PORT in src-tauri/src/lib.rs, #1308).
+      JOURNAL_RELEASE_BUILD: '1'
+    steps:
+      - name: Check inputs and secrets
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          ANDROID_UPLOAD_KEYSTORE: ${{ secrets.ANDROID_UPLOAD_KEYSTORE }}
+          ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+          ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          missing=0
+          if [ "$MODE" = submit ] && [ -z "$TAG" ]; then echo "::error::mode submit needs a tag"; missing=1; fi
+          names=GH_TOKEN
+          if [ "$DRY_RUN" != true ]; then
+            names="$names ANDROID_UPLOAD_KEYSTORE ANDROID_UPLOAD_KEY_PASSWORD ANDROID_UPLOAD_KEY_ALIAS PLAY_SERVICE_ACCOUNT_JSON"
+          fi
+          for name in $names; do
+            if [ -z "${!name}" ]; then echo "::error::Actions secret $name is not set (see this workflow's header)"; missing=1; fi
+          done
+          exit $missing
+
+      # Full history: versionCode is the commit count.
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+          submodules: true
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+
+      # Without native/ the app builds with the premium stubs: no store purchase.
+      - name: native/ is present
+        run: |
+          if [ ! -f native/web/index.ts ] || [ ! -f native/rust/mod.rs ] || [ ! -d native/android/premium ]; then
+            echo "::error::native/ (journal-native-features) is not checked out: GH_TOKEN needs read access to it"
+            exit 1
+          fi
+          echo "native/ at $(git -C native rev-parse --short HEAD)"
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      # @homebase-id/js-lib is public, which the job token can read; the fine-grained
+      # GH_TOKEN can't read GitHub Packages.
+      - name: Authenticate to Github packages
+        run: |
+          echo "@homebase-id:registry=https://npm.pkg.github.com" > .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${{ github.token }}" >> .npmrc
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Use Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+          cache-dependency-path: src-tauri/gen/android/**/*.gradle*
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # The runner image has the Android SDK (ANDROID_HOME) and NDKs; Tauri reads NDK_HOME.
+      - name: Use the Android NDK
+        run: echo "NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> "$GITHUB_ENV"
+
+      # gen/android/app/build.gradle.kts signs with the properties file in
+      # JOURNAL_ANDROID_UPLOAD_KEY; without it (dry run) the bundle is unsigned.
+      - name: Write the upload key
+        if: env.DRY_RUN != 'true'
+        env:
+          ANDROID_UPLOAD_KEYSTORE: ${{ secrets.ANDROID_UPLOAD_KEYSTORE }}
+          ANDROID_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+          ANDROID_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+        run: |
+          printf '%s' "$ANDROID_UPLOAD_KEYSTORE" | base64 --decode > "$RUNNER_TEMP/upload.jks"
+          printf 'storeFile=%s\npassword=%s\nkeyAlias=%s\n' "$RUNNER_TEMP/upload.jks" "$ANDROID_UPLOAD_KEY_PASSWORD" "$ANDROID_UPLOAD_KEY_ALIAS" > "$RUNNER_TEMP/upload.properties"
+          echo "JOURNAL_ANDROID_UPLOAD_KEY=$RUNNER_TEMP/upload.properties" >> "$GITHUB_ENV"
+
+      - name: Build the bundle
+        run: npm run tauri:android:release
+
+      - name: Version
+        id: version
+        run: |
+          echo "code=$(git rev-list --count HEAD)" >> "$GITHUB_OUTPUT"
+          echo "name=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # Google Play's limit for release notes is 500 characters in each language.
+      - name: Release notes
+        if: env.MODE == 'submit'
+        env:
+          VERSION: ${{ steps.version.outputs.name }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/whatsnew"
+          node scripts/release-notes.mjs --store "$VERSION" 500 > "$RUNNER_TEMP/whatsnew/whatsnew-en-US"
+          { echo "### Release notes ($VERSION)"; echo '```'; cat "$RUNNER_TEMP/whatsnew/whatsnew-en-US"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload to Google Play
+        if: env.DRY_RUN != 'true'
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.biswa.journal
+          releaseFiles: ${{ env.AAB }}
+          releaseName: ${{ steps.version.outputs.name }} (${{ steps.version.outputs.code }})
+          track: ${{ env.MODE == 'submit' && (vars.PLAY_RELEASE_TRACK || 'alpha') || 'internal' }}
+          status: completed
+          whatsNewDirectory: ${{ env.MODE == 'submit' && format('{0}/whatsnew', runner.temp) || '' }}
+
+      - name: Summary
+        env:
+          VERSION: ${{ steps.version.outputs.name }}
+          CODE: ${{ steps.version.outputs.code }}
+          TRACK: ${{ env.MODE == 'submit' && (vars.PLAY_RELEASE_TRACK || 'alpha') || 'internal' }}
+        run: |
+          if [ "$DRY_RUN" = true ]; then result='built without signing (dry run): nothing uploaded'
+          else result="uploaded to the $TRACK track"; fi
+          echo "Android $VERSION ($CODE): $result" >> "$GITHUB_STEP_SUMMARY"
