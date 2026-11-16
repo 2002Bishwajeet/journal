@@ -6,7 +6,8 @@
       "localStorage": [
         { "name": "identity", "value": "e2e-owner.homebase.test" },
         { "name": "BX0900", "value": "e2e-fake-auth-token-000000000000" },
-        { "name": "APSS", "value": "AAECAwQFBgcICQoLDA0ODw==" }
+        { "name": "APSS", "value": "AAECAwQFBgcICQoLDA0ODw==" },
+        { "name": "e2e-skip-welcome-note", "value": "1" }
       ]
     },
     {
@@ -14,7 +15,8 @@
       "localStorage": [
         { "name": "identity", "value": "e2e-owner.homebase.test" },
         { "name": "BX0900", "value": "e2e-fake-auth-token-000000000000" },
-        { "name": "APSS", "value": "AAECAwQFBgcICQoLDA0ODw==" }
+        { "name": "APSS", "value": "AAECAwQFBgcICQoLDA0ODw==" },
+        { "name": "e2e-skip-welcome-note", "value": "1" }
       ]
     }
   ]

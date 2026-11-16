@@ -290,3 +290,10 @@ export async function setNoteFolderLocal(docId: string, folderId: string, expect
         [docId, folderId, expectedFolderId]
     );
 }
+
+/** Whether any note exists locally, trashed and archived ones included. */
+export async function hasAnyNote(): Promise<boolean> {
+    const db = await getDatabase();
+    const result = await db.query<{ found: boolean }>('SELECT EXISTS (SELECT 1 FROM search_index) AS found');
+    return result.rows[0].found;
+}

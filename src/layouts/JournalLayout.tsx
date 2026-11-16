@@ -57,6 +57,7 @@ import { useTextFieldFocused } from "@/hooks/useTextFieldFocused";
 import { useKeyboardOpen } from "@/hooks/useKeyboardOpen";
 import { useMobileTabs } from "@/hooks/useMobileTabs";
 import { useDailyNote } from "@/hooks/useDailyNote";
+import { useWelcomeNote } from "@/hooks/useWelcomeNote";
 import { useTags } from "@/hooks/useTags";
 import { useSharedPull } from "@/hooks/useSharedPull";
 import { usePeerPushSubscriptions } from "@/hooks/usePeerPushSubscriptions";
@@ -242,6 +243,7 @@ export default function JournalLayout() {
     navigate(path, { replace: sidebarOverlayOpen });
     setSidebarRequested(false);
   };
+  useWelcomeNote((note) => go(`/${note.folderId}/${note.docId}`));
 
   // Daily notes ("Today"): open/create today's note, then route to it. Read-only (#1176)
   // creates nothing: only an existing note opens, else home.
