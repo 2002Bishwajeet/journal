@@ -190,6 +190,8 @@ jobs:
         env:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        # pipefail: a failed asc-release.mjs (auth, tag not above the released version) fails the step.
+        shell: bash
         run: |
           args=(--commit-count "$(git rev-list --count HEAD)" --package-version "$(node -p "require('./package.json').version")")
           if [ "$MODE" = submit ]; then args+=(--tag "$TAG"); fi
