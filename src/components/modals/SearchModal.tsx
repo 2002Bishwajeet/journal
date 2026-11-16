@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from "react";
 import { HighlightedText } from "@/components/ui/HighlightedText";
 import { Kbd } from "@/components/ui/kbd";
 import { Search, FileText, Loader2, Sparkles, Type, Tag, FileSearch, Wand2, Clock, X } from "lucide-react";
@@ -8,6 +9,16 @@ import { followKeyboard } from "@/lib/keyboardViewport";
 import { proseOnly, CODE_SEPARATOR } from "@/lib/previewText";
 import { useOverlayHistory } from "@/hooks/useOverlayHistory";
 import { useSearchModal, isAdvancedResult, type SearchResult, type SearchEntry } from "@/hooks/useSearchModal";
+
+// Phones, and touch screens below the desktop breakpoint, get the full-screen search; a mouse keeps
+// the palette from 640 px, where it always had it (#1289).
+const SHEET_QUERY = "(max-width: 639px), (max-width: 1023px) and (pointer: coarse)";
+
+function subscribeSheet(onChange: () => void) {
+  const mql = window.matchMedia(SHEET_QUERY);
+  mql.addEventListener("change", onChange);
+  return () => mql.removeEventListener("change", onChange);
+}
 
 interface SearchModalProps {
   isOpen: boolean;
@@ -254,6 +265,7 @@ export default function SearchModal({
     handleClearRecents,
   } = useSearchModal({ isOpen, onClose, onSelectNote, initialQuery });
   useOverlayHistory(isOpen, handleClose);
+  const palette = !useSyncExternalStore(subscribeSheet, () => window.matchMedia(SHEET_QUERY).matches, () => false);
 
   if (!isOpen) return null;
 
@@ -268,7 +280,12 @@ export default function SearchModal({
         aria-label="Search notes"
         // On a phone the sheet fills what is left above the keyboard (followKeyboard sets the vars).
         ref={followKeyboard}
-        className="fixed inset-x-0 top-[var(--dialog-top,50%)] -translate-y-1/2 h-[var(--dialog-max-h,100dvh)] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] sm:inset-x-auto sm:left-1/2 sm:top-[10%] sm:-translate-x-1/2 sm:translate-y-0 sm:h-auto sm:pt-0 sm:pb-0 w-full max-w-2xl bg-popover text-popover-foreground shadow-2xl sm:border border-border sm:rounded-xl overflow-hidden flex flex-col sm:max-h-[85dvh] animate-in fade-in sm:zoom-in-95 duration-(--duration-fade) ease-(--ease-standard)"
+        className={cn(
+          "fixed w-full bg-popover text-popover-foreground shadow-2xl border-border overflow-hidden flex flex-col animate-in fade-in duration-(--duration-fade) ease-(--ease-standard)",
+          palette
+            ? "left-1/2 top-[10%] -translate-x-1/2 max-w-2xl border rounded-xl max-h-[85dvh] zoom-in-95"
+            : "inset-x-0 top-[var(--dialog-top,50%)] -translate-y-1/2 h-[var(--dialog-max-h,100dvh)] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]",
+        )}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search input - Large and clean */}
@@ -290,16 +307,18 @@ export default function SearchModal({
             autoCorrect="off"
             spellCheck="false"
           />
-          <div className="hidden sm:flex items-center gap-1.5 ">
-            <Kbd>Esc</Kbd>
-          </div>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="sm:hidden h-11 px-2 -mr-2 text-sm font-medium text-primary shrink-0 touch-manipulation"
-          >
-            Cancel
-          </button>
+          {palette ? (
+            // A touch screen wide enough for the palette (an iPad in landscape) has no Esc key to show.
+            <Kbd className="pointer-coarse:hidden">Esc</Kbd>
+          ) : (
+            <button
+              type="button"
+              onClick={handleClose}
+              className="h-11 px-2 -mr-2 text-sm font-medium text-primary shrink-0 touch-manipulation"
+            >
+              Cancel
+            </button>
+          )}
         </div>
 
         {/* Results */}
@@ -361,25 +380,27 @@ export default function SearchModal({
           )}
         </div>
 
-        {/* Footer actions - visible only on desktop */}
-        <div className="hidden sm:flex items-center justify-between px-4 py-2 bg-muted/30 border-t border-border shrink-0 text-[11px] text-muted-foreground">
-          <div className="flex gap-4">
-            <span className="flex items-center gap-1">
-              <Kbd>↓</Kbd>
-              <Kbd>↑</Kbd>
-              navigate
-            </span>
-            <span className="flex items-center gap-1">
-              <Kbd>↵</Kbd>
-              select
-            </span>
+        {/* Footer actions - the palette only */}
+        {palette && (
+          <div className="flex items-center justify-between px-4 py-2 bg-muted/30 border-t border-border shrink-0 text-[11px] text-muted-foreground">
+            <div className="flex gap-4 pointer-coarse:invisible">
+              <span className="flex items-center gap-1">
+                <Kbd>↓</Kbd>
+                <Kbd>↑</Kbd>
+                navigate
+              </span>
+              <span className="flex items-center gap-1">
+                <Kbd>↵</Kbd>
+                select
+              </span>
+            </div>
+            <div>
+              <span className="opacity-70">
+                {entries.filter((e) => e.kind === 'note').length} results
+              </span>
+            </div>
           </div>
-          <div>
-            <span className="opacity-70">
-              {entries.filter((e) => e.kind === 'note').length} results
-            </span>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

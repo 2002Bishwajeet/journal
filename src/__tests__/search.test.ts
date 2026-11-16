@@ -130,6 +130,33 @@ describe('advancedSearch on the shared preview text (#1228)', () => {
     });
 });
 
+describe('advancedSearch snippets skip code and live blocks (#1289)', () => {
+    const id = '20000000-0000-0000-0000-000000000098';
+    const chart = 'My weekly run totals, a bar per week.\n\n```react\nimport { BarChart } from "recharts";\nexport default function App() { return <BarChart data={runs} /> }\n```\n';
+
+    beforeEach(async () => {
+        await addNote(id, 'Training', previewTextFromFragment(createDoc(chart).getXmlFragment('prosemirror')));
+    });
+
+    it('marks a word in the prose without the block source after it', async () => {
+        const [hit] = await advancedSearch('run');
+
+        expect(hit.docId).toBe(id);
+        expect(hit.contentHighlight).toContain('<mark>run</mark>');
+        expect(hit.contentHighlight).not.toMatch(/import|BarChart|recharts/);
+    });
+
+    it('still finds a note by its block source, with a prose snippet', async () => {
+        for (const query of ['recharts', 'BarCh']) {
+            const [hit] = await advancedSearch(query);
+
+            expect(hit.docId).toBe(id);
+            expect(hit.contentHighlight).toContain('My weekly run totals');
+            expect(hit.contentHighlight).not.toMatch(/import|BarChart|recharts/);
+        }
+    });
+});
+
 describe('advancedSearch ignores accents and matches tags (#1229)', () => {
     const uid = (n: number) => `60000000-0000-0000-0000-${String(n).padStart(12, '0')}`;
 
