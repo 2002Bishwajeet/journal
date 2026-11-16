@@ -29,10 +29,10 @@ jobs:
       E2E_LIVE_OUTSIDER_IDENTITY: merry.dotyou.cloud
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Use Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -51,7 +51,7 @@ jobs:
 
       - name: Cache Playwright browsers
         id: playwright-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-chromium-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
@@ -108,7 +108,7 @@ jobs:
 
       - name: Upload evidence
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-live-${{ github.run_attempt }}
           path: |
@@ -121,7 +121,7 @@ jobs:
       # cover.live.spec.ts's and share-cover.live.spec.ts's desktop/375px screenshots, kept on green runs too.
       - name: Upload share-article screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: share-article-screenshots-${{ github.run_attempt }}
           path: |

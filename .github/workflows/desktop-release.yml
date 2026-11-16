@@ -75,7 +75,7 @@ jobs:
           exit $missing
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.tag }}
           submodules: true
@@ -91,14 +91,20 @@ jobs:
             exit 1
           fi
           echo "native/ at $(git -C native rev-parse --short HEAD)"
+          # Without the billing Worker's origin the app has no trial or paywall: never publish that.
           if [ -z "$BILLING_URL" ]; then
+            if [ "$PUBLISH" = true ]; then
+              echo "::error::Repo variable DESKTOP_BILLING_URL is not set: a release would ship the desktop app unlocked"
+              exit 1
+            fi
             echo "::warning::Repo variable DESKTOP_BILLING_URL is not set: this build has no trial, paywall or license activation"
           fi
         env:
           BILLING_URL: ${{ vars.DESKTOP_BILLING_URL }}
+          PUBLISH: ${{ inputs.publish }}
 
       - name: Use Node.js 22
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -189,7 +195,7 @@ jobs:
 
       - name: Upload installers
         if: ${{ !inputs.publish }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: desktop-${{ runner.os }}
           path: |

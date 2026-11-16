@@ -23,7 +23,7 @@ jobs:
         working-directory: src-tauri
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # The private native/ submodule is never checked out here, so this job
       # proves the shell builds without the premium code.
