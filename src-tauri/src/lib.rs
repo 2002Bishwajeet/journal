@@ -23,6 +23,7 @@ mod premium {
     }
 }
 
+mod ios_keyboard;
 #[cfg(target_os = "ios")]
 mod ios_recovery;
 
@@ -550,6 +551,12 @@ pub fn run() {
 
             #[cfg(target_os = "ios")]
             hide_form_accessory_bar();
+
+            // `with_webview` runs this on the main thread; `inner()` is the WKWebView.
+            #[cfg(target_os = "ios")]
+            window.with_webview(|webview| unsafe {
+                ios_keyboard::hold_page(webview.inner().cast())
+            })?;
 
             #[cfg(desktop)]
             if !tauri::is_dev() {
