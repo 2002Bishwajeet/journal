@@ -123,10 +123,14 @@ fn bind_loopback(port: u16) -> Result<Vec<Server>, BindError> {
     Ok(servers)
 }
 
-/// Tells the user the app can't start, then exits non-zero. Explicit, so it
-/// holds in every build — not only release builds with `panic = "abort"`.
-fn abort_on_bind_failure(err: &BindError) -> ! {
-    eprintln!("Journal can't start: {err}");
+/// Argument of the helper process that shows the port-in-use dialog (#1313).
+const PORT_ERROR_ARG: &str = "--journal-port-error";
+
+fn is_port_error_invocation(args: impl IntoIterator<Item = String>) -> bool {
+    args.into_iter().nth(1).as_deref() == Some(PORT_ERROR_ARG)
+}
+
+fn show_port_error() {
     #[cfg(desktop)]
     rfd::MessageDialog::new()
         .set_level(rfd::MessageLevel::Error)
@@ -138,6 +142,21 @@ fn abort_on_bind_failure(err: &BindError) -> ! {
         ))
         .set_buttons(rfd::MessageButtons::Ok)
         .show();
+}
+
+/// Tells the user the app can't start, then exits non-zero. Explicit, so it
+/// holds in every build — not only release builds with `panic = "abort"`.
+///
+/// This runs from Tauri's setup, after the single-instance plugin has had its
+/// say, so Tauri already owns GTK and rfd's dialog would never appear on
+/// Linux. The dialog therefore runs in a fresh process of this executable
+/// that exits before it initialises Tauri (see `run`).
+fn abort_on_bind_failure(err: &BindError) -> ! {
+    eprintln!("Journal can't start: {err}");
+    #[cfg(desktop)]
+    if let Ok(exe) = std::env::current_exe() {
+        let _ = std::process::Command::new(exe).arg(PORT_ERROR_ARG).status();
+    }
     std::process::exit(1);
 }
 
@@ -459,11 +478,12 @@ fn link_plugins<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
 /// exports this as the symbol the generated Xcode / Gradle project calls.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Bind before Tauri starts, so no window ever loads a page from another
-    // process that holds the port. It also has to happen before Tauri
-    // initialises GTK: on Linux, rfd's dialog runs GTK on a thread of its own
-    // and never appears once the event loop owns GTK's main context.
-    let servers = bind_loopback(PORT).unwrap_or_else(|e| abort_on_bind_failure(&e));
+    // Helper invocation from `abort_on_bind_failure`: show the dialog before
+    // Tauri initialises GTK, which would otherwise swallow it on Linux.
+    if is_port_error_invocation(std::env::args()) {
+        show_port_error();
+        return;
+    }
 
     let builder = premium::register_first(tauri::Builder::default())
         // journal.cloudx.run links (iOS Universal Links, Android App Links) and
@@ -477,7 +497,14 @@ pub fn run() {
     let builder = link_plugins(builder);
 
     premium::register(builder)
-        .setup(move |app| {
+        .setup(|app| {
+            // Bound here, not before Tauri starts, so a second launch of this
+            // build reaches the single-instance plugin (registered first, and
+            // it focuses the running window and exits) instead of failing on
+            // the port the first launch holds (#1313). Still before any window
+            // exists, so none loads a page from another process on the port.
+            let servers = bind_loopback(PORT).unwrap_or_else(|e| abort_on_bind_failure(&e));
+
             // Installers register journal:// on Windows and Linux; this covers
             // dev builds and AppImages. macOS registers it from Info.plist.
             #[cfg(any(windows, target_os = "linux"))]
@@ -630,6 +657,14 @@ mod tests {
     fn no_native_plugins_without_premium() {
         assert!(native_plugins().is_empty());
         assert!(native_flag_script().ends_with("plugins: [] };"));
+    }
+
+    #[test]
+    fn port_error_helper_is_recognised_by_its_first_argument() {
+        let args = |a: &[&str]| a.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert!(is_port_error_invocation(args(&["journal", PORT_ERROR_ARG])));
+        assert!(!is_port_error_invocation(args(&["journal"])));
+        assert!(!is_port_error_invocation(args(&["journal", "journal://note/1"])));
     }
 
     #[test]
