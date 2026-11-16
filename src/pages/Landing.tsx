@@ -6,7 +6,7 @@ import { useAuth } from "@/hooks/auth/useAuth";
 import { useYouAuthAuthorization } from "@/hooks/auth/useYouAuthAuthorization";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { sanitizeReturnUrl } from "@/lib/utils";
-import { startSignIn } from "@/lib/native";
+import { APP_NAME, startSignIn } from "@/lib/native";
 import { hasSignedInBefore, opensOnWelcome } from "@/lib/firstRun";
 import { WelcomeStep } from "@/components/auth/WelcomeStep";
 import logo from "@/assets/logo_withoutbg.png";
@@ -92,7 +92,7 @@ export default function LandingPage() {
               />
             </div>
             <span className="text-3xl font-script text-foreground tracking-wide opacity-90">
-              Journal
+              {APP_NAME}
             </span>
           </div>
           <h1 className="text-6xl font-serif text-foreground leading-[1.05] mb-8 max-w-lg tracking-tight">

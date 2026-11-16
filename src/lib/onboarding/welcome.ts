@@ -1,10 +1,11 @@
 import { getAppState, saveAppState, hasAnyNote } from '@/lib/db';
 import { createNoteFromMarkdownInDb } from '@/lib/notes/createNote';
 import { MAIN_FOLDER_ID, WelcomeSeededDriveProvider } from '@/lib/homebase';
+import { APP_NAME } from '@/lib/native';
 import type { DotYouClient } from '@homebase-id/js-lib/core';
 import welcomeMarkdown from './welcomeNote.md?raw';
 
-export const WELCOME_TITLE = 'Welcome to Journal';
+export const WELCOME_TITLE = `Welcome to ${APP_NAME}`;
 export const WELCOME_SEEDED_KEY = 'welcome-note-seeded';
 
 /** Seed only when the welcome note was never offered, here or on another device, and nothing exists yet. */
