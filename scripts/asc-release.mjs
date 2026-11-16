@@ -17,14 +17,26 @@
 //     submission still waiting for review or in review (latest wins), creates or reuses
 //     the App Store version, sets its What's New, attaches the build and submits it with
 //     every in-app purchase (and subscription group) App Review has not approved yet.
-import { createSign } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+//   profile --certificate <file.pem>
+//     Installs the App Store provisioning profile the build signs with (#1336) and prints
+//     profile_name=<name> and profile_uuid=<uuid> for $GITHUB_OUTPUT. <file.pem> is the Apple
+//     Distribution certificate ios-release.yml imported into its keychain. An ACTIVE IOS_APP_STORE
+//     profile of com.biswa.journal with that certificate is reused. Otherwise the bundle ID's
+//     INVALID ones (a capability added to the App ID since, or a revoked certificate) and an
+//     older "Journal CI App Store" are deleted, and a new "Journal CI App Store" is made. The
+//     profile goes where Xcode looks for one, before Xcode 16 and since.
+import { createSign, X509Certificate } from 'node:crypto';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
 /** Journal+ on App Store Connect (the public App Store ID). */
 const APP_ID = '6833436628';
 const BASE = 'https://api.appstoreconnect.apple.com';
+const BUNDLE_ID = 'com.biswa.journal';
+export const PROFILE_NAME = 'Journal CI App Store';
 
 /** Version states after approval: the version's build train is closed. */
 const RELEASED = new Set([
@@ -330,6 +342,58 @@ async function submit({ version, build, notesFile }) {
   log(`Submitted ${version} (${build}) for App Review: review submission ${submission.id}`);
 }
 
+/** Serial numbers are hex: tools differ in case and leading zeros. */
+const sameSerial = (a, b) => a.replace(/^0+/, '').toUpperCase() === b.replace(/^0+/, '').toUpperCase();
+
+export async function profile({ serial, home = homedir() }) {
+  const certificate = (await all('/v1/certificates?filter[certificateType]=DISTRIBUTION&limit=200')).data.find((c) =>
+    sameSerial(c.attributes.serialNumber, serial),
+  );
+  if (!certificate) {
+    throw new Error(`No Apple Distribution certificate on App Store Connect has serial ${serial}: check IOS_DISTRIBUTION_P12`);
+  }
+  const bundle = (await all(`/v1/bundleIds?filter[identifier]=${BUNDLE_ID}&limit=200`)).data.find(
+    (b) => b.attributes.identifier === BUNDLE_ID,
+  );
+  if (!bundle) throw new Error(`No bundle ID ${BUNDLE_ID} on App Store Connect`);
+
+  const profiles = (
+    await all('/v1/profiles?filter[profileType]=IOS_APP_STORE&include=bundleId,certificates&limit=200')
+  ).data.filter((p) => p.relationships?.bundleId?.data?.id === bundle.id);
+  let found = profiles.find(
+    (p) =>
+      p.attributes.profileState === 'ACTIVE' && p.relationships.certificates?.data?.some((c) => c.id === certificate.id),
+  );
+  if (found) log(`Reusing App Store profile ${found.attributes.name}`);
+  else {
+    // Profile names are unique, so an older one of ours goes too.
+    for (const p of profiles.filter((p) => p.attributes.profileState === 'INVALID' || p.attributes.name === PROFILE_NAME)) {
+      log(`Deleting App Store profile ${p.attributes.name} (${p.attributes.profileState})`);
+      await api('DELETE', `/v1/profiles/${p.id}`);
+    }
+    log(`Creating App Store profile ${PROFILE_NAME}`);
+    found = (
+      await api('POST', '/v1/profiles', {
+        data: {
+          type: 'profiles',
+          attributes: { name: PROFILE_NAME, profileType: 'IOS_APP_STORE' },
+          relationships: {
+            bundleId: { data: { type: 'bundleIds', id: bundle.id } },
+            certificates: { data: [{ type: 'certificates', id: certificate.id }] },
+          },
+        },
+      })
+    ).data;
+  }
+
+  const { name, uuid, profileContent } = found.attributes;
+  for (const dir of ['Library/MobileDevice/Provisioning Profiles', 'Library/Developer/Xcode/UserData/Provisioning Profiles']) {
+    mkdirSync(join(home, dir), { recursive: true });
+    writeFileSync(join(home, dir, `${uuid}.mobileprovision`), Buffer.from(profileContent, 'base64'));
+  }
+  return { name, uuid };
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const { positionals, values } = parseArgs({
     allowPositionals: true,
@@ -341,6 +405,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       version: { type: 'string' },
       build: { type: 'string' },
       'notes-file': { type: 'string' },
+      certificate: { type: 'string' },
     },
   });
   try {
@@ -353,8 +418,12 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       });
     } else if (positionals[0] === 'submit') {
       await submit({ version: values.version, build: values.build, notesFile: values['notes-file'] });
+    } else if (positionals[0] === 'profile') {
+      const { name, uuid } = await profile({ serial: new X509Certificate(readFileSync(values.certificate)).serialNumber });
+      console.log(`profile_name=${name}`);
+      console.log(`profile_uuid=${uuid}`);
     } else {
-      console.error('usage: asc-release.mjs versions|submit [options] (see the header)');
+      console.error('usage: asc-release.mjs versions|submit|profile [options] (see the header)');
       process.exit(2);
     }
   } catch (err) {
