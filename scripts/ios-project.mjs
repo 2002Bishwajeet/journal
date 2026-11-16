@@ -8,6 +8,8 @@
 // Apple account signed in to Xcode (`npm run tauri:ios:release`, on a Mac).
 // Its CFBundleVersion is the git commit count, so each build from main is
 // higher than the last; the marketing version is package.json's.
+// ios-release.yml (#1304) sets both through JOURNAL_IOS_BUILD_NUMBER and
+// JOURNAL_IOS_VERSION, and adds --no-sign for a dry run (build only, no upload).
 import { execFileSync } from 'node:child_process';
 import { cpSync, existsSync, rmSync, writeFileSync } from 'node:fs';
 
@@ -24,7 +26,9 @@ run('xcodegen', ['generate', '--spec', `${GEN}/project.yml`]);
 run('npm', ['run', 'native:ios:targets']);
 
 if (process.argv.includes('--release')) {
-  const build = execFileSync('git', ['rev-list', '--count', 'HEAD']).toString().trim();
+  const build =
+    process.env.JOURNAL_IOS_BUILD_NUMBER || execFileSync('git', ['rev-list', '--count', 'HEAD']).toString().trim();
+  const version = process.env.JOURNAL_IOS_VERSION;
   // `tauri ios build` adds method and teamID; destination=upload makes the
   // export send the build to App Store Connect instead of writing an IPA.
   writeFileSync(
@@ -42,6 +46,7 @@ if (process.argv.includes('--release')) {
   run('npx', [
     'tauri', 'ios', 'build',
     '--export-method', 'app-store-connect',
-    '--config', JSON.stringify({ bundle: { iOS: { bundleVersion: build } } }),
+    '--config', JSON.stringify({ ...(version && { version }), bundle: { iOS: { bundleVersion: build } } }),
+    ...(process.argv.includes('--no-sign') ? ['--no-sign'] : []),
   ]);
 }
