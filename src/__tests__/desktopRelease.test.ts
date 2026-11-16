@@ -31,8 +31,8 @@ describe('the updater', () => {
 });
 
 describe('the desktop app name', () => {
-    it.each(['macos', 'windows', 'linux'])('is Journal+ on %s, next to Apple\'s own Journal', (os) => {
-        expect(json(`src-tauri/tauri.${os}.conf.json`).productName).toBe('Journal+');
+    it.each(['macos', 'windows', 'linux'])('is Journal on %s', (os) => {
+        expect(json(`src-tauri/tauri.${os}.conf.json`).productName).toBe('Journal');
     });
 
     it('stays Journal in the base config, which the iOS and Android projects are generated from', () => {

@@ -4,7 +4,7 @@ import { useSyncService } from '@/hooks/useSyncService';
 import { useCanEditAnswer } from '@/hooks/useCanEdit';
 
 /**
- * First sign-in (#1283): once the first sync has settled, seed the "Welcome to Journal+" note for
+ * First sign-in (#1283): once the first sync has settled, seed the "Welcome to Journal" note for
  * an identity with no notes and open it. The decision lives in `seedWelcomeNote`.
  */
 export function useWelcomeNote(open: (note: { docId: string; folderId: string }) => void): void {
