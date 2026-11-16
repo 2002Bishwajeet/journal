@@ -83,6 +83,7 @@ test('phone: sign-in fits the screen, field is 16 px, link is 44 px tall', async
   await withFencedPage(browser, { viewport: PHONE, hasTouch: true, isMobile: true }, async (page) => {
     await page.goto('/welcome');
     await assertTestOrigin(page);
+    await page.getByRole('button', { name: 'I have an identity' }).click();
     const identity = page.getByLabel('Identity');
     await expect(identity).toBeVisible();
     expect(await fontSize(identity)).toBeGreaterThanOrEqual(16);
@@ -96,6 +97,7 @@ test('iPad: sign-in field is 16 px', async ({ browser }) => {
   await withFencedPage(browser, { viewport: IPAD, hasTouch: true, isMobile: true }, async (page) => {
     await page.goto('/welcome');
     await assertTestOrigin(page);
+    await page.getByRole('button', { name: 'I have an identity' }).click();
     const identity = page.getByLabel('Identity');
     await expect(identity).toBeVisible();
     expect(await fontSize(identity)).toBeGreaterThanOrEqual(16);
@@ -107,6 +109,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
     await withFencedPage(browser, { viewport: PHONE, hasTouch: true, isMobile: true, colorScheme }, async (page) => {
       await page.goto('/welcome');
       await assertTestOrigin(page);
+      await page.getByRole('button', { name: 'I have an identity' }).tap();
       await page.getByLabel('Identity').fill('not a valid identity');
       await page.getByRole('button', { name: 'Continue' }).tap();
       const box = page.locator('.border-destructive\\/30');
@@ -139,6 +142,7 @@ test('desktop: inputs keep 14 px', async ({ browser }, testInfo) => {
   await withFencedPage(browser, { viewport: DESKTOP }, async (page) => {
     await page.goto('/welcome');
     await assertTestOrigin(page);
+    await page.getByRole('button', { name: 'I have an identity' }).click();
     expect(await fontSize(page.getByLabel('Identity'))).toBe(14);
     await page.waitForTimeout(400); // let the 300 ms fade-in finish before the screenshot
     await page.screenshot({ path: testInfo.outputPath('signin-light-desktop.png') });

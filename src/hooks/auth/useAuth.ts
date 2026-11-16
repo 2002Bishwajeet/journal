@@ -17,6 +17,7 @@ import { SESSION_STORAGE_KEY, TABS_STORAGE_KEY, RECENT_NOTES_KEY, RECENT_SEARCHE
 import { discardResumeState } from '@/lib/resumeRestore';
 import { discardAllUnsavedEdits } from '@/lib/yjs/unsavedEdits';
 import { clearSessionHint, setSessionHint } from '@/lib/sessionHint';
+import { markSignedIn } from '@/lib/firstRun';
 import { useVerifyToken } from './useVerifyToken';
 import { useOnlineContext } from '../useOnlineContext';
 
@@ -136,9 +137,12 @@ export function useAuth() {
     }, [getDotYouClient]);
 
     // Every signed-in boot sets the edge's routing hint (#913): this covers a browser
-    // that signed in before the hint existed, and refreshes its expiry.
+    // that signed in before the hint existed, and refreshes its expiry. Sign-out keeps the
+    // signed-in mark, so this device's sign-in page skips its welcome step (#1282).
     useEffect(() => {
-        if (authenticationState === 'authenticated') setSessionHint();
+        if (authenticationState !== 'authenticated') return;
+        setSessionHint();
+        markSignedIn();
     }, [authenticationState]);
 
     // Handle auth state transitions

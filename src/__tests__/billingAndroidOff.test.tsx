@@ -2,7 +2,7 @@
 /**
  * #1215 audit F2: with journal-iap listed (plugins.txt is one list) but Play billing not shipped,
  * Android mounts none of the paid pieces: no LicenseGate (whose license read starts the trial
- * clock), no trial chip, no Settings → Purchase.
+ * clock), no trial chip, no trial line on the sign-in page (#1282), no Settings → Purchase.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createElement as h, act } from 'react';
@@ -16,6 +16,10 @@ vi.mock('@premium', () => ({
     },
     TrialChip: () => {
         mounted.push('TrialChip');
+        return null;
+    },
+    WelcomeTrial: () => {
+        mounted.push('WelcomeTrial');
         return null;
     },
 }));
@@ -34,9 +38,9 @@ afterEach(async () => {
 
 async function mount(platform: 'ios' | 'android') {
     window.__JOURNAL_NATIVE__ = { platform, plugins: ['journal-iap'] };
-    const { LicenseGate, TrialChip } = await import('@/components/license/License');
+    const { LicenseGate, TrialChip, WelcomeTrial } = await import('@/components/license/License');
     root = createRoot(document.body.appendChild(document.createElement('div')));
-    await act(async () => root!.render(h('div', null, h(LicenseGate, { onSignOut: () => {}, pendingTotal: 0 }), h(TrialChip))));
+    await act(async () => root!.render(h('div', null, h(LicenseGate, { onSignOut: () => {}, pendingTotal: 0 }), h(TrialChip), h(WelcomeTrial))));
     await act(async () => {
         await import('@premium');
         await new Promise((resolve) => setTimeout(resolve, 0));
@@ -51,7 +55,7 @@ describe('paid pieces on Android before Play billing ships', () => {
         root = undefined;
 
         await mount('ios');
-        expect(mounted.sort()).toEqual(['LicenseGate', 'TrialChip']);
+        expect(mounted.sort()).toEqual(['LicenseGate', 'TrialChip', 'WelcomeTrial']);
     });
 
     it('should hide Settings → Purchase on Android', async () => {

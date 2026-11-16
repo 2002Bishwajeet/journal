@@ -89,6 +89,7 @@ async function bootstrapIdentity(browser: Browser, identity: string, storageStat
         await page.goto('/welcome');
         await assertTestOrigin(page);
         const appOrigin = new URL(page.url()).origin;
+        await page.getByRole('button', { name: 'I have an identity' }).click();
         await page.getByLabel('Identity').fill(identity);
         await page.getByRole('button', { name: 'Continue' }).click();
         await consentUntil(page, identity, appOrigin, hasAuthTokens(page));

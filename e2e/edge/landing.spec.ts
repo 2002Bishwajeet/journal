@@ -76,7 +76,7 @@ test('a signed-out browser sees the landing page at /, and Open Journal signs in
 
   await page.getByRole('main').getByRole('link', { name: 'Open Journal' }).first().click();
   await expect(page).toHaveURL(/\/welcome$/);
-  await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Welcome to Journal' })).toBeVisible();
 });
 
 test('a browser signed in before the cookie existed lands in the app, with no landing flash', async ({ browser, baseURL }) => {

@@ -16,6 +16,8 @@ async function stubIdentity(page: Page) {
 }
 
 async function signIn(page: Page) {
+  // A clean profile opens on the welcome step (#1282).
+  await page.getByRole('button', { name: 'I have an identity' }).click();
   await page.getByLabel('Identity').fill(IDENTITY);
   await page.getByRole('button', { name: 'Continue' }).click();
 }
@@ -52,9 +54,13 @@ test('iOS app: sign-in runs in an auth session and external links open in the pl
   });
 
   await page.goto('/welcome');
-  await page.getByRole('link', { name: 'Create an identity' }).click();
+  // The welcome step's sign-up button (#1282) opens in the in-app browser, as links do.
+  await page.getByRole('link', { name: 'Create your Homebase identity' }).click();
   await expect.poll(() => ipc).toEqual([{ cmd: 'plugin:browser|open_url', args: { url: 'https://homebase.id/' } }]);
   await expect(page).toHaveURL(/\/welcome$/);
+  // The iOS app is Journal+. Without the store plugin (journal-iap) it sells nothing: no trial line.
+  await expect(page.getByRole('heading', { name: 'Welcome to Journal+' })).toBeVisible();
+  await expect(page.getByText(/Free for 3 days/)).toHaveCount(0);
 
   // A full navigation, as the web's return from the identity is.
   const finalize = page.waitForRequest((r) => r.isNavigationRequest() && r.url().includes('/auth/finalize'));

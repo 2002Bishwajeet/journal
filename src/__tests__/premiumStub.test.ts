@@ -8,6 +8,7 @@ import {
   VoiceDraftOffer,
   VoiceNotesSection,
   VoiceReviewBar,
+  WelcomeTrial,
 } from '@/lib/premiumStub';
 
 describe('@premium', () => {
@@ -25,6 +26,10 @@ describe('@premium', () => {
     expect(VoiceReviewBar({ noteId: 'n' })).toBeNull();
     expect(VoiceDraftOffer()).toBeNull();
     expect(VoiceNotesSection()).toBeNull();
+  });
+
+  it('states no trial on the sign-in page without the submodule', () => {
+    expect(WelcomeTrial()).toBeNull();
   });
 });
 
