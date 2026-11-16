@@ -29,6 +29,10 @@ tiny_http = "0.12"
 # updater already brings in, so Cargo.lock gains no crates.
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls-no-provider"] }
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
+# Release dates for the updater's license check (should_install in lib.rs, native/rust/license.rs,
+# #1316): the updater's own date type, already in the tree through it. Not desktop-only:
+# license.rs compiles on every platform.
+time = { version = "0.3", features = ["parsing"] }
 
 # Native error dialog when the asset server can't bind (lib.rs). Same library
 # and GTK backend tauri-plugin-dialog uses, without that plugin's tauri bump and
@@ -37,9 +41,6 @@ rustls = { version = "0.23", default-features = false, features = ["ring"] }
 rfd = { version = "0.17", default-features = false, features = ["gtk3"] }
 # Auto-update from the GitHub release's latest.json (update_loop in lib.rs).
 tauri-plugin-updater = "2"
-# Release dates for the updater's license check (should_install in lib.rs, native/rust/license.rs,
-# #1316): the updater's own date type, already in the tree through it.
-time = { version = "0.3", features = ["parsing"] }
 # Launch at login and a single running instance, used by the tray code in native/.
 tauri-plugin-autostart = "2"
 # OS notifications for share invites and collaborator edits, registered by native/.
