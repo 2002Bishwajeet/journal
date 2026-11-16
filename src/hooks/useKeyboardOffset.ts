@@ -51,9 +51,10 @@ export function useKeyboardOffset(enabled: boolean, editorDom: HTMLElement, cove
 
     const apply = () => {
       frame = 0;
+      const visibleHeight = viewport?.height ?? window.innerHeight;
       const keyboard = getKeyboardOffset(
         window.innerHeight,
-        viewport?.height ?? window.innerHeight,
+        visibleHeight,
         getLayoutOffsetTop(viewport?.offsetTop ?? 0, document.documentElement.clientHeight, window.innerHeight),
       );
       const wasHolding = settling && lastOffset >= 0;
@@ -84,8 +85,10 @@ export function useKeyboardOffset(enabled: boolean, editorDom: HTMLElement, cove
         "--keyboard-safe-bottom",
         offset > 0 ? "0px" : "env(safe-area-inset-bottom, 0px)",
       );
-      // Android resizes the layout instead, which leaves the offset at 0.
-      const size = `${offset} ${window.innerHeight}`;
+      // Android resizes the layout instead, which leaves the offset at 0. The visible height counts
+      // on its own: a keyboard that arrives at the held height changes neither the offset nor, in
+      // the iOS app (which no longer scrolls the page, #1300), innerHeight.
+      const size = `${offset} ${window.innerHeight} ${visibleHeight}`;
       if (size !== lastSize) {
         lastSize = size;
         scrollCaretAboveKeyboard(editorDom);

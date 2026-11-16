@@ -15,7 +15,7 @@ test('a fresh identity gets one welcome note, opened, and never a second', async
     await expect(rows).toHaveCount(1);
     await expect(page.locator('.ProseMirror:visible').getByText('Start here')).toBeVisible();
     await expect(page.locator('.ProseMirror:visible').getByRole('table')).toBeVisible();
-    await page.screenshot({ path: test.info().outputPath('welcome-note.png') });
+    await page.screenshot({ path: test.info().outputPath('welcome-note-light-desktop.png') });
 
     await waitForNoteSaved(page);
     await page.reload();
