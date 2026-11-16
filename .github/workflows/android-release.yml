@@ -11,6 +11,10 @@ name: Android Release
 #                  testing track until Play's 14-day closed test is done (default `alpha`,
 #                  Play's first closed track), then `production`:
 #                  `gh variable set PLAY_RELEASE_TRACK --body production`.
+#                  The release status is the repo variable PLAY_RELEASE_STATUS (default
+#                  `completed`). While the Play app is still a draft app Play accepts only
+#                  `draft` releases: `gh variable set PLAY_RELEASE_STATUS --body draft`, send
+#                  each one for review in Play Console, then set it to `completed` or delete it.
 #                  Nothing cancels a release build.
 # The release commit itself has [skip ci], so it gets only the submit build.
 #
@@ -215,7 +219,7 @@ jobs:
           releaseFiles: ${{ env.AAB }}
           releaseName: ${{ steps.version.outputs.name }} (${{ steps.version.outputs.code }})
           track: ${{ env.MODE == 'submit' && (vars.PLAY_RELEASE_TRACK || 'alpha') || 'internal' }}
-          status: completed
+          status: ${{ vars.PLAY_RELEASE_STATUS || 'completed' }}
           whatsNewDirectory: ${{ env.MODE == 'submit' && format('{0}/whatsnew', runner.temp) || '' }}
 
       - name: Summary
@@ -223,7 +227,9 @@ jobs:
           VERSION: ${{ steps.version.outputs.name }}
           CODE: ${{ steps.version.outputs.code }}
           TRACK: ${{ env.MODE == 'submit' && (vars.PLAY_RELEASE_TRACK || 'alpha') || 'internal' }}
+          STATUS: ${{ vars.PLAY_RELEASE_STATUS || 'completed' }}
         run: |
           if [ "$DRY_RUN" = true ]; then result='built without signing (dry run): nothing uploaded'
+          elif [ "$STATUS" = draft ]; then result="uploaded to the $TRACK track as a **draft** release: send it for review in Play Console (manual until the first review passes)"
           else result="uploaded to the $TRACK track"; fi
           echo "Android $VERSION ($CODE): $result" >> "$GITHUB_STEP_SUMMARY"
