@@ -11,17 +11,28 @@ name: Desktop Release
 #
 # manual-release.yml calls this after it creates the release, once the repo
 # variable DESKTOP_RELEASES is 'true'. Run it by hand to (re)build a release.
+#
+# The build includes the paid code from the private submodule native/, checked out
+# with GH_TOKEN. With publish off it builds, signs and notarises the same way but only
+# uploads the installers as workflow artifacts: no release, tag or latest.json change.
 on:
   workflow_dispatch:
     inputs:
       tag:
         description: 'App release tag to build and attach to (e.g. v2.66.8)'
         required: true
+      publish:
+        description: 'Attach to the release and update latest.json (off: workflow artifacts only)'
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       tag:
         required: true
         type: string
+      publish:
+        type: boolean
+        default: true
 
 concurrency:
   group: desktop-release-${{ inputs.tag }}
@@ -66,6 +77,24 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.tag }}
+          submodules: true
+          token: ${{ secrets.GH_TOKEN }}
+          persist-credentials: false
+
+      # Without native/ the app builds with the premium stubs: no license or paywall.
+      - name: native/ is present
+        shell: bash
+        run: |
+          if [ ! -f native/web/index.ts ] || [ ! -f native/rust/mod.rs ]; then
+            echo "::error::native/ (journal-native-features) is not checked out: GH_TOKEN needs read access to it"
+            exit 1
+          fi
+          echo "native/ at $(git -C native rev-parse --short HEAD)"
+          if [ -z "$BILLING_URL" ]; then
+            echo "::warning::Repo variable DESKTOP_BILLING_URL is not set: this build has no trial, paywall or license activation"
+          fi
+        env:
+          BILLING_URL: ${{ vars.DESKTOP_BILLING_URL }}
 
       - name: Use Node.js 22
         uses: actions/setup-node@v4
@@ -123,8 +152,13 @@ jobs:
           APPLE_SIGNING_IDENTITY: 'Developer ID Application: Bishwajeet Parhi (N899Y9TW48)'
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          # The billing Worker's origin turns on the trial, paywall and license keys
+          # (native/AGENTS.md): VITE_ for the web, JOURNAL_ compiled into the Rust side.
+          VITE_BILLING_URL: ${{ vars.DESKTOP_BILLING_URL }}
+          JOURNAL_BILLING_URL: ${{ vars.DESKTOP_BILLING_URL }}
         with:
-          tagName: ${{ inputs.tag }}
+          # No tag: tauri-action builds and uploads nothing.
+          tagName: ${{ inputs.publish && inputs.tag || '' }}
           args: ${{ matrix.args }} --config src-tauri/tauri.release.conf.json
           # Journal-darwin-universal.dmg, Journal-windows-x64-setup.exe, Journal-windows-x64.msi,
           # Journal-linux-amd64.AppImage, Journal-linux-amd64.deb (+ updater bundles and .sig files).
@@ -132,11 +166,27 @@ jobs:
           updaterJsonPreferNsis: true
           retryAttempts: 1
 
+      - name: Upload installers
+        if: ${{ !inputs.publish }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ runner.os }}
+          path: |
+            src-tauri/target/**/release/bundle/*/*.dmg
+            src-tauri/target/**/release/bundle/*/*.exe
+            src-tauri/target/**/release/bundle/*/*.msi
+            src-tauri/target/**/release/bundle/*/*.AppImage
+            src-tauri/target/**/release/bundle/*/*.deb
+            src-tauri/target/**/release/bundle/*/*.tar.gz
+            src-tauri/target/**/release/bundle/*/*.sig
+          if-no-files-found: error
+
   # Runs once every build has uploaded: SHA-256 checksums for the download page,
   # and a check that no platform's latest.json entry was lost (the builds merge
   # the file one at a time, and two finishing together could drop one).
   checksums:
     needs: build
+    if: inputs.publish
     runs-on: ubuntu-latest
     permissions:
       contents: write
