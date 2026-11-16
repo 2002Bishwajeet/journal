@@ -1,7 +1,6 @@
 /**
  * Records the landing page's product media (site/public/media/) from the real app, light and dark:
- * screenshots of notes and live blocks, phone screenshots, crops of single features (callouts and
- * tables, math and code, version history, the Share dialog, Settings > Agent access, the slash menu),
+ * phone screenshots, crops of single features (Settings > Agent access, the slash menu),
  * the public page of a published note, and the hero video.
  * The published note's cover is "Alfama Rooftops and Tagus River View, Lisbon" by Dale Cruse,
  * CC BY 4.0, via Wikimedia Commons (scripts/landing-media-cover.jpg).
@@ -12,6 +11,8 @@
  *   npx vite build --mode e2e --outDir dist-e2e
  *   npx vite preview --mode e2e --outDir dist-e2e --host 127.0.0.1 --port 5174 --strictPort &
  *   npx vite-node scripts/landing-media.ts [shots|features|video]
+ *
+ * Then put them in their device frames with scripts/device-frames.ts.
  */
 import { chromium, expect, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
@@ -113,7 +114,7 @@ async function newContext(browser: Browser, phone: boolean, theme: Theme, clock:
   });
   const { violations } = await installNetworkFence(context);
   const page = await context.newPage();
-  // Version history snapshots at most once per 5 minutes; a fake clock jumps past that.
+  // The hero video dates its notes on a fake clock.
   if (clock) await page.clock.install(clock instanceof Date ? { time: clock } : undefined);
   await boot(page);
   await tidy(page);
@@ -157,26 +158,6 @@ async function shot(page: Page, name: string, clip?: { x: number; y: number; wid
   const png = path.join(WORK, `${name}.png`);
   await page.screenshot({ path: png, clip });
   execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', png, '-c:v', 'libwebp', '-quality', '82', `${OUT}/${name}.webp`]);
-}
-
-async function wide(browser: Browser, theme: Theme): Promise<void> {
-  const { context, page, violations } = await newContext(browser, false, theme);
-  await createFolder(page, 'Work');
-  await createFolder(page, 'Personal');
-  await addNote(page, WEEKLY, false);
-  await addNote(page, READING, false);
-  await expect(mermaidFrame(page.locator('[data-live-block="mermaid"]').first()).locator('svg[id^="mermaid-"]')).toBeVisible({ timeout: 20_000 });
-  await expect(page.frameLocator('iframe').first().locator('.recharts-bar-rectangle').first()).toBeVisible({ timeout: 20_000 });
-  await page.keyboard.press('ControlOrMeta+Home');
-  await page.waitForTimeout(1200);
-  // The note without the app around it, for the agents section.
-  await page.mouse.move(0, 0);
-  await page.waitForTimeout(400);
-  // Down to the diagram, above the assistant button in the corner.
-  await noteCrop(page, `agent-result-${theme}`, 600);
-
-  await context.close();
-  assertNoFenceViolations(violations);
 }
 
 async function narrow(browser: Browser, theme: Theme): Promise<void> {
@@ -370,127 +351,10 @@ async function heroVideo(browser: Browser, theme: Theme): Promise<void> {
   execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', clip, '-frames:v', '1', '-c:v', 'libwebp', '-quality', '86', `${OUT}/hero-poster-${theme}.webp`]);
 }
 
-// ---- Feature crops: one block of a real note, light and dark, desktop and phone ----
-
-const MATH = {
-  title: 'Physics revision',
-  html: [
-    '<p>The energy of one photon, from its wavelength <span data-type="inline-math" data-latex="\\lambda"></span>:</p>',
-    '<div data-type="block-math" data-latex="E = h\\nu = \\frac{hc}{\\lambda}"></div>',
-    `<pre><code class="language-python">${esc([
-      'h, c = 6.626e-34, 2.998e8',
-      '',
-      'def energy(nm):',
-      '    return h * c / (nm * 1e-9)',
-      '',
-      'print(energy(532))  # joules',
-    ].join('\n'))}</code></pre>`,
-  ].join(''),
-};
-
-/** A screenshot of the open note from its title down, `height` CSS pixels tall. */
-async function noteCrop(page: Page, name: string, height: number, width?: number): Promise<void> {
-  const title = (await activeTitleInput(page).boundingBox())!;
-  const editor = (await activeEditor(page).boundingBox())!;
-  const x = Math.max(0, Math.min(title.x, editor.x) - 40);
-  const png = path.join(WORK, `${name}.png`);
-  await page.screenshot({ path: png, clip: { x, y: Math.max(0, title.y - 32), width: width ?? Math.min(editor.width + 80, 1280 - x), height } });
-  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', png, '-c:v', 'libwebp', '-quality', '82', `${OUT}/${name}.webp`]);
-}
-
 async function elementShot(page: Page, selector: ReturnType<Page['locator']>, name: string): Promise<void> {
   const png = path.join(WORK, `${name}.png`);
   await selector.screenshot({ path: png, animations: 'disabled' });
   execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', png, '-c:v', 'libwebp', '-quality', '82', `${OUT}/${name}.webp`]);
-}
-
-async function blocks(browser: Browser, theme: Theme): Promise<void> {
-  const { context, page, violations } = await newContext(browser, false, theme);
-  await addNote(page, TRIP, false);
-  await page.waitForTimeout(600);
-  await noteCrop(page, `feature-blocks-${theme}`, 560);
-
-  // A narrower window for the math note, so its crop is narrow enough to read at the size the page shows it.
-  await page.setViewportSize({ width: 1024, height: 800 });
-  await addNote(page, MATH, false);
-  await expect(activeEditor(page).locator('[data-type="block-math"] .katex')).toBeVisible({ timeout: 20_000 });
-  await expect(activeEditor(page).locator('pre .hljs-keyword').first()).toBeVisible();
-  await page.waitForTimeout(600);
-  // Down to the code block, with the same margin on its right as the note has on its left.
-  const code = (await activeEditor(page).locator('pre').first().boundingBox())!;
-  const titleBox = (await activeTitleInput(page).boundingBox())!;
-  const left = Math.min(titleBox.x, code.x) - 40;
-  await noteCrop(page, `feature-math-${theme}`, code.y + code.height + 40 - (titleBox.y - 32), code.x + code.width + 40 - left);
-
-  await page.setViewportSize({ width: 1280, height: 800 });
-  // Share: the dialog as it opens on a private note.
-  await page.getByRole('button').filter({ hasText: TRIP.title }).first().click({ button: 'right' });
-  await page.getByRole('menuitem', { name: 'Share' }).click();
-  const dialog = page.getByRole('dialog');
-  await expect(dialog.getByRole('button', { name: 'Make Note Public' })).toBeVisible();
-  // The link preview names the app's own host; show the one visitors see instead of the test server's.
-  await dialog.getByText(new URL(BASE_URL).host, { exact: true }).evaluate((el) => (el.textContent = 'journal.cloudx.run'));
-  await page.waitForTimeout(600);
-  // The dialog's header and its controls column, down to the Make Note Public button.
-  const box = (await dialog.boundingBox())!;
-  const button = (await dialog.getByRole('button', { name: 'Make Note Public' }).boundingBox())!;
-  const png = path.join(WORK, `share-dialog-${theme}.png`);
-  await page.screenshot({ path: png, clip: { x: box.x, y: box.y, width: button.x + button.width + 24 - box.x, height: button.y + button.height + 24 - box.y } });
-  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', png, '-c:v', 'libwebp', '-quality', '82', `${OUT}/share-dialog-${theme}.webp`]);
-  await page.keyboard.press('Escape');
-
-  await context.close();
-  assertNoFenceViolations(violations);
-
-  const phone = await newContext(browser, true, theme);
-  await sidebar(phone.page).getByText('Main', { exact: true }).click();
-  await addNote(phone.page, MATH, true);
-  await expect(activeEditor(phone.page).locator('[data-type="block-math"] .katex')).toBeVisible({ timeout: 20_000 });
-  await phone.page.waitForTimeout(800);
-  await shot(phone.page, `phone-math-${theme}`);
-  await phone.context.close();
-  assertNoFenceViolations(phone.violations);
-}
-
-/** Two snapshots of one note, then the Version history dialog over it. */
-async function history(browser: Browser, theme: Theme): Promise<void> {
-  const { context, page, violations } = await newContext(browser, false, theme, true);
-  const title = 'Packing list';
-  const editor = activeEditor(page);
-  const open = () => page.getByRole('button').filter({ hasText: title }).first().click();
-  const close = () => page.getByRole('button', { name: `Close ${title}` }).click();
-
-  await addNote(page, { title, html: '<p>Passport, charger, rain jacket.</p>' }, false);
-  await editor.click();
-  await page.keyboard.press('ControlOrMeta+End');
-  await page.keyboard.type(' Tram passes.');
-  await waitForNoteSaved(page);
-  await close(); // compacts: the first snapshot
-  await open();
-  await editor.click();
-  await page.keyboard.press('ControlOrMeta+End');
-  await page.keyboard.press('Enter');
-  await page.keyboard.type('Swap the rain jacket for a light coat; the forecast is dry.');
-  await waitForNoteSaved(page);
-  await page.clock.fastForward('06:00');
-  await close(); // the second snapshot
-  await open();
-  await expect(editor).toContainText('light coat');
-
-  await page.getByRole('button', { name: 'Version history' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Version history' });
-  await expect(dialog.getByRole('listitem').first()).toBeVisible();
-  // No focus ring on Close, and the panel cropped 8px inside its edge, clear of its rounded corners and of the
-  // page behind them: the landing page gives the picture its own corners.
-  await dialog.getByRole('button', { name: 'Close' }).evaluate((el) => (el as HTMLElement).blur());
-  await page.waitForTimeout(800);
-  const panel = (await dialog.boundingBox())!;
-  const historyPng = path.join(WORK, `feature-history-${theme}.png`);
-  await page.screenshot({ path: historyPng, clip: { x: panel.x + 8, y: panel.y + 8, width: panel.width - 16, height: panel.height - 16 } });
-  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', historyPng, '-c:v', 'libwebp', '-quality', '82', `${OUT}/feature-history-${theme}.webp`]);
-
-  await context.close();
-  assertNoFenceViolations(violations);
 }
 
 /** Settings > Agent access with a grant per folder: what an MCP agent may read or write. On a phone, also the whole screen. */
@@ -660,19 +524,12 @@ const browser = await chromium.launch();
 try {
   const only = process.argv[2];
   for (const theme of ['light', 'dark'] as const) {
-    if (!only || only === 'shots') {
-      await wide(browser, theme);
-      await narrow(browser, theme);
-    }
+    if (!only || only === 'shots') await narrow(browser, theme);
     if (!only || only === 'features') {
-      await blocks(browser, theme);
-      await history(browser, theme);
       await publicPage(browser, theme, false);
       await publicPage(browser, theme, true);
     }
     if (!only || only === 'video') await heroVideo(browser, theme);
-    if (only === 'wide') await wide(browser, theme);
-    if (only === 'history') await history(browser, theme);
     if (only === 'public') {
       await publicPage(browser, theme, false);
       await publicPage(browser, theme, true);
