@@ -19,6 +19,11 @@ name: Desktop Release
 # with GH_TOKEN. With publish off it builds, signs and notarises the same way but only
 # uploads the installers as workflow artifacts: no release, tag or latest.json change,
 # and no draft is needed.
+#
+# `security` (from manual-release.yml, or by hand) adds `"security": true` to
+# latest.json before the release is published. The desktop updater then installs
+# the release even for a license key whose updates ended (#1316). The field isn't
+# signed; it can only make the updater install a bundle whose signature it still checks.
 on:
   workflow_dispatch:
     inputs:
@@ -29,6 +34,10 @@ on:
         description: 'Attach to the draft release, update latest.json and publish it (off: workflow artifacts only)'
         type: boolean
         default: false
+      security:
+        description: 'Security release: add "security": true to latest.json, so keys whose updates ended get it too'
+        type: boolean
+        default: false
   workflow_call:
     inputs:
       tag:
@@ -37,6 +46,9 @@ on:
       publish:
         type: boolean
         default: true
+      security:
+        type: boolean
+        default: false
 
 concurrency:
   group: desktop-release-${{ inputs.tag }}
@@ -252,6 +264,14 @@ jobs:
             jq -e --arg p "$platform" '.platforms[$p].url' "$RUNNER_TEMP/latest.json" > /dev/null \
               || { echo "::error::latest.json has no $platform entry: re-run this workflow for $TAG"; exit 1; }
           done
+
+      # After every build merged its platform: the release is still a draft, so the file can be replaced.
+      - name: Mark latest.json as a security release
+        if: inputs.security
+        run: |
+          mkdir "$RUNNER_TEMP/security"
+          jq '.security = true' "$RUNNER_TEMP/latest.json" > "$RUNNER_TEMP/security/latest.json"
+          gh release upload "$TAG" "$RUNNER_TEMP/security/latest.json" -R "$GITHUB_REPOSITORY" --clobber
 
       - name: Upload SHA256SUMS.txt
         run: |
