@@ -40,21 +40,29 @@ vi.mock('@/hooks/useOverlayHistory', () => ({ useOverlayHistory: () => {} }));
 describe('SearchModal', () => {
   let host: HTMLDivElement;
   let root: Root;
+  // useSheetMode's query: a phone or touch tablet (true), or a mouse on a wide screen (false).
+  let sheetMode = true;
+
+  const render = () =>
+    act(() => {
+      root.render(createElement(SearchModal, { isOpen: true, onClose: () => {}, onSelectNote: () => {} }));
+    });
 
   beforeEach(() => {
+    sheetMode = true;
+    vi.stubGlobal('matchMedia', () => ({ matches: sheetMode, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
     handleClose.mockClear();
     setSelectedIndex.mockClear();
     host = document.createElement('div');
     document.body.appendChild(host);
     root = createRoot(host);
-    act(() => {
-      root.render(createElement(SearchModal, { isOpen: true, onClose: () => {}, onSelectNote: () => {} }));
-    });
+    render();
   });
 
   afterEach(() => {
     act(() => root.unmount());
     host.remove();
+    vi.unstubAllGlobals();
   });
 
   const button = (text: string) =>
@@ -102,6 +110,19 @@ describe('SearchModal', () => {
   it('Cancel closes the modal', () => {
     act(() => button('Cancel').click());
     expect(handleClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('is the full-screen search without keyboard hints on a touch screen, the palette for a mouse (#1289)', () => {
+    expect(host.querySelector('kbd')).toBeNull();
+    expect(host.textContent).not.toContain('navigate');
+
+    act(() => root.unmount());
+    root = createRoot(host);
+    sheetMode = false;
+    render();
+    expect(button('Cancel')).toBeUndefined();
+    expect([...host.querySelectorAll('kbd')].map((k) => k.textContent)).toContain('Esc');
+    expect(host.textContent).toContain('navigate');
   });
 
   it('hover selects a result for a mouse but not for touch', () => {

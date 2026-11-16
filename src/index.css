@@ -1248,7 +1248,7 @@ img.ProseMirror-separator {
    slides in from the right over the previous one; back (data-nav="back"), the top screen
    slides out to the right off the one under it. slideNavigate in navDirection.ts starts them.
    The screens overlap, so no plus-lighter blend; on back the old screen is the top one. */
-@media (max-width: 767.98px) and (prefers-reduced-motion: no-preference) {
+@media (max-width: 639.98px) and (prefers-reduced-motion: no-preference) {
   ::view-transition-old(root),
   ::view-transition-new(root) {
     animation-duration: var(--duration-push);

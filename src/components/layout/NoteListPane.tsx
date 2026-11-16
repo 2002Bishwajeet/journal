@@ -95,7 +95,8 @@ export function NoteListPane({
         split
           ? isManagementView
             ? "flex flex-1 static"
-            : cn("flex static shrink-0", isTablet ? "w-80" : "w-64")
+            : // A small tablet (640-767 px) keeps the 256px column, so the note stays wider than a phone.
+              cn("flex static shrink-0", isTablet ? "w-64 md:w-80" : "w-64")
           : "hidden",
         // Mobile: Visible for a folder or tag with no note selected (Absolute covering screen)
         !split &&

@@ -184,6 +184,142 @@ export default function Sidebar({
     </>
   );
 
+  // Archive, Trash, Settings and Log out.
+  const footer = (
+    <div
+      className={cn(
+        "shrink-0 space-y-1",
+        isCollapsed
+          ? "p-2 w-full flex flex-col items-center"
+          : "p-2 pb-[calc(0.5rem+var(--fab-clearance,0px))] mt-auto"
+      )}
+    >
+      <Separator className={isCollapsed ? "mb-2 w-6!" : "mb-2"} />
+
+      {/* Native app: the trial countdown (#301). */}
+      {!isCollapsed && <TrialChip />}
+
+      <Tooltip>
+        {/* Archive */}
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            className={cn(
+              isCollapsed
+                ? "h-9 w-9 justify-center px-0"
+                : "press-row w-full justify-start px-2 h-8 pointer-coarse:min-h-11 text-muted-foreground",
+              selectedFolderId === PSEUDO_FOLDERS.archive &&
+                "bg-accent text-accent-foreground font-medium hover:bg-accent"
+            )}
+            aria-label={isCollapsed ? "Archive" : undefined}
+            onClick={onSelectArchive}
+          >
+            <Archive className="h-4 w-4" />
+            {!isCollapsed && (
+              <>
+                <span className="ml-2 text-sm flex-1 text-left">Archive</span>
+                {archivedCount != null && archivedCount > 0 && (
+                  <span className="ml-auto text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full font-medium">
+                    {archivedCount}
+                  </span>
+                )}
+              </>
+            )}
+          </Button>
+        </TooltipTrigger>
+        {isCollapsed && (
+          <TooltipContent side="right">
+            Archive{archivedCount ? ` (${archivedCount})` : ''}
+          </TooltipContent>
+        )}
+      </Tooltip>
+
+      <Tooltip>
+        {/* Trash */}
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            className={cn(
+              isCollapsed
+                ? "h-9 w-9 justify-center px-0"
+                : "press-row w-full justify-start px-2 h-8 pointer-coarse:min-h-11 text-muted-foreground",
+              selectedFolderId === PSEUDO_FOLDERS.trash &&
+                "bg-accent text-accent-foreground font-medium hover:bg-accent"
+            )}
+            aria-label={isCollapsed ? "Trash" : undefined}
+            onClick={onSelectTrash}
+          >
+            <Trash2 className="h-4 w-4" />
+            {!isCollapsed && (
+              <>
+                <span className="ml-2 text-sm flex-1 text-left">Trash</span>
+                {trashCount != null && trashCount > 0 && (
+                  <span className="ml-auto text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full font-medium">
+                    {trashCount}
+                  </span>
+                )}
+              </>
+            )}
+          </Button>
+        </TooltipTrigger>
+        {isCollapsed && (
+          <TooltipContent side="right">
+            Trash{trashCount ? ` (${trashCount})` : ''}
+          </TooltipContent>
+        )}
+      </Tooltip>
+
+      {!isPhone && (
+        <Tooltip>
+          {/* Settings */}
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              className={cn(
+                isCollapsed
+                  ? "h-9 w-9 justify-center px-0"
+                  : "press-row w-full justify-start px-2 h-8 pointer-coarse:min-h-11 text-muted-foreground"
+              )}
+              aria-label={isCollapsed ? "Settings" : undefined}
+              onClick={onSettings}
+            >
+              <Settings className="h-4 w-4" />
+              {!isCollapsed && <span className="ml-2 text-sm">Settings</span>}
+            </Button>
+          </TooltipTrigger>
+          {isCollapsed && (
+            <TooltipContent side="right">Settings</TooltipContent>
+          )}
+        </Tooltip>
+      )}
+
+      {/* Phones sign out in Settings → Account (#830). */}
+      {!isPhone && (
+      <Tooltip>
+        {/* Logout */}
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            className={cn(
+              isCollapsed
+                ? "h-9 w-9 justify-center px-0 text-destructive"
+                : "w-full justify-start px-2 h-8 pointer-coarse:min-h-11 text-destructive hover:text-destructive"
+            )}
+            aria-label={isCollapsed ? "Log out" : undefined}
+            onClick={() => setShowLogoutConfirm(true)}
+          >
+            <LogOut className="h-4 w-4" />
+            {!isCollapsed && <span className="ml-2 text-sm">Log out</span>}
+          </Button>
+        </TooltipTrigger>
+        {isCollapsed && (
+          <TooltipContent side="right">Log out</TooltipContent>
+        )}
+      </Tooltip>
+      )}
+    </div>
+  );
+
   return (
     <TooltipProvider delayDuration={0}>
       <aside
@@ -509,6 +645,8 @@ export default function Sidebar({
               </div>
             </>
           )}
+          {/* A phone scrolls Archive and Trash with the list, so a short screen keeps its tags in view (#1289). */}
+          {isPhone && footer}
           </PullToRefresh>
         </ScrollArea>
 
@@ -549,139 +687,7 @@ export default function Sidebar({
           pendingTotal={pendingCount.total + pendingCount.failed}
         />
 
-        {/* Footer */}
-        <div
-          className={cn(
-            "shrink-0 space-y-1",
-            isCollapsed
-              ? "p-2 w-full flex flex-col items-center"
-              : "p-2 pb-[calc(0.5rem+var(--fab-clearance,0px))] mt-auto"
-          )}
-        >
-          <Separator className={isCollapsed ? "mb-2 w-6!" : "mb-2"} />
-
-          {/* Native app: the trial countdown (#301). */}
-          {!isCollapsed && <TrialChip />}
-
-          <Tooltip>
-            {/* Archive */}
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                className={cn(
-                  isCollapsed
-                    ? "h-9 w-9 justify-center px-0"
-                    : "press-row w-full justify-start px-2 h-8 pointer-coarse:min-h-11 text-muted-foreground",
-                  selectedFolderId === PSEUDO_FOLDERS.archive &&
-                    "bg-accent text-accent-foreground font-medium hover:bg-accent"
-                )}
-                aria-label={isCollapsed ? "Archive" : undefined}
-                onClick={onSelectArchive}
-              >
-                <Archive className="h-4 w-4" />
-                {!isCollapsed && (
-                  <>
-                    <span className="ml-2 text-sm flex-1 text-left">Archive</span>
-                    {archivedCount != null && archivedCount > 0 && (
-                      <span className="ml-auto text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full font-medium">
-                        {archivedCount}
-                      </span>
-                    )}
-                  </>
-                )}
-              </Button>
-            </TooltipTrigger>
-            {isCollapsed && (
-              <TooltipContent side="right">
-                Archive{archivedCount ? ` (${archivedCount})` : ''}
-              </TooltipContent>
-            )}
-          </Tooltip>
-
-          <Tooltip>
-            {/* Trash */}
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                className={cn(
-                  isCollapsed
-                    ? "h-9 w-9 justify-center px-0"
-                    : "press-row w-full justify-start px-2 h-8 pointer-coarse:min-h-11 text-muted-foreground",
-                  selectedFolderId === PSEUDO_FOLDERS.trash &&
-                    "bg-accent text-accent-foreground font-medium hover:bg-accent"
-                )}
-                aria-label={isCollapsed ? "Trash" : undefined}
-                onClick={onSelectTrash}
-              >
-                <Trash2 className="h-4 w-4" />
-                {!isCollapsed && (
-                  <>
-                    <span className="ml-2 text-sm flex-1 text-left">Trash</span>
-                    {trashCount != null && trashCount > 0 && (
-                      <span className="ml-auto text-xs bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full font-medium">
-                        {trashCount}
-                      </span>
-                    )}
-                  </>
-                )}
-              </Button>
-            </TooltipTrigger>
-            {isCollapsed && (
-              <TooltipContent side="right">
-                Trash{trashCount ? ` (${trashCount})` : ''}
-              </TooltipContent>
-            )}
-          </Tooltip>
-
-          {!isPhone && (
-            <Tooltip>
-              {/* Settings */}
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className={cn(
-                    isCollapsed
-                      ? "h-9 w-9 justify-center px-0"
-                      : "press-row w-full justify-start px-2 h-8 pointer-coarse:min-h-11 text-muted-foreground"
-                  )}
-                  aria-label={isCollapsed ? "Settings" : undefined}
-                  onClick={onSettings}
-                >
-                  <Settings className="h-4 w-4" />
-                  {!isCollapsed && <span className="ml-2 text-sm">Settings</span>}
-                </Button>
-              </TooltipTrigger>
-              {isCollapsed && (
-                <TooltipContent side="right">Settings</TooltipContent>
-              )}
-            </Tooltip>
-          )}
-
-          {/* Phones sign out in Settings → Account (#830). */}
-          {!isPhone && (
-          <Tooltip>
-            {/* Logout */}
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                className={cn(
-                  isCollapsed
-                    ? "h-9 w-9 justify-center px-0 text-destructive"
-                    : "w-full justify-start px-2 h-8 pointer-coarse:min-h-11 text-destructive hover:text-destructive"
-                )}
-                aria-label={isCollapsed ? "Log out" : undefined}
-                onClick={() => setShowLogoutConfirm(true)}
-              >
-                <LogOut className="h-4 w-4" />
-                {!isCollapsed && <span className="ml-2 text-sm">Log out</span>}
-              </Button>
-            </TooltipTrigger>
-            {isCollapsed && (
-              <TooltipContent side="right">Log out</TooltipContent>
-            )}
-          </Tooltip>
-          )}
-        </div>
+        {!isPhone && footer}
       </aside>
     </TooltipProvider>
   );

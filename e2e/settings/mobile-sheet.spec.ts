@@ -49,7 +49,8 @@ test('tablet 800px: the dialog keeps a 16px margin', async ({ browser }) => {
 
 test('narrow tablet 700px: still a full-screen sheet', async ({ browser }) => {
   await withFencedPage(browser, { storageState: AUTH, viewport: { width: 700, height: 900 } }, async (page) => {
-    const dialog = await openSettings(page);
+    // From 640 px the folders (and Settings) are in the tablet overlay (#1289).
+    const dialog = await openSettings(page, true);
     const box = (await dialog.boundingBox())!;
     expect(Math.abs(box.x)).toBeLessThanOrEqual(1);
     expect(Math.abs(box.y)).toBeLessThanOrEqual(1);
