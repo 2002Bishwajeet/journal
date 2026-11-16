@@ -82,6 +82,7 @@ jobs:
     needs: release
     permissions:
       contents: read
+      packages: read
       deployments: write
     uses: ./.github/workflows/deploy-cloudflare.yml
     with:
@@ -95,6 +96,7 @@ jobs:
     if: vars.DESKTOP_RELEASES == 'true'
     permissions:
       contents: write
+      packages: read
     uses: ./.github/workflows/desktop-release.yml
     with:
       tag: v${{ needs.release.outputs.version }}
