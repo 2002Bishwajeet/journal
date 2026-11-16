@@ -2,7 +2,21 @@
 
 Status: draft, 2026-10-09. Claims about Journal come from the repo and issues #555, #563 and #564. Claims about other products are footnoted; a cell we could not check says "—".
 
-## Your notes on your device, private by design.
+## Private notes, encrypted.
+
+Store subtitle: "Encrypted Markdown notebook". Supporting line: "Your notes stay home."
+
+### Naming
+
+- The PWA and the website are **Journal**.
+- The native apps (iOS, Android, Mac, Windows, Linux) are **Journal+**.
+- The store listings are named **Journal - Private Notes**.
+
+### Pricing
+
+Free to download, with a 3-day trial, then a one-time purchase that includes 1 year of updates. The app keeps working after that year. No subscription.
+
+### Your notes on your device, private by design.
 
 Journal is a notebook that keeps every note in a database inside your browser, so it opens fast and works offline. Sync is a layer on top, not the place your notes live. AI agents can write in your notes through an MCP server, and only in the folders and notes you allow. They can build live blocks (Mermaid diagrams, SVG, HTML and React) that run inside the note instead of in a separate chat. When you want to publish a note, it goes out from your own private space as a public page. Journal is open source under the AGPL-3.0.
 

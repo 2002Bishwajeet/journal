@@ -91,6 +91,8 @@ interface HitRow {
 }
 
 const MODIFIED = `s.metadata->'timestamps'->>'modified'`;
+// `p.prose`: the body before CODE_SEPARATOR (previewText.ts), without code-block and live-block text.
+const proseOf = `CROSS JOIN LATERAL (SELECT split_part(s.plain_text_content, chr(31), 1) AS prose) p`;
 // Below this many hits the next, slower stage runs.
 const ENOUGH = 10;
 
@@ -191,7 +193,8 @@ async function searchTitlesAndFullText(db: Db, plan: SearchPlan, visible: string
     // returned. ts_headline only for those 50, and on ~2,000 characters around
     // a literal match of the query's first word: the first lowercase one, which
     // strpos finds without lowercasing the body, else the first in any case,
-    // else the first without accents, else the body start.
+    // else the first without accents, else the body start. Snippets come from
+    // the prose only (`proseOf`): code and live-block source never shows (#1289).
     // enable_seqscan off: GIN's cost estimate for a prefix (`:*`) is so high that
     // the planner scans every note, reading every search_vector twice.
     const result = await db.transaction(async (tx) => {
@@ -204,10 +207,10 @@ async function searchTitlesAndFullText(db: Db, plan: SearchPlan, visible: string
                     'StartSel=<mark>, StopSel=</mark>, MaxWords=50, MinWords=5, MaxFragments=1')
                     ELSE s.title END AS title_highlight,
                 CASE WHEN top.fts THEN ts_headline('journal',
-                    SUBSTRING(s.plain_text_content FROM GREATEST(1, COALESCE(
-                        NULLIF(strpos(s.plain_text_content, $3), 0),
-                        NULLIF(strpos(lower(s.plain_text_content), $3), 0),
-                        strpos(unaccent(lower(s.plain_text_content)), unaccent($3))) - 1000) FOR 2000),
+                    SUBSTRING(p.prose FROM GREATEST(1, COALESCE(
+                        NULLIF(strpos(p.prose, $3), 0),
+                        NULLIF(strpos(lower(p.prose), $3), 0),
+                        strpos(unaccent(lower(p.prose)), unaccent($3))) - 1000) FOR 2000),
                     $1::tsquery,
                     'StartSel=<mark>, StopSel=</mark>, MaxWords=35, MinWords=15, MaxFragments=2, FragmentDelimiter= ... ')
                 END AS content_highlight
@@ -223,6 +226,7 @@ async function searchTitlesAndFullText(db: Db, plan: SearchPlan, visible: string
                    ORDER BY tier DESC, rank DESC, modified DESC NULLS LAST
                    LIMIT 50) top
              JOIN search_index s ON s.doc_id = top.doc_id
+             ${proseOf}
              ORDER BY top.tier DESC, top.rank DESC, top.modified DESC NULLS LAST`,
             params,
         );
@@ -249,11 +253,12 @@ async function searchBodySubstring(
     // the body as written, and an unaccented copy would double that index.
     const result = await db.query<HitRow & { snippet: string }>(
         `SELECT s.doc_id, s.title, s.metadata,
-            SUBSTRING(s.plain_text_content FROM GREATEST(1, strpos(lower(s.plain_text_content), lower($2)) - 40) FOR 120) AS snippet
+            SUBSTRING(p.prose FROM GREATEST(1, strpos(lower(p.prose), lower($2)) - 40) FOR 120) AS snippet
          FROM (SELECT s.doc_id FROM search_index s
                WHERE s.plain_text_content ILIKE '%' || $1 || '%' AND s.doc_id <> ALL($3::uuid[]) AND ${visible}
                LIMIT 30) hit
          JOIN search_index s ON s.doc_id = hit.doc_id
+         ${proseOf}
          ORDER BY ${MODIFIED} DESC NULLS LAST`,
         [plan.like, plan.text, found.map((r) => r.docId)],
     );

@@ -233,7 +233,7 @@ export default function JournalLayout() {
   const deviceType = useDeviceType();
   const isTablet = deviceType === "tablet";
   const aiSupported = useAISupported();
-  // Tablets (768-1023 px) show the list and the editor side by side (#832); the
+  // Tablets (640-1023 px) show the list and the editor side by side (#832); the
   // folder sidebar is an overlay that owns a history entry, so Back closes it.
   const [sidebarRequested, setSidebarRequested] = useState(false);
   const sidebarOverlayOpen = isTablet && sidebarRequested;
