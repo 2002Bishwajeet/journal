@@ -1,3 +1,15 @@
+# [2.73.0](https://github.com/2002Bishwajeet/journal/compare/v2.72.0...v2.73.0) (2026-11-16)
+
+
+### Bug Fixes
+
+* **desktop:** pass the release date to premium::updates_until, which asks the Worker before skipping ([#1316](https://github.com/2002Bishwajeet/journal/issues/1316)) ([733e8e3](https://github.com/2002Bishwajeet/journal/commit/733e8e304f8e253919be9293819f40f7d064bb0d))
+
+
+### Features
+
+* **desktop:** a security release installs even after the key's updates end ([#1316](https://github.com/2002Bishwajeet/journal/issues/1316)) ([a02dfee](https://github.com/2002Bishwajeet/journal/commit/a02dfee96e12198ea34811b0ca1455770d11bf7b))
+* **desktop:** the updater installs only the releases the license's updatesUntil covers ([#1316](https://github.com/2002Bishwajeet/journal/issues/1316)) ([fbc6335](https://github.com/2002Bishwajeet/journal/commit/fbc6335b24a02e9a0f76182532f37a8ec65da7b2))
 # [2.72.0](https://github.com/2002Bishwajeet/journal/compare/v2.71.1...v2.72.0) (2026-11-16)
 
 
