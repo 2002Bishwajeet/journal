@@ -1,5 +1,6 @@
 /**
- * Generates the macOS menu bar icon (#1331) from src-tauri/icons/tray/tray-template.svg:
+ * Generates the macOS menu bar icon (#1331) from src-tauri/icons/tray/tray-template.svg
+ * (the brand quill path from brand/logo/mark-dark.svg, without its fill):
  * transparent PNGs, black plus alpha only, at 1x (18 px) and 2x (36 px). The tray
  * code (native/rust/tray.rs) shows them as a template image, so macOS tints them for
  * light and dark menu bars and the highlighted state.

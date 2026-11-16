@@ -31,6 +31,13 @@ describe('desktop icons (scripts/generate-desktop-icons.mjs)', () => {
     expect(pngSize('tray/tray-template@2x.png')).toEqual([36, 36]);
   });
 
+  it('draws the menu bar icon with the brand quill (brand/logo/mark-dark.svg)', () => {
+    const pathOf = (svg: string) => svg.match(/<path[^>]* d="([^"]+)"/)?.[1];
+    const brand = pathOf(readFileSync(new URL('../../brand/logo/mark-dark.svg', import.meta.url), 'utf8'));
+    expect(brand).toBeTruthy();
+    expect(pathOf(read('tray/tray-template.svg').toString())).toBe(brand);
+  });
+
   it('has a macOS icon', () => {
     expect(read('icon.icns').subarray(0, 4).toString()).toBe('icns');
   });
