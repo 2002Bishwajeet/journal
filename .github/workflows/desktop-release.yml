@@ -169,6 +169,24 @@ jobs:
           updaterJsonPreferNsis: true
           retryAttempts: 1
 
+      # Tauri notarises and staples the .app, not the dmg around it, so Gatekeeper
+      # rejects the download ("Unnotarized Developer ID"). The build step has already
+      # uploaded the dmg when publishing, so replace that copy.
+      - name: Notarise and staple the dmg
+        if: runner.os == 'macOS'
+        env:
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          dmg=$(ls src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg)
+          xcrun notarytool submit "$dmg" --key "$APPLE_API_KEY_PATH" --key-id "$APPLE_API_KEY" --issuer "$APPLE_API_ISSUER" --wait
+          xcrun stapler staple "$dmg"
+          if [ "${{ inputs.publish }}" = true ]; then
+            cp "$dmg" "$RUNNER_TEMP/Journal-darwin-universal.dmg"
+            gh release upload "${{ inputs.tag }}" "$RUNNER_TEMP/Journal-darwin-universal.dmg" -R "$GITHUB_REPOSITORY" --clobber
+          fi
+
       - name: Upload installers
         if: ${{ !inputs.publish }}
         uses: actions/upload-artifact@v4
