@@ -36,7 +36,7 @@ export function ShareLinkPreview({ noteId, noteTitle, isPublic }: { noteId: stri
     const cardImage = useShareCardImage(noteId, cardPreview.cardImageFrom, isPublic);
     return (
         // A region on the dialog and the phone sheet alike, named by its heading
-        <section aria-labelledby="share-preview-heading" className="flex w-full max-w-[500px] flex-col gap-3">
+        <section aria-labelledby="share-preview-heading" className="flex w-full flex-col gap-3">
             <h3 id="share-preview-heading" className="text-sm leading-5 font-medium text-muted-foreground">
                 Link preview
             </h3>

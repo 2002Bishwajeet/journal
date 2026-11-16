@@ -40,21 +40,37 @@ vi.mock('@/hooks/useOverlayHistory', () => ({ useOverlayHistory: () => {} }));
 describe('SearchModal', () => {
   let host: HTMLDivElement;
   let root: Root;
+  // The simulated screen the media queries are evaluated against; a phone unless a test says otherwise.
+  let screen = { width: 390, coarse: true };
+  const matches = (query: string) =>
+    query.split(', ').some((clause) =>
+      clause.split(' and ').every((cond) => {
+        const maxWidth = /\(max-width: (\d+)px\)/.exec(cond);
+        if (maxWidth) return screen.width <= Number(maxWidth[1]);
+        return cond === '(pointer: coarse)' ? screen.coarse : false;
+      }),
+    );
+
+  const render = () =>
+    act(() => {
+      root.render(createElement(SearchModal, { isOpen: true, onClose: () => {}, onSelectNote: () => {} }));
+    });
 
   beforeEach(() => {
+    screen = { width: 390, coarse: true };
+    vi.stubGlobal('matchMedia', (query: string) => ({ matches: matches(query), addEventListener: vi.fn(), removeEventListener: vi.fn() }));
     handleClose.mockClear();
     setSelectedIndex.mockClear();
     host = document.createElement('div');
     document.body.appendChild(host);
     root = createRoot(host);
-    act(() => {
-      root.render(createElement(SearchModal, { isOpen: true, onClose: () => {}, onSelectNote: () => {} }));
-    });
+    render();
   });
 
   afterEach(() => {
     act(() => root.unmount());
     host.remove();
+    vi.unstubAllGlobals();
   });
 
   const button = (text: string) =>
@@ -102,6 +118,40 @@ describe('SearchModal', () => {
   it('Cancel closes the modal', () => {
     act(() => button('Cancel').click());
     expect(handleClose).toHaveBeenCalledTimes(1);
+  });
+
+  const renderAt = (width: number, coarse: boolean) => {
+    act(() => root.unmount());
+    root = createRoot(host);
+    screen = { width, coarse };
+    render();
+  };
+  const isPalette = () => button('Cancel') === undefined;
+
+  it('is the full-screen search without keyboard hints on a touch screen, the palette for a mouse from 640 px (#1289)', () => {
+    expect(host.querySelector('kbd')).toBeNull();
+    expect(host.textContent).not.toContain('navigate');
+
+    // iPhone Duo's inner display and a portrait iPad: touch below 1024 px gets the full-screen search.
+    renderAt(669, true);
+    expect(isPalette()).toBe(false);
+    renderAt(820, true);
+    expect(isPalette()).toBe(false);
+    // An iPad in landscape is wide enough for the palette.
+    renderAt(1180, true);
+    expect(isPalette()).toBe(true);
+
+    // A mouse keeps the palette from 640 px, as it had with the old sm: breakpoint.
+    renderAt(700, false);
+    expect(isPalette()).toBe(true);
+    expect([...host.querySelectorAll('kbd')].map((k) => k.textContent)).toContain('Esc');
+    expect(host.textContent).toContain('navigate');
+    renderAt(640, false);
+    expect(isPalette()).toBe(true);
+
+    // Below 640 px even a mouse gets the full-screen search.
+    renderAt(639, false);
+    expect(isPalette()).toBe(false);
   });
 
   it('hover selects a result for a mouse but not for touch', () => {

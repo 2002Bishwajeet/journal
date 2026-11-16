@@ -105,7 +105,7 @@ export default function AISection() {
       <div className="space-y-4">
         {intro}
         <p className="text-sm leading-relaxed text-muted-foreground text-pretty">
-          On-device AI needs a larger screen (768 px or wider) and isn't
+          On-device AI needs a larger screen (640 px or wider) and isn't
           available on phones.
         </p>
         {enableRow}

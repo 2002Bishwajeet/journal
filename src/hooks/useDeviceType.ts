@@ -5,8 +5,9 @@ export type DeviceType = 'mobile' | 'tablet' | 'desktop';
 export function getDeviceType(): DeviceType {
     if (typeof window === 'undefined') return 'desktop';
     const width = window.innerWidth;
-    // A phone held sideways (852x393) is still a phone: no room for two panes (#832).
-    if (width < 768 || (width < 1024 && window.innerHeight < 500)) return 'mobile';
+    // A phone held sideways (852x393) is still a phone: no room for two panes (#832). From 640 px a
+    // screen is a small tablet (iPhone Duo's inner display is 669 wide, #1289): two panes.
+    if (width < 640 || (width < 1024 && window.innerHeight < 500)) return 'mobile';
     if (width < 1024) return 'tablet';
     return 'desktop';
 }
