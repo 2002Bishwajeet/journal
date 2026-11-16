@@ -24,7 +24,7 @@ describe('android app config', () => {
 
   it('sets the bar icons from the colour the page posts, for the app origin only', () => {
     const activity = read('src-tauri/gen/android/app/src/main/java/com/biswa/journal/MainActivity.kt');
-    expect(activity).toContain('"JournalSystemBars", setOf("http://localhost:47821")');
+    expect(activity).toContain('"JournalSystemBars", setOf("http://localhost:23941", "http://localhost:23942")');
     expect(activity).toContain('isAppearanceLightStatusBars = light');
     expect(activity).toContain('isAppearanceLightNavigationBars = light');
     expect(read('src/lib/themeColor.ts')).toContain('window.JournalSystemBars?.postMessage(color)');

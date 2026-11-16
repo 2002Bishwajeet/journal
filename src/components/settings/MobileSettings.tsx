@@ -56,7 +56,7 @@ export default function MobileSettings({ sections, page, onPage, onClose }: Mobi
   const rowClass = android ? "" : "border-b last:border-b-0";
 
   return (
-    <div className="flex h-dvh min-w-0 flex-col md:h-[min(640px,85dvh)]">
+    <div className="flex h-[var(--dialog-max-h,100dvh)] min-w-0 flex-col md:h-[min(640px,85dvh)]">
       {current ? (
         <>
           <header className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-border/60 px-2 pt-[env(safe-area-inset-top)]">

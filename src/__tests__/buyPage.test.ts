@@ -6,7 +6,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { UserConfig } from 'vite';
-import siteConfig, { BILLING_LIVE, billingBlocks } from '../../site/vite.config';
+import siteConfig, { BILLING_LIVE, RENEW_LIVE, billingBlocks, flagBlocks } from '../../site/vite.config';
 import { PAGES } from '../../site/seo';
 import { checkoutBody, checkoutError, maskKey, parseLicenseKey, paymentReturn, RETURN_URL } from '../../site/src/license';
 
@@ -85,11 +85,24 @@ describe('the billing flag', () => {
         expect(off).not.toContain('id="renew-form"');
     });
 
-    it('shows the buy and renew buttons, and no "coming soon", while on', () => {
+    it('shows the buy button, and no "coming soon", while on', () => {
         const on = billingBlocks(html, true);
         expect(on).toContain('id="buy-new"');
-        expect(on).toContain('id="renew-form"');
         expect(on).not.toContain('Native apps coming soon');
+    });
+
+    it('hides the renew form unless the renew flag is on', () => {
+        expect(RENEW_LIVE).toBe(process.env.VITE_RENEW_LIVE === 'true');
+        const live = billingBlocks(html, true);
+        expect(flagBlocks(live, 'renew', false)).not.toContain('id="renew-form"');
+        expect(flagBlocks(live, 'renew', false)).toContain('id="buy-new"');
+        expect(flagBlocks(live, 'renew', true)).toContain('id="renew-form"');
+    });
+
+    it('does not name the payment provider or a coupon code', () => {
+        const buyTs = readFileSync(new URL('../../site/src/buy.ts', import.meta.url), 'utf8');
+        expect(html.replace(/<!--[\s\S]*?-->/g, '')).not.toMatch(/Dodo|EARLYBIRD/i);
+        expect(buyTs).not.toMatch(/show\([^\n]*Dodo/);
     });
 
     it('keeps the return message either way, so a test checkout can land on the page', () => {

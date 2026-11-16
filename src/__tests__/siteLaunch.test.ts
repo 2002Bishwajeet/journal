@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { render, STORES_LIVE } from '../../site/vite.config';
 
 const read = (file: string) => readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8');
-const built = (file: string, stores: boolean) => render(read(`site/${file}`), { billing: true, downloads: false, stores });
+const built = (file: string, stores: boolean) => render(read(`site/${file}`), { billing: true, downloads: false, stores, renew: false });
 const APP_STORE = 'https://apps.apple.com/app/id6833436628';
 const PLAY_ID = /applicationId = "([^"]+)"/.exec(read('src-tauri/gen/android/app/build.gradle.kts'))?.[1];
 

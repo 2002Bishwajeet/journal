@@ -1,19 +1,38 @@
 # src-tauri
 
 Native shell (Tauri v2) for desktop, iOS and Android. It serves `dist/` from
-Rust on the fixed origin `http://localhost:47821`; see the comment on `PORT` in
-`src/lib.rs` for why the port never changes.
+Rust on a fixed `http://localhost` origin; see the comment on `PORT` in
+`src/lib.rs` for why the port never changes and how it was chosen.
 
-## Port 47821 must be free
+## Two fixed ports: release and development
 
-The app binds `127.0.0.1:47821` and `[::1]:47821` before it opens a window. If
+| Build | Port | Origin |
+| --- | --- | --- |
+| Release and store workflows (`desktop-release.yml`; the iOS and Android CI of #1304) | `PROD_PORT` 23941 | `http://localhost:23941` |
+| Every other build: `tauri dev`, a local `tauri build`, Simulator builds, `tauri:ios:release` and `tauri:android:release` run by hand | `DEV_PORT` 23942 | `http://localhost:23942` |
+
+The workflows set `JOURNAL_RELEASE_BUILD=1` when they compile, and `lib.rs`
+reads it with `option_env!`. To build with the release port on your machine
+(for example to test an update over an installed app), set it yourself:
+`JOURNAL_RELEASE_BUILD=1 npm run tauri:build`. A build with the other port has
+another origin, so it has its own local database and its own sign-in.
+
+The capabilities, `Info.plist` and the Android config list both origins, so one
+static file serves both builds. Premium capabilities (`native/rust`) use
+`crate::PORT`, the one origin of the build.
+
+The app binds `127.0.0.1:PORT` and `[::1]:PORT` before it opens a window. If
 either is taken, it shows "Journal can't start" and exits with code 1, in debug
 and release builds alike. Whatever answers on that port would run inside
-Journal's origin and could read the session token and local database.
+Journal's origin and could read the session token and local database. With
+the two ports, that only happens when two builds of the same type run: two
+development builds (the iOS Simulator shares the Mac's loopback, so a desktop
+dev build and a Simulator build count as two), or a second copy of the
+installed app.
 
-In development, the iOS Simulator shares the host's loopback. So the desktop
-app and a Simulator build can't run at the same time: the second one to start
-now stops with that error instead of quietly serving from the first.
+The premium single-instance plugin (`native/rust/tray.rs`) is on in release
+builds only: it keys on the app identifier, which both builds share, so in a
+development build it would quit whichever of the two started second.
 
 ## With and without the premium code
 
