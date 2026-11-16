@@ -11,6 +11,7 @@ const Gate = lazy(() => import("@premium").then((m) => ({ default: m.LicenseGate
 const Chip = lazy(() => import("@premium").then((m) => ({ default: m.TrialChip })));
 const Section = lazy(() => import("@premium").then((m) => ({ default: m.LicenseSection })));
 const Renew = lazy(() => import("@premium").then((m) => ({ default: m.RenewForUpdate })));
+const Trial = lazy(() => import("@premium").then((m) => ({ default: m.WelcomeTrial })));
 // Copies useEntitlement().canEdit into useCanEdit()'s store (#1176). A failed `@premium`
 // load must not take the app down, so it renders nothing and editing stays on.
 const Reporter = lazy(() =>
@@ -71,6 +72,16 @@ export function TrialChip() {
   return (
     <Suspense fallback={null}>
       <Chip />
+    </Suspense>
+  );
+}
+
+/** The sign-in page's welcome step: the trial and the store's price, in a store build that sells (#1282). */
+export function WelcomeTrial() {
+  if (!billingEnabled()) return null;
+  return (
+    <Suspense fallback={null}>
+      <Trial />
     </Suspense>
   );
 }

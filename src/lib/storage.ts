@@ -27,6 +27,8 @@ export const READ_ONLY_SHARE_NOTICE_KEY = 'journal-read-only-share-notice';
 export const PERMISSION_PROMPT_DISMISSED_KEY = 'journal-permission-prompt-dismissed';
 /** The identity that sent the owner to the extend-permissions page to fix the journal drive (#870). */
 export const SHARE_DRIVE_FIX_ATTEMPT_KEY = 'journal-share-drive-fix-attempt';
+/** Set once an identity signed in on this device. Sign-out keeps it (#1282, src/lib/firstRun.ts). */
+export const SIGNED_IN_BEFORE_KEY = 'journal-signed-in-before';
 
 /** Reads JSON, yielding null when there is nothing stored or storage throws (private browsing). */
 export function readJson<T>(key: string): T | null {

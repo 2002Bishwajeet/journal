@@ -59,6 +59,11 @@ export function LicenseSection(props: { close: () => void }): ReactNode {
     return null;
 }
 
+/** The sign-in page's trial line (#1282): store builds only. */
+export function WelcomeTrial(): ReactNode {
+    return null;
+}
+
 /** Opens the paywall over the read-only app (#1176). */
 export function openPaywall(): void {}
 

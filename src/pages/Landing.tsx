@@ -6,8 +6,13 @@ import { useAuth } from "@/hooks/auth/useAuth";
 import { useYouAuthAuthorization } from "@/hooks/auth/useYouAuthAuthorization";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { sanitizeReturnUrl } from "@/lib/utils";
-import { startSignIn } from "@/lib/native";
+import { isNativeApp, startSignIn } from "@/lib/native";
+import { hasSignedInBefore, opensOnWelcome } from "@/lib/firstRun";
+import { WelcomeStep } from "@/components/auth/WelcomeStep";
 import logo from "@/assets/logo_withoutbg.png";
+
+/** The native apps are Journal+; the web app (and the PWA) is Journal. */
+const APP_NAME = isNativeApp() ? "Journal+" : "Journal";
 
 export default function LandingPage() {
   useDocumentTitle("Sign in");
@@ -28,13 +33,18 @@ export default function LandingPage() {
       : null
   );
   const inputRef = useRef<HTMLInputElement>(null);
+  const signedInBefore = hasSignedInBefore();
+  // A device no identity signed in on opens on the welcome step (#1282).
+  const [welcome, setWelcome] = useState(() =>
+    opensOnWelcome(signedInBefore, searchParams)
+  );
 
   useEffect(() => {
     if (isAuthenticated) {
       navigate(target, { replace: true });
     }
     inputRef.current?.focus();
-  }, [navigate, isAuthenticated, target]);
+  }, [navigate, isAuthenticated, target, welcome]);
 
   const handleLogin = () => {
     if (!identity.trim()) {
@@ -85,31 +95,16 @@ export default function LandingPage() {
               />
             </div>
             <span className="text-3xl font-script text-foreground tracking-wide opacity-90">
-              Journal
+              {APP_NAME}
             </span>
           </div>
           <h1 className="text-6xl font-serif text-foreground leading-[1.05] mb-8 max-w-lg tracking-tight">
-            Capture your thoughts with clarity and calm.
+            Your notes stay home
           </h1>
           <p className="text-xl text-muted-foreground max-w-md leading-relaxed font-light">
-            A minimalist space for your intellectual journey. Distraction-free,
-            by design.
+            Write offline, sync across your devices, and share a note only
+            when you choose.
           </p>
-        </div>
-
-        <div className="z-10">
-          <div className="flex gap-3">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className={`h-1.5 rounded-full transition-all duration-500 ${
-                  i === 1
-                    ? "w-12 bg-foreground/40"
-                    : "w-2 bg-foreground/10 hover:bg-foreground/20"
-                }`}
-              />
-            ))}
-          </div>
         </div>
 
         {/* Abstract Background Element */}
@@ -118,91 +113,100 @@ export default function LandingPage() {
 
       {/* Right Side - Login Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8 lg:p-24 relative bg-background/50">
-        <div className="w-full max-w-90 space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-300 ease-out fill-mode-forwards">
-          <div className="text-center space-y-4">
-            <div className="lg:hidden flex justify-center mb-8">
-              <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center overflow-hidden p-2 border border-border/50 ">
-                <img
-                  src={logo}
-                  alt="Journal Logo"
-                  className="w-full h-full object-contain opacity-90"
-                />
-              </div>
+        <div
+          key={welcome ? "welcome" : "sign-in"}
+          className="w-full max-w-90 space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-300 ease-out fill-mode-forwards"
+        >
+          <div className="lg:hidden flex justify-center">
+            <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center overflow-hidden p-2 border border-border/50 ">
+              <img
+                src={logo}
+                alt="Journal Logo"
+                className="w-full h-full object-contain opacity-90"
+              />
             </div>
-            <h2 className="text-2xl font-medium tracking-tight text-foreground">
-              Welcome back
-            </h2>
-            <p className="text-muted-foreground text-sm">
-              Enter your Homebase ID to continue
-            </p>
           </div>
-
-          <div className="space-y-6">
-            {error && (
-              <div className="p-4 text-sm bg-destructive/10 text-foreground border border-destructive/30 rounded-lg animate-in fade-in zoom-in-95 duration-200">
-                {error}
+          {welcome ? (
+            <WelcomeStep appName={APP_NAME} onHaveIdentity={() => setWelcome(false)} />
+          ) : (
+            <>
+              <div className="text-center space-y-4">
+                <h2 className="text-2xl font-medium tracking-tight text-foreground">
+                  {signedInBefore ? "Welcome back" : "Sign in"}
+                </h2>
+                <p className="text-muted-foreground text-sm">
+                  Enter your Homebase ID to continue
+                </p>
               </div>
-            )}
 
-            <div className="space-y-1.5">
-              <label
-                htmlFor="identity"
-                className="text-xs font-medium text-muted-foreground ml-1"
-              >
-                Identity
-              </label>
-              <div className="relative group">
-                <Input
-                  ref={inputRef}
-                  id="identity"
-                  type="text"
-                  value={identity}
-                  onChange={(e) => setIdentity(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="johndoe.com"
-                  disabled={isPending}
-                  autoComplete="username"
-                  // A Homebase ID is a domain name: iOS otherwise autocapitalises
-                  // and autocorrects it (frodo.baggins.demo.rocks -> Frodo.baggins.demo.rockstar).
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  inputMode="url"
-                  aria-autocomplete="list"
-                  aria-label="Identity"
-                  aria-describedby="identity-description"
-                  className="h-11 px-4 bg-transparent border-input hover:border-foreground/20 focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-input transition-all duration-200 shadow-sm rounded-lg pointer-fine:text-sm"
-                />
-              </div>
-            </div>
+              <div className="space-y-6">
+                {error && (
+                  <div className="p-4 text-sm bg-destructive/10 text-foreground border border-destructive/30 rounded-lg animate-in fade-in zoom-in-95 duration-200">
+                    {error}
+                  </div>
+                )}
 
-            <Button
-              className="w-full h-11 text-sm font-medium rounded-lg shadow-sm hover:shadow transition-all duration-200 cursor-pointer"
-              onClick={handleLogin}
-              disabled={isPending}
-            >
-              {isPending ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Connecting...</span>
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="identity"
+                    className="text-xs font-medium text-muted-foreground ml-1"
+                  >
+                    Identity
+                  </label>
+                  <div className="relative group">
+                    <Input
+                      ref={inputRef}
+                      id="identity"
+                      type="text"
+                      value={identity}
+                      onChange={(e) => setIdentity(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder="johndoe.com"
+                      disabled={isPending}
+                      autoComplete="username"
+                      // A Homebase ID is a domain name: iOS otherwise autocapitalises
+                      // and autocorrects it (frodo.baggins.demo.rocks -> Frodo.baggins.demo.rockstar).
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      inputMode="url"
+                      aria-autocomplete="list"
+                      aria-label="Identity"
+                      aria-describedby="identity-description"
+                      className="h-11 px-4 bg-transparent border-input hover:border-foreground/20 focus-visible:ring-1 focus-visible:ring-ring focus-visible:border-input transition-all duration-200 shadow-sm rounded-lg pointer-fine:text-sm"
+                    />
+                  </div>
                 </div>
-              ) : (
-                "Continue"
-              )}
-            </Button>
-          </div>
 
-          <p className="text-center text-sm text-muted-foreground">
-            New here?{" "}
-            <a
-              href="https://homebase.id"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center min-h-11 text-foreground font-medium underline-offset-4 hover:underline transition-all"
-            >
-              Create an identity
-            </a>
-          </p>
+                <Button
+                  className="w-full h-11 text-sm font-medium rounded-lg shadow-sm hover:shadow transition-all duration-200 cursor-pointer"
+                  onClick={handleLogin}
+                  disabled={isPending}
+                >
+                  {isPending ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span>Connecting...</span>
+                    </div>
+                  ) : (
+                    "Continue"
+                  )}
+                </Button>
+              </div>
+
+              <p className="text-center text-sm text-muted-foreground">
+                New here?{" "}
+                <a
+                  href="https://homebase.id"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center min-h-11 text-foreground font-medium underline-offset-4 hover:underline transition-all"
+                >
+                  Create an identity
+                </a>
+              </p>
+            </>
+          )}
         </div>
 
         {/* Footer copyright for mobile/desktop */}

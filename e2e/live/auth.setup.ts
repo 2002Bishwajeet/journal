@@ -22,6 +22,7 @@ setup('log in to a real Homebase identity and save storage state', async ({ page
     await assertTestOrigin(page);
     const appOrigin = new URL(page.url()).origin;
 
+    await page.getByRole('button', { name: 'I have an identity' }).click();
     await page.getByLabel('Identity').fill(IDENTITY);
     await page.getByRole('button', { name: 'Continue' }).click();
 
