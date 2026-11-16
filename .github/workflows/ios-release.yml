@@ -35,18 +35,25 @@ name: iOS Release
 #                          2002Bishwajeet/journal-native-features (desktop-release.yml uses it too).
 #   APPLE_API_KEY          Key ID of an App Store Connect API key. Make the key in App Store Connect →
 #                          Users and Access → Integrations → App Store Connect API → Team Keys, with the
-#                          Admin role: automatic signing (xcodebuild -allowProvisioningUpdates with the
-#                          key) creates the cloud-managed distribution certificate and the App Store profile.
+#                          App Manager role (enough for the profile below; no cloud signing is needed).
 #   APPLE_API_ISSUER       The Issuer ID shown above the keys on that page.
 #   APPLE_API_PRIVATE_KEY  The contents of the AuthKey_<key id>.p8 file, which App Store Connect lets you
 #                          download once, when you make the key.
-# desktop-release.yml uses the same three APPLE_API_* secrets to notarise. If that key is not an Admin
-# key, make an Admin key and replace all three: notarisation works with it too.
+#   IOS_DISTRIBUTION_P12           The team's Apple Distribution certificate with its private key, exported
+#                                  from Keychain Access as a .p12, base64: `base64 -i dist.p12 | pbcopy`.
+#   IOS_DISTRIBUTION_P12_PASSWORD  The password the .p12 was exported with.
+# desktop-release.yml uses the same three APPLE_API_* secrets to notarise.
 #
-# Universal Links (#1326): the app's entitlements have Associated Domains (applinks:journal.cloudx.run).
-# Automatic signing with the Admin key turns the capability on for the App ID. If a signed build fails
-# its entitlements check, turn it on once by hand: Certificates, Identifiers & Profiles → Identifiers →
-# com.biswa.journal → Associated Domains.
+# Signing (#1336) is by hand, not cloud-managed: an App Manager key can't use the cloud-managed
+# distribution certificate. The job imports the .p12 into a keychain of its own (deleted at the end),
+# then scripts/asc-release.mjs profile installs the App Store profile for that certificate through the
+# API key: it reuses an ACTIVE one, or replaces the INVALID ones with "Journal CI App Store". The archive
+# and export then sign with the certificate and that profile (scripts/ios-project.mjs).
+#
+# Universal Links (#1326): the app's entitlements have Associated Domains (applinks:journal.cloudx.run),
+# and the profile takes its capabilities from the App ID. If a signed build fails its entitlements check,
+# turn the capability on for the App ID (Certificates, Identifiers & Profiles → Identifiers →
+# com.biswa.journal → Associated Domains): that invalidates the profile, and the next run replaces it.
 on:
   push:
     branches: [main]
@@ -111,11 +118,15 @@ jobs:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+          IOS_DISTRIBUTION_P12: ${{ secrets.IOS_DISTRIBUTION_P12 }}
+          IOS_DISTRIBUTION_P12_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_P12_PASSWORD }}
         run: |
           missing=0
           if [ "$MODE" = submit ] && [ -z "$TAG" ]; then echo "::error::mode submit needs a tag"; missing=1; fi
           names=GH_TOKEN
-          if [ "$DRY_RUN" != true ]; then names="$names APPLE_API_KEY APPLE_API_ISSUER APPLE_API_PRIVATE_KEY"; fi
+          if [ "$DRY_RUN" != true ]; then
+            names="$names APPLE_API_KEY APPLE_API_ISSUER APPLE_API_PRIVATE_KEY IOS_DISTRIBUTION_P12 IOS_DISTRIBUTION_P12_PASSWORD"
+          fi
           for name in $names; do
             if [ -z "${!name}" ]; then echo "::error::Actions secret $name is not set (see this workflow's header)"; missing=1; fi
           done
@@ -183,7 +194,7 @@ jobs:
         with:
           workspaces: src-tauri
 
-      # Tauri's automatic signing and scripts/asc-release.mjs read the key as a .p8 file.
+      # tauri ios build (the export's upload) and scripts/asc-release.mjs read the key as a .p8 file.
       - name: Write the App Store Connect API key
         if: env.DRY_RUN != 'true'
         env:
@@ -191,6 +202,41 @@ jobs:
         run: |
           printf '%s\n' "$APPLE_API_PRIVATE_KEY" > "$RUNNER_TEMP/AuthKey.p8"
           echo "APPLE_API_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
+
+      # The Apple Distribution certificate and its key, in a keychain codesign may use without a
+      # prompt. Its PEM is what the profile step matches on App Store Connect.
+      - name: Import the distribution certificate
+        if: env.DRY_RUN != 'true'
+        env:
+          IOS_DISTRIBUTION_P12: ${{ secrets.IOS_DISTRIBUTION_P12 }}
+          IOS_DISTRIBUTION_P12_PASSWORD: ${{ secrets.IOS_DISTRIBUTION_P12_PASSWORD }}
+        run: |
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          password=$(openssl rand -hex 24)
+          echo "::add-mask::$password"
+          printf '%s' "$IOS_DISTRIBUTION_P12" | base64 --decode > "$RUNNER_TEMP/distribution.p12"
+          security create-keychain -p "$password" "$keychain"
+          echo "SIGNING_KEYCHAIN=$keychain" >> "$GITHUB_ENV"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          security import "$RUNNER_TEMP/distribution.p12" -k "$keychain" -f pkcs12 -P "$IOS_DISTRIBUTION_P12_PASSWORD" \
+            -T /usr/bin/codesign -T /usr/bin/security
+          rm "$RUNNER_TEMP/distribution.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$keychain" > /dev/null
+          security list-keychains -d user -s "$keychain" $(security list-keychains -d user | xargs)
+          if ! security find-certificate -c 'Apple Distribution' -p "$keychain" > "$RUNNER_TEMP/distribution.pem"; then
+            echo "::error::IOS_DISTRIBUTION_P12 has no Apple Distribution certificate"
+            exit 1
+          fi
+
+      - name: App Store provisioning profile
+        id: profile
+        if: env.DRY_RUN != 'true'
+        env:
+          ASC_KEY_ID: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        shell: bash
+        run: node scripts/asc-release.mjs profile --certificate "$RUNNER_TEMP/distribution.pem" | tee -a "$GITHUB_OUTPUT"
 
       - name: Build number and version
         id: versions
@@ -221,14 +267,16 @@ jobs:
           JOURNAL_IOS_VERSION: ${{ steps.versions.outputs.version }}
         run: npm run tauri:ios:release -- --no-sign
 
-      # With APPLE_API_KEY, APPLE_API_ISSUER and APPLE_API_KEY_PATH set, tauri ios build runs
-      # xcodebuild with -allowProvisioningUpdates and the key for the archive and the export;
-      # the export's destination=upload (scripts/ios-project.mjs) sends it to App Store Connect.
+      # JOURNAL_IOS_PROFILE makes scripts/ios-project.mjs sign by hand with the certificate and
+      # profile above. With APPLE_API_KEY, APPLE_API_ISSUER and APPLE_API_KEY_PATH set, tauri ios
+      # build passes the key to xcodebuild (its -allowProvisioningUpdates is harmless with manual
+      # signing); the export's destination=upload sends the build to App Store Connect.
       - name: Build, sign and upload to TestFlight
         if: env.DRY_RUN != 'true'
         env:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          JOURNAL_IOS_PROFILE: ${{ steps.profile.outputs.profile_uuid }}
           JOURNAL_IOS_BUILD_NUMBER: ${{ steps.versions.outputs.build_number }}
           JOURNAL_IOS_VERSION: ${{ steps.versions.outputs.version }}
         run: npm run tauri:ios:release
@@ -264,3 +312,7 @@ jobs:
           elif [ "$MODE" = submit ]; then result='uploaded and submitted to App Review'
           else result='uploaded to TestFlight'; fi
           echo "iOS $VERSION ($BUILD): $result" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Delete the signing keychain
+        if: always() && env.SIGNING_KEYCHAIN != ''
+        run: security delete-keychain "$SIGNING_KEYCHAIN"
