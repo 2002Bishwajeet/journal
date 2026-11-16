@@ -21,6 +21,15 @@ mod premium {
     pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
         builder
     }
+
+    /// No license key in the public build: every update installs.
+    #[cfg(desktop)]
+    pub fn updates_until(_app: &tauri::AppHandle) -> Option<time::OffsetDateTime> {
+        None
+    }
+
+    #[cfg(desktop)]
+    pub fn set_skipped_update(_app: &tauri::AppHandle, _version: Option<String>) {}
 }
 
 #[cfg(target_os = "ios")]
@@ -428,6 +437,13 @@ async fn update(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>
     let Some(update) = app.updater()?.check().await? else {
         return Ok(());
     };
+    // A license key's updates cover the releases up to its updatesUntil (#1316). A skipped
+    // one isn't downloaded; the web view tells the user about it once.
+    let install = should_install(update.date, premium::updates_until(app));
+    premium::set_skipped_update(app, (!install).then(|| update.version.clone()));
+    if !install {
+        return Ok(());
+    }
     let bytes = update.download(|_, _| {}, || {}).await?;
 
     // rfd's dialog has to run on the main thread once GTK's event loop owns
@@ -459,6 +475,21 @@ async fn update(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>
         app.restart();
     }
     Ok(())
+}
+
+/// Whether to install a release published at `pub_date` (latest.json) for a license key whose
+/// updates end at `updates_until` (#1316): on or before that date it is covered. No key (the
+/// trial, the read-only app, the public build) and an unknown date install, so a bad manifest
+/// or license never keeps anyone on an old build.
+#[cfg(desktop)]
+fn should_install(
+    pub_date: Option<time::OffsetDateTime>,
+    updates_until: Option<time::OffsetDateTime>,
+) -> bool {
+    match (pub_date, updates_until) {
+        (Some(published), Some(until)) => published <= until,
+        _ => true,
+    }
 }
 
 /// Open external links and the sign-in outside the web view (#1188): the
@@ -657,6 +688,28 @@ mod tests {
     fn no_native_plugins_without_premium() {
         assert!(native_plugins().is_empty());
         assert!(native_flag_script().ends_with("plugins: [] };"));
+    }
+
+    #[cfg(desktop)]
+    #[test]
+    fn a_key_gets_the_releases_up_to_its_updates_until() {
+        let at = |iso: &str| {
+            Some(
+                time::OffsetDateTime::parse(iso, &time::format_description::well_known::Rfc3339)
+                    .unwrap(),
+            )
+        };
+        let until = at("2027-11-16T00:00:00Z");
+        assert!(should_install(at("2027-06-01T12:00:00Z"), until), "before");
+        assert!(should_install(at("2027-11-16T00:00:00Z"), until), "on it");
+        assert!(!should_install(at("2027-11-16T00:00:01Z"), until), "after");
+        assert!(should_install(at("2030-01-01T00:00:00Z"), None), "no key");
+        assert!(should_install(None, until), "unknown release date");
+        assert!(should_install(None, None));
+        // A renewal moves the date: the skipped release installs at the next check.
+        let release = at("2027-12-01T00:00:00Z");
+        assert!(!should_install(release, until));
+        assert!(should_install(release, at("2028-11-16T00:00:00Z")));
     }
 
     #[test]

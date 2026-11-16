@@ -2068,6 +2068,7 @@ dependencies = [
  "tauri-plugin-single-instance",
  "tauri-plugin-updater",
  "tauri-utils",
+ "time",
  "tiny_http",
 ]
 
