@@ -29,6 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      packages: read
       # npm trusted publishing: the registry swaps the job's OIDC token for a one-time publish token.
       id-token: write
     steps:
@@ -61,7 +62,7 @@ jobs:
       - name: Authenticate to Github packages
         run: |
           echo "@homebase-id:registry=https://npm.pkg.github.com" > .npmrc
-          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_TOKEN }}" >> .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${{ github.token }}" >> .npmrc
 
       - name: Install dependencies
         run: npm ci

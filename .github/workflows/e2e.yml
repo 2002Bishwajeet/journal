@@ -19,6 +19,7 @@ jobs:
     timeout-minutes: 42
     permissions:
       contents: read
+      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -38,7 +39,7 @@ jobs:
       - name: Authenticate to Github packages
         run: |
           echo "@homebase-id:registry=https://npm.pkg.github.com" > .npmrc
-          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_TOKEN }}" >> .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${{ github.token }}" >> .npmrc
 
       - name: Install dependencies
         timeout-minutes: 2
@@ -114,6 +115,7 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
+      packages: read
     # One mobile-webkit run took 15.5 min (13 min of tests plus the build) on
     # 2026-11-11 (#1071), so it is split in two.
     strategy:
@@ -133,7 +135,7 @@ jobs:
       - name: Authenticate to Github packages
         run: |
           echo "@homebase-id:registry=https://npm.pkg.github.com" > .npmrc
-          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_TOKEN }}" >> .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${{ github.token }}" >> .npmrc
 
       - name: Install dependencies
         run: npm ci --include=optional

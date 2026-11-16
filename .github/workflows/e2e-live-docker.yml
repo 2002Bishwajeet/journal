@@ -20,6 +20,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
+      packages: read
     env:
       # v0.1.966: first odin-core tag carrying odin-core #1993 (named-identity ACLs).
       IMAGE: ghcr.io/homebase-id/odin-core@sha256:9c52438363da59448c4da374c59de7cb2e3f2fd3d2937b440176eddaa71d5365
@@ -40,7 +41,7 @@ jobs:
       - name: Authenticate to Github packages
         run: |
           echo "@homebase-id:registry=https://npm.pkg.github.com" > .npmrc
-          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_TOKEN }}" >> .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${{ github.token }}" >> .npmrc
 
       - name: Install dependencies
         run: npm ci --include=optional --no-audit --no-fund
