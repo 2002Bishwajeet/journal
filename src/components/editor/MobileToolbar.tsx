@@ -33,6 +33,7 @@ import { MOBILE_TOOLBAR_GAP } from "@/lib/editor/keyboardOffset";
 import { getMobileBar, getStylePanelHeight } from "@/lib/editor/mobileBar";
 import { aiRequests } from "@/lib/agent/aiRequests";
 import { useSwipeToDismissKeyboard } from "@/hooks/useSwipeToDismissKeyboard";
+import { useLongPressSelectWord } from "@/hooks/useLongPressSelectWord";
 import { useToolbarOverscroll } from "@/hooks/useToolbarOverscroll";
 import { useDeviceType } from "@/hooks/useDeviceType";
 import { ToolbarButton, useToolbarState, safeEditorCommand } from "./shared";
@@ -107,6 +108,8 @@ export default function MobileToolbar({
   // The open panel counts as the keyboard: the toolbar and the end of the note stay above it.
   useKeyboardOffset(isVisible, editor.view.dom, panelEl);
   useSwipeToDismissKeyboard(editor, isVisible);
+  // Also with no focus yet: a long press is how a word gets selected from cold.
+  useLongPressSelectWord(editor, isTouchDevice && !isDesktop);
   const rowRef = useRef<HTMLDivElement>(null);
   const capsuleRef = useRef<HTMLDivElement>(null);
   useToolbarOverscroll(isVisible, rowRef, capsuleRef);
@@ -163,6 +166,9 @@ export default function MobileToolbar({
       data-mobile-toolbar
       style={{
         bottom: `calc(var(--keyboard-offset, 0px) + var(--keyboard-safe-bottom, env(safe-area-inset-bottom, 0px)) + ${MOBILE_TOOLBAR_GAP}px)`,
+        // Hidden, then faded in, while iOS has yet to report its first keyboard (useKeyboardOffset).
+        opacity: "var(--keyboard-toolbar-opacity, 1)",
+        transition: "var(--keyboard-transition, none)",
         paddingLeft: "max(12px, env(safe-area-inset-left, 0px))",
         paddingRight: "max(12px, env(safe-area-inset-right, 0px))",
       }}
@@ -173,7 +179,8 @@ export default function MobileToolbar({
       {stylePanel && (
         <MobileStylePanel ref={setPanelEl} editor={editor} state={state} height={stylePanel.height} onClose={closeStyles} />
       )}
-      <div ref={capsuleRef} className={cn(CAPSULE, "min-w-0 flex-1 overflow-hidden p-1")}>
+      {/* relative: painted over the style panel's surface, which runs up behind it */}
+      <div ref={capsuleRef} className={cn(CAPSULE, "relative min-w-0 flex-1 overflow-hidden p-1")}>
         {/* Fits at 390px; a narrower phone scrolls it. Past the ends useToolbarOverscroll
             rubber-bands it, the same on iOS and Android, so the browser's own bounce is off. */}
         <div ref={rowRef} className="flex min-w-0 flex-1 overflow-x-auto overscroll-x-none scrollbar-hide">

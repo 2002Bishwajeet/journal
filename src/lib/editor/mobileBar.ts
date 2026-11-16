@@ -47,3 +47,26 @@ export function shiftIndent(tr: Transaction, delta: 1 | -1): boolean {
     });
     return changed;
 }
+
+/** A touch held this long (ms) without moving selects the word under it, like Apple Notes (#1272). */
+export const LONG_PRESS_MS = 500;
+/** Movement (px) past which a press is a caret drag (the native loupe), not a long press. */
+export const LONG_PRESS_SLOP = 10;
+
+/** Whether a touch that lasted `duration` ms and strayed at most `distance` px is a stationary long press. */
+export function isLongPress(duration: number, distance: number): boolean {
+    return duration >= LONG_PRESS_MS && distance <= LONG_PRESS_SLOP;
+}
+
+/**
+ * The word at `offset` in `text` as [from, to], or null off a word. A press on the right half
+ * of a word's last letter lands just after it, so the character before `offset` counts too.
+ */
+export function getWordAt(text: string, offset: number): [number, number] | null {
+    const segments = new Intl.Segmenter(undefined, { granularity: 'word' }).segment(text);
+    for (const at of [offset, offset - 1]) {
+        const hit = at >= 0 && at < text.length ? segments.containing(at) : undefined;
+        if (hit?.isWordLike) return [hit.index, hit.index + hit.segment.length];
+    }
+    return null;
+}

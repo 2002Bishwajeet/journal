@@ -15,6 +15,19 @@ export function getKeyboardOffset(
   return Math.max(0, layoutHeight - (viewportOffsetTop + viewportHeight));
 }
 
+/** How long in ms the toolbar waits for the keyboard after focus moves into the note (#1272). */
+export const KEYBOARD_SETTLE_MS = 600;
+
+/**
+ * The offset to lay the toolbar out at while the keyboard may still be on its way up: iOS
+ * reports a rising keyboard ~150 ms after focus moves into the note, so until it does (while
+ * `settling`) the last keyboard height stands in for it. Null when none is known yet.
+ * Once the keyboard is up, or no longer expected, it is the measured offset (#1272).
+ */
+export function getHeldKeyboardOffset(measured: number, last: number | null, settling: boolean): number | null {
+  return settling && measured === 0 ? last : measured;
+}
+
 /**
  * The part of `visualViewport.offsetTop` that is still inside the layout viewport.
  * The iOS app's WebKit view (WKWebView) shrinks `innerHeight` by the amount the page

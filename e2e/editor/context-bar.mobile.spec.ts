@@ -208,3 +208,39 @@ test('on Android the insert and format bars fit, and the panel is a sheet under 
     pixel,
   );
 });
+
+test('at a 390x844 iPhone keyboard height every Aa control fits without scrolling, and no note shows between bar and panel', async ({ browser }) => {
+  await withMobilePage(browser, async (page) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await newNote(page, 'Line one\nLine two\nLine three');
+    // The iPhone 17e keyboard is 301 pt, 34 of it the home indicator inset the panel pads by
+    // (0 here), so 267 px is what the controls really get.
+    await page.evaluate(() => {
+      const viewport = window.visualViewport!;
+      Object.defineProperty(viewport, 'height', { configurable: true, value: 844 - 267 });
+      viewport.dispatchEvent(new Event('resize'));
+    });
+    await toolbar(page).getByTitle('Text Styles').tap();
+    await expect(panel(page)).toBeVisible();
+    await expect.poll(async () => Math.round((await panel(page).boundingBox())!.height)).toBe(267);
+    const scroller = panel(page).locator('.overflow-y-auto');
+    expect(await scroller.evaluate((el) => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(0);
+    const box = (await panel(page).boundingBox())!;
+    for (const button of await panel(page).getByRole('button').all()) {
+      const b = (await button.boundingBox())!;
+      expect(b.y + b.height).toBeLessThanOrEqual(box.y + box.height);
+    }
+    // Between the bar and the panel, and beside the bar's rounded ends, is the panel's surface.
+    const barBox = (await toolbar(page).boundingBox())!;
+    const hits = await page.evaluate(
+      (points) => points.map(([x, y]) => !!document.elementFromPoint(x, y)?.closest('[data-style-panel]')),
+      [
+        [195, barBox.y + barBox.height + GAP / 2],
+        [4, barBox.y + barBox.height / 2],
+        [386, barBox.y + 2],
+      ],
+    );
+    expect(hits).toEqual([true, true, true]);
+    await screenshotInBothThemes(page, barShot('style-panel-fit', '390x844'));
+  });
+});

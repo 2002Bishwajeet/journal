@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { shiftIndent } from "@/lib/editor/mobileBar";
+import { MOBILE_TOOLBAR_GAP, MOBILE_TOOLBAR_HEIGHT } from "@/lib/editor/keyboardOffset";
 import { safeEditorCommand, type ToolbarState } from "./shared";
 import { undo, redo } from "./plugins/collaboration";
 
@@ -87,7 +88,7 @@ export function MobileStylePanel({ editor, state, height, onClose, ref }: Mobile
       role="group"
       aria-label="Format"
       data-style-panel
-      className="pointer-events-auto fixed inset-x-0 bottom-0 flex max-h-[70dvh] flex-col rounded-t-2xl border-t border-border bg-card text-card-foreground shadow-[0_-8px_24px_rgb(0_0_0/0.08)] outline-none animate-in slide-in-from-bottom duration-(--duration-sheet) ease-(--ease-standard)"
+      className="pointer-events-auto fixed inset-x-0 bottom-0 flex max-h-[70dvh] flex-col bg-card text-card-foreground outline-none animate-in slide-in-from-bottom duration-(--duration-sheet) ease-(--ease-standard)"
       style={{
         height: height ?? undefined,
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
@@ -95,7 +96,13 @@ export function MobileStylePanel({ editor, state, height, onClose, ref }: Mobile
         paddingRight: "env(safe-area-inset-right, 0px)",
       }}
     >
-      <div className="flex h-13 shrink-0 items-center gap-1 pr-2 pl-5">
+      {/* The panel's surface runs up behind the bar, so no line of the note shows between them. */}
+      <div
+        aria-hidden
+        className="absolute inset-x-0 bottom-full rounded-t-2xl border-t border-border bg-card shadow-[0_-8px_24px_rgb(0_0_0/0.08)]"
+        style={{ height: MOBILE_TOOLBAR_GAP * 2 + MOBILE_TOOLBAR_HEIGHT }}
+      />
+      <div className="flex h-11 shrink-0 items-center gap-1 pr-2 pl-5">
         <h2 className="mr-auto text-base font-semibold">Format</h2>
         {/* Undo and redo live here on phones: the insert bar has no room for them at 390px. */}
         {(
@@ -126,7 +133,8 @@ export function MobileStylePanel({ editor, state, height, onClose, ref }: Mobile
           <X className="size-5" />
         </button>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 pb-4">
+      {/* Fits a 390x844 phone's keyboard height (~300px with the home indicator); smaller ones scroll. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-4 pb-2">
         <div className="grid grid-cols-3 gap-2">
           {styles.map((style) => (
             <button
@@ -135,7 +143,7 @@ export function MobileStylePanel({ editor, state, height, onClose, ref }: Mobile
               onMouseDown={keepFocus}
               onClick={() => run(style.apply)}
               aria-pressed={style.active}
-              className={cn(PRESS, "h-12 truncate rounded-xl bg-muted px-2", style.text, style.active && ACTIVE)}
+              className={cn(PRESS, "h-11 truncate rounded-xl bg-muted px-2", style.text, style.active && ACTIVE)}
             >
               {style.label}
             </button>
