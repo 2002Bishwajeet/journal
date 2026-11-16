@@ -2046,7 +2046,7 @@ dependencies = [
 
 [[package]]
 name = "journal"
-version = "2.71.1"
+version = "2.72.0"
 dependencies = [
  "block2",
  "objc2",
