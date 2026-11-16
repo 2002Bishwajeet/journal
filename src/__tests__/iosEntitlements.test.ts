@@ -14,8 +14,7 @@ import {
 
 const read = (file: string) => readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8');
 const plist = (body: string) => `<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0">\n<dict>\n${body}\n</dict>\n</plist>\n`;
-const array = (key: string, ...values: string[]) =>
-  `\t<key>${key}</key>\n\t<array>\n${values.map((v) => `\t\t<string>${v}</string>`).join('\n')}\n\t</array>`;
+const array = (key: string, value: string) => `\t<key>${key}</key>\n\t<array>\n\t\t<string>${value}</string>\n\t</array>`;
 const BOTH = [ASSOCIATED_DOMAIN, APP_GROUP];
 
 describe('iOS entitlements check', () => {
@@ -24,7 +23,7 @@ describe('iOS entitlements check', () => {
   });
 
   it('passes a file with both keys, as the targets script and codesign write it', () => {
-    const merged = plist(`${array(...ASSOCIATED_DOMAIN)}\n${array(...APP_GROUP)}`);
+    const merged = plist(`${array(ASSOCIATED_DOMAIN[0], ASSOCIATED_DOMAIN[1])}\n${array(APP_GROUP[0], APP_GROUP[1])}`);
     expect(missingEntitlements(merged, BOTH)).toEqual([]);
     // codesign -d --entitlements - --xml prints it on one line.
     expect(missingEntitlements(merged.replace(/\s*\n\s*/g, ''), BOTH)).toEqual([]);
@@ -35,7 +34,7 @@ describe('iOS entitlements check', () => {
       'com.apple.developer.associated-domains: applinks:journal.cloudx.run',
       'com.apple.security.application-groups: group.id.biswa.journal',
     ]);
-    expect(missingEntitlements(plist(array(...APP_GROUP)), BOTH)).toEqual([
+    expect(missingEntitlements(plist(array(APP_GROUP[0], APP_GROUP[1])), BOTH)).toEqual([
       'com.apple.developer.associated-domains: applinks:journal.cloudx.run',
     ]);
   });
