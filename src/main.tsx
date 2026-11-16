@@ -6,6 +6,7 @@ import { isPublicSharePath } from './lib/sharePath';
 import { installConsoleCapture } from './lib/diagnostics/logBuffer';
 import { addOriginTrialToken } from './lib/agent/modelContext';
 import { installResumeRestore } from './lib/resumeRestore';
+import { keepPageInPlace } from './lib/keyboardViewport';
 import { routeExternalLinks } from './lib/native';
 import { registerMacReminderScheduler } from './lib/native/macNotifications';
 import { StrictMode } from 'react'
@@ -45,6 +46,9 @@ addOriginTrialToken(import.meta.env.VITE_WEBMCP_OT_TOKEN);
 
 // Puts a page iOS reloaded in the background back where it was (#1187).
 installResumeRestore();
+
+// The software keyboard never scrolls the app's page, so top bars stay put (#1300).
+keepPageInPlace();
 
 // Main bundle parsed and executing — first boot milestone for the splash bar.
 reportBootPhase('react');

@@ -1,4 +1,4 @@
-import { getLayoutOffsetTop } from '@/lib/editor/keyboardOffset';
+import { getCaretScrollDelta, getLayoutOffsetTop } from '@/lib/editor/keyboardOffset';
 
 /**
  * Ref callback for a fixed, centred box (DialogContent). iOS Safari shrinks only the visual
@@ -50,5 +50,57 @@ export function followKeyboardBottom(el: HTMLElement | null): (() => void) | und
     return () => {
         vv.removeEventListener('resize', update);
         vv.removeEventListener('scroll', update);
+    };
+}
+
+/**
+ * Keeps the page still for the software keyboard (#1300). iOS (Safari and the app's WKWebView)
+ * shrinks only the visual viewport and scrolls the whole page to show a focused field, which takes
+ * every top bar off screen with it. A page that fits the window never needs that scroll, so it is
+ * undone at once: screens scroll inside their own containers, and sheets and dialogs already fit
+ * what is left above the keyboard (followKeyboard, followKeyboardBottom). Instead, the focused
+ * input or textarea is scrolled clear of the keyboard in its own container; the editor's caret has
+ * its own (scrollCaretAboveKeyboard). A page taller than the window (a public share page) keeps its
+ * scroll. Returns the cleanup.
+ */
+export function keepPageInPlace(): () => void {
+    const vv = window.visualViewport;
+    const root = document.documentElement;
+    let frame = 0;
+    const hold = () => {
+        if ((window.scrollY || window.scrollX) && root.scrollHeight <= root.clientHeight) window.scrollTo(0, 0);
+    };
+    // A frame later, so a sheet or dialog has shrunk for the keyboard and its container can scroll.
+    const reveal = () => {
+        frame = 0;
+        const field = document.activeElement;
+        if (!vv || vv.scale !== 1 || vv.height >= window.innerHeight - 1) return;
+        if (!(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement)) return;
+        let scroller = field.parentElement;
+        while (scroller && !(scroller.scrollHeight > scroller.clientHeight && /auto|scroll/.test(getComputedStyle(scroller).overflowY))) {
+            scroller = scroller.parentElement;
+        }
+        if (!scroller) return;
+        const top = getLayoutOffsetTop(vv.offsetTop, root.clientHeight, window.innerHeight);
+        const delta = getCaretScrollDelta(field.getBoundingClientRect().bottom, scroller.getBoundingClientRect().bottom, top + vv.height, null);
+        scroller.scrollTop += Math.ceil(delta); // whole px: scrollTop rounds to the device pixel
+    };
+    const schedule = () => {
+        if (!frame) frame = requestAnimationFrame(reveal);
+    };
+    const onResize = () => {
+        hold();
+        schedule();
+    };
+    window.addEventListener('scroll', hold);
+    document.addEventListener('focusin', schedule);
+    vv?.addEventListener('scroll', hold);
+    vv?.addEventListener('resize', onResize);
+    return () => {
+        cancelAnimationFrame(frame);
+        window.removeEventListener('scroll', hold);
+        document.removeEventListener('focusin', schedule);
+        vv?.removeEventListener('scroll', hold);
+        vv?.removeEventListener('resize', onResize);
     };
 }
