@@ -46,7 +46,42 @@ mod ios_recovery;
 /// OS-assigned (port 0) or otherwise changing port would hand the webview a
 /// different origin on every launch and silently wipe the user's notes.
 /// Never make this dynamic, and never change the value once shipped.
-const PORT: u16 = 47821;
+///
+/// There are two ports, one per build type (#1308), so a development build (or
+/// a build in the iOS Simulator, which shares the Mac's loopback) never blocks
+/// the installed app:
+///
+///   - `PROD_PORT`: builds made by the release and store workflows, which set
+///     `JOURNAL_RELEASE_BUILD=1` when they compile (desktop-release.yml, and
+///     the iOS and Android CI of #1304).
+///   - `DEV_PORT`: every other build, local release-profile builds included.
+///     That is why this is an env var and not `debug_assertions`.
+///
+/// How the two were chosen (IANA CSV checked 2026-11-16):
+///
+///   - Below every OS's ephemeral range (Linux and Android 32768–60999; macOS,
+///     Windows and IANA 49152–65535), so an outgoing connection never borrows
+///     them. The old 47821 was inside the Linux and Android range. Windows'
+///     Hyper-V / WinNAT excluded ranges are taken from the dynamic range
+///     (49152–65535 by default), so they stay clear of these as well, unless
+///     someone moved that range down (`netsh int ipv4 show dynamicport tcp`).
+///   - Unassigned in the IANA service-name registry: 23900–23999 has no entry.
+///   - No common developer tool uses them (Vite 5173/4173/24678, Next 3000,
+///     Storybook 6006, Jupyter 8888, Expo 19000–19006, Ollama 11434, MongoDB
+///     27017, Syncthing 22000, Kubernetes NodePorts 30000–32767, ...).
+///
+/// The capabilities, Info.plist and the Android config list both origins.
+const PROD_PORT: u16 = 23941;
+const DEV_PORT: u16 = 23942;
+const PORT: u16 = port_for(option_env!("JOURNAL_RELEASE_BUILD"));
+
+/// `PROD_PORT` when the build sets `JOURNAL_RELEASE_BUILD=1`, else `DEV_PORT`.
+const fn port_for(release_build: Option<&str>) -> u16 {
+    match release_build {
+        Some(value) if matches!(value.as_bytes(), b"1") => PROD_PORT,
+        _ => DEV_PORT,
+    }
+}
 
 /// A loopback address on `PORT` that something else already holds (or that
 /// failed to bind for any other reason).
@@ -97,7 +132,8 @@ fn abort_on_bind_failure(err: &BindError) -> ! {
         .set_level(rfd::MessageLevel::Error)
         .set_title("Journal")
         .set_description(format!(
-            "Journal can't start: port {PORT} is in use by another program. \
+            "Journal can't start: port {PORT} is in use. Most likely another copy \
+             of Journal (or a Journal developer build) is already running. \
              Close it and try again."
         ))
         .set_buttons(rfd::MessageButtons::Ok)
@@ -549,6 +585,19 @@ mod tests {
 
     fn has_ipv6_loopback() -> bool {
         TcpListener::bind((Ipv6Addr::LOCALHOST, 0)).is_ok()
+    }
+
+    #[test]
+    fn release_builds_get_their_own_port_below_every_ephemeral_range() {
+        assert_ne!(PROD_PORT, DEV_PORT);
+        for port in [PROD_PORT, DEV_PORT] {
+            assert!((10000..=32767).contains(&port), "{port}");
+        }
+        assert_eq!(port_for(Some("1")), PROD_PORT);
+        assert_eq!(port_for(None), DEV_PORT);
+        assert_eq!(port_for(Some("")), DEV_PORT);
+        assert_eq!(port_for(Some("0")), DEV_PORT);
+        assert_eq!(PORT, port_for(option_env!("JOURNAL_RELEASE_BUILD")));
     }
 
     #[test]

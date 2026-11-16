@@ -4,7 +4,7 @@
   "description": "Default permissions for the main window.",
   "windows": ["main"],
   "remote": {
-    "urls": ["http://localhost:47821"]
+    "urls": ["http://localhost:23941", "http://localhost:23942"]
   },
   "permissions": ["core:default", "deep-link:default", "system-bars:default"]
 }

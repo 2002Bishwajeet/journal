@@ -124,16 +124,16 @@ describe('sign-in', () => {
     location = { href: '', replace: vi.fn() };
     vi.spyOn(window, 'location', 'get').mockReturnValue({
       ...window.location,
-      origin: 'http://localhost:47821',
+      origin: 'http://localhost:23941',
       ...location,
     } as unknown as Location);
   });
   afterEach(() => vi.restoreAllMocks());
 
   it.each([
-    [null, 'http://localhost:47821/auth/finalize'],
-    ['windows', 'http://localhost:47821/auth/finalize'],
-    ['linux', 'http://localhost:47821/auth/finalize'],
+    [null, 'http://localhost:23941/auth/finalize'],
+    ['windows', 'http://localhost:23941/auth/finalize'],
+    ['linux', 'http://localhost:23941/auth/finalize'],
     ['ios', 'journal://auth/finalize'],
     ['android', 'journal://auth/finalize'],
     ['macos', 'journal://auth/finalize'],
