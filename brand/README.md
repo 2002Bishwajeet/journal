@@ -8,9 +8,20 @@
 
 ## Taglines
 
-1. **Private by design.**
-2. **Your notes stay home.**
-3. **Agents build. You keep it.**
+1. **Private notes, encrypted.** (lead; store subtitle: "Encrypted Markdown notebook")
+2. **Private by design.**
+3. **Your notes stay home.** (supporting line, not the lead)
+4. **Agents build. You keep it.**
+
+## Naming
+
+- The PWA and the website are **Journal**.
+- The native apps (iOS, Android, Mac, Windows, Linux) are **Journal+**.
+- The store listings are named **Journal - Private Notes**.
+
+## Pricing
+
+Free to download, with a 3-day trial, then a one-time purchase that includes 1 year of updates. The app keeps working after that year. No subscription.
 
 Lead with privacy and the device. Homebase is "your own private space" under the hood, never a requirement. See [positioning.md](positioning.md).
 
