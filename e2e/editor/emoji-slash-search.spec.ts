@@ -40,6 +40,17 @@ test('slash menu: aliases "/todo" and "/img" find Task List and Image', async ({
   await expect(highlighted(app)).toContainText('Image');
 });
 
+test('slash menu: "/emoji" opens the emoji menu, which inserts the pick (#1272)', async ({ reusedApp: app }) => {
+  await createNote(app, { title: `Slash emoji ${Date.now()}`, body: '/emoji' });
+  await expect(highlighted(app)).toContainText('Emoji');
+  await app.keyboard.press('Enter');
+  await expect(activeEditor(app).locator('p').first()).toHaveText(':');
+  await expect(menuItems(app).first()).toBeVisible();
+  await app.keyboard.press('Enter');
+  await expect(menuItems(app)).toHaveCount(0);
+  await expect(activeEditor(app).locator('p').first()).toHaveText(/^\p{Extended_Pictographic}\S*\s*$/u);
+});
+
 test('slash menu: "/ this is prose" closes the menu and Enter makes a new line', async ({ reusedApp: app }) => {
   await createNote(app, { title: `Slash prose ${Date.now()}`, body: '/ this is prose' });
   await expect(menuItems(app)).toHaveCount(0);

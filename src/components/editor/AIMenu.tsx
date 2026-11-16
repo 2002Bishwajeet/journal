@@ -10,7 +10,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { ActionSheet } from '@/components/ui/action-sheet';
 import { useWebLLM, type RewriteStyle } from '@/hooks';
+import { useSheetMode } from '@/hooks/useSheetMode';
+import { useRestoreEditorFocus } from '@/hooks/useRestoreEditorFocus';
 import { toast } from 'sonner';
 import { activeEditor } from '@/lib/agent/activeEditor';
 import { aiRequests } from '@/lib/agent/aiRequests';
@@ -38,6 +41,8 @@ export default function AIMenu({ editor }: AIMenuProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedText, setSelectedText] = useState('');
   const [open, setOpen] = useState(false);
+  const asSheet = useSheetMode();
+  const onCloseAutoFocus = useRestoreEditorFocus(editor, open && asSheet);
 
   // The /rewrite slash command opens the menu for the selection, in the note the user is looking at.
   useEffect(
@@ -106,6 +111,32 @@ export default function AIMenu({ editor }: AIMenuProps) {
   const transformOptions = REWRITE_OPTIONS.filter(o => o.group === 'transform');
   const toneOptions = REWRITE_OPTIONS.filter(o => o.group === 'tone');
   const extractOptions = REWRITE_OPTIONS.filter(o => o.group === 'extract');
+
+  // On a phone the menu has no trigger on screen (the phone format bar asks for it, #1272): an action sheet.
+  if (asSheet) {
+    return (
+      <ActionSheet
+        open={open}
+        onOpenChange={setOpen}
+        title="AI Writing"
+        onCloseAutoFocus={onCloseAutoFocus}
+        items={
+          isReady
+            ? REWRITE_OPTIONS.map((option) => ({
+                label: option.label,
+                action: () => void handleRewrite(option.style),
+                disabled: isProcessing || !selectedText.trim(),
+              }))
+            : [{
+                label: isLoading ? `Loading AI (${Math.round(loadingProgress * 100)}%)` : 'Enable AI',
+                icon: Sparkles,
+                action: () => void handleInitialize(),
+                disabled: isLoading,
+              }]
+        }
+      />
+    );
+  }
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>

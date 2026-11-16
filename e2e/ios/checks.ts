@@ -60,7 +60,7 @@ export function measureLayout(): Layout {
   const field = active && (active.matches('input, textarea, select') || active.isContentEditable) ? active : null;
   const selection = getSelection();
   const range = field?.isContentEditable && selection?.rangeCount ? selection.getRangeAt(0) : null;
-  const toolbar = [...document.querySelectorAll('button[title="Undo"]')].map((b) => b.closest('.fixed')).find(Boolean);
+  const toolbar = document.querySelector('[data-mobile-toolbar]');
   const sidebarFooter = [...document.querySelectorAll('[aria-label="Sidebar"] button')].pop();
   const largeTitle = [...document.querySelectorAll('[data-large-title]')].find((el) => el.getClientRects().length);
   const lastTab = [...document.querySelectorAll('nav[aria-label="Tabs"] button')].pop();

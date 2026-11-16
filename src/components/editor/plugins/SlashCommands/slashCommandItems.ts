@@ -32,6 +32,7 @@ import {
     ListCollapse,
     MessageSquareWarning,
     ListEnd,
+    Smile,
     type LucideIcon,
 } from 'lucide-react';
 import { aiSupportedOn } from '@/hooks/useAISupported';
@@ -243,6 +244,17 @@ const formattingCommands: SlashCommandItem[] = [
         group: 'formatting',
         command: ({ editor, range }) => {
             pickImages(editor, range, (files) => editor.commands.insertImageGallery(files));
+        },
+    },
+    {
+        title: 'Emoji',
+        description: 'Pick an emoji',
+        keywords: ['emoticon', 'smiley', 'face'],
+        icon: Smile,
+        group: 'formatting',
+        // Swaps the slash text for ":", which opens the emoji menu.
+        command: ({ editor, range }) => {
+            editor.chain().focus().deleteRange(range).insertContent(':').run();
         },
     },
     {

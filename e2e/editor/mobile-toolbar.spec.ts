@@ -31,7 +31,7 @@ test('the toolbar sits on the keyboard in each mode and a tap on Bold keeps the 
       // MOBILE_TOOLBAR_HEIGHT in src/lib/editor/keyboardOffset.ts
       expect(box.height).toBeCloseTo(58, 0);
       // 12px side margin, then the 1px border and 4px padding of each capsule.
-      expect((await toolbar(page).getByTitle('Undo').boundingBox())!.x).toBeCloseTo(17, 0);
+      expect((await toolbar(page).getByTitle('Checklist').boundingBox())!.x).toBeCloseTo(17, 0);
       const hide = (await toolbar(page).getByTitle('Hide keyboard').boundingBox())!;
       expect(hide.x + hide.width).toBeCloseTo(393 - 17, 0);
     });
@@ -56,14 +56,16 @@ test('the toolbar sits on the keyboard in each mode and a tap on Bold keeps the 
       await screenshotInBothThemes(page, (theme) => `toolbar-visual-viewport-${theme}-393x852.png`);
     });
 
-    await test.step('a tap on Bold does not blur the editor and the next text is bold', async () => {
+    await test.step('a tap on Bold does not blur the editor and bolds the selection', async () => {
       await page.evaluate(() => {
         const prose = document.querySelector('.ProseMirror')!;
         (window as unknown as { __blurs: number }).__blurs = 0;
         prose.addEventListener('blur', () => { (window as unknown as { __blurs: number }).__blurs++; });
       });
-      await toolbar(page).getByTitle('Bold').tap();
+      // Bold is on the format bar, which shows over a text selection (#1272).
       await page.keyboard.type('bold');
+      await page.keyboard.press('Control+Shift+ArrowLeft');
+      await toolbar(page).getByTitle('Bold').tap();
       await expect(editor.locator('strong')).toHaveText('bold');
       expect(await page.evaluate(() => (window as unknown as { __blurs: number }).__blurs)).toBe(0);
       await expect(toolbar(page)).toBeVisible();

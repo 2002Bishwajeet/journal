@@ -3,8 +3,9 @@ import { test, expect } from '../fixtures';
 import { activeEditor, inBothThemes } from '../support/actions';
 import { withMobilePage } from '../support/mobile';
 
-// On a phone the link, emoji, table, align and callout-type pickers are sheets, not popovers or
-// browser prompts, and the slash menu docks above the keyboard toolbar (#827).
+// On a phone the link, table and callout-type pickers are sheets, not popovers or browser
+// prompts, and the slash menu docks above the keyboard toolbar (#827). Alignment is in the
+// Aa panel (#1272, context-bar.mobile.spec.ts).
 
 const toolbar = (page: Page) => page.locator('[data-mobile-toolbar]');
 const editorLink = (page: Page) => activeEditor(page).locator('a');
@@ -119,32 +120,7 @@ test('Table opens a sheet with steppers and inserts the size they show', async (
   });
 });
 
-test('Emoji opens a sheet and a tap inserts the emoji at the caret', async ({ browser }) => {
-  await withMobilePage(browser, async (page) => {
-    await newNote(page, 'Hi ');
-    await toolbar(page).getByTitle('Emoji').tap();
-    const sheet = page.getByRole('dialog', { name: 'Emoji' });
-    await expect(sheet).toBeVisible();
-    await sheet.getByPlaceholder('Search emojis...').fill('rocket');
-    const first = sheet.locator('.grid button').first();
-    const emoji = (await first.textContent())!.trim();
-    const box = (await first.boundingBox())!;
-    expect(box.width).toBeGreaterThanOrEqual(44);
-    expect(box.height).toBeGreaterThanOrEqual(44);
-    await shots(page, sheet, 'emoji-sheet');
-    await first.tap();
-
-    await expect(sheet).toBeHidden();
-    await expect(activeEditor(page)).toContainText(`Hi ${emoji}`);
-
-    await toolbar(page).getByTitle('Emoji').tap();
-    await expectBottomSheetThenBack(page, sheet);
-  });
-});
-
-test('the callout icon opens an action sheet and Warning sets the type; align is an action sheet too', async ({
-  browser,
-}) => {
+test('the callout icon opens an action sheet and Warning sets the type', async ({ browser }) => {
   await withMobilePage(browser, async (page) => {
     await newNote(page, '/callout');
     await page.locator('[data-slash-dock]').getByRole('button', { name: /^Callout/ }).tap();
@@ -164,20 +140,6 @@ test('the callout icon opens an action sheet and Warning sets the type; align is
 
     await callout.getByRole('button', { name: 'Callout type: warning' }).tap();
     await expectBottomSheetThenBack(page, sheet);
-
-    // Text alignment: Center, with the current one checked.
-    await activeEditor(page).tap();
-    await toolbar(page).getByTitle('Text Alignment').tap();
-    const align = page.getByRole('dialog', { name: 'Text alignment' });
-    await expect(align.getByRole('menuitemradio')).toHaveText(['Left', 'Center', 'Right', 'Justify']);
-    await expect(align.getByRole('menuitemradio', { name: 'Left' })).toHaveAttribute('aria-checked', 'true');
-    await shots(page, align, 'align-sheet');
-    await align.getByRole('menuitemradio', { name: 'Center' }).tap();
-    await expect(align).toBeHidden();
-    await expect(activeEditor(page).locator('[style*="text-align: center"]')).toHaveCount(1);
-
-    await toolbar(page).getByTitle('Text Alignment').tap();
-    await expectBottomSheetThenBack(page, align);
   });
 });
 
