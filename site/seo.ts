@@ -41,6 +41,7 @@ export function headTags(id: string, html: string): string {
       '@context': 'https://schema.org',
       '@type': 'WebApplication',
       name: 'Journal',
+      alternativeHeadline: plain(/<h1[^>]*>([\s\S]*?)<\/h1>/.exec(html)?.[1] ?? ''),
       url: APP_URL,
       description: meta(html, 'description'),
       applicationCategory: 'ProductivityApplication',
@@ -77,6 +78,7 @@ function toText(html: string): string {
     .replace(/<video[^>]*only-dark[\s\S]*?<\/video>/g, '')
     .replace(/<img[^>]*only-dark[^>]*>/g, '')
     .replace(/<p[^>]*aria-hidden="true"[^>]*>[\s\S]*?<\/p>/g, '') // decorative demos
+    .replace(/<div class="phone-status"[\s\S]*?<\/div>/g, '') // a phone frame's drawn status bar
     .replace(/<span[^>]*>/g, ' ')
     .replace(/<video[^>]*aria-label="([^"]*)"[\s\S]*?<\/video>/g, (_, a: string) => `\n[Video: ${a}]\n`)
     .replace(/<img[^>]*alt="([^"]*)"[^>]*>/g, (_, a: string) => (a ? `\n[Image: ${a}]\n` : ''))

@@ -1,8 +1,8 @@
 # Journal
 
-> Journal is an open source notebook (AGPL-3.0) built on Homebase. Notes live on your device first, work offline, and sync encrypted to a space you own. You can share notes with people you know or publish them as public pages, write live Mermaid, SVG, HTML and React blocks inside a note, and let AI agents (Claude Code, Claude Desktop, Cursor, Codex CLI) read and write the folders you grant through the Journal MCP server.
+> Journal is an encrypted Markdown notebook, open source (AGPL-3.0) and built on Homebase. Notes live on your device first, work offline, and sync encrypted to a space you own. You can share notes with people you know or publish them as public pages, write live Mermaid, SVG, HTML and React blocks inside a note, and let AI agents (Claude Code, Claude Desktop, Cursor, Codex CLI) read and write the folders you grant through the Journal MCP server.
 
-Journal runs in the browser at {{SITE}}/welcome and signs in with a Homebase identity. Journal in the browser is free, with every feature. Journal+, the native apps for iPhone, Android, Mac, Windows and Linux, is coming soon: a free download with a 3-day trial, then a one-time purchase (€24.99) of a license key that works on up to 5 devices and includes a year of updates. In the App Store and Google Play it is listed as "Journal - Private Notes".
+Journal runs in the browser at {{SITE}}/welcome and signs in with a Homebase identity. Journal in the browser is free, with every feature. Journal+, the native apps for iPhone, Android, Mac, Windows and Linux, is coming soon: a free download with a 3-day trial, then a one-time purchase (€24.99) that includes a year of updates, with no subscription. On Mac, Windows and Linux the purchase is a license key for up to 5 devices. In the App Store and Google Play it is listed as "Journal - Private Notes".
 
 ## Pages
 

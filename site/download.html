@@ -79,10 +79,35 @@
       </div>
     </section>
 
-    <section class="section band" aria-labelledby="phone-title">
+    <!-- Getting started: the same three steps as the app's welcome screen -->
+    <section class="section band" aria-labelledby="start-title">
+      <div class="wrap">
+        <div class="section-head head-wide">
+          <h2 class="h2" id="start-title" data-reveal>Getting started</h2>
+          <p class="lede" data-reveal style="--i:1">Three steps from download to your first note, the same ones the app shows when you first open it.</p>
+        </div>
+        <ol class="flow">
+          <li class="step step-1" data-reveal>
+            <h3 class="step-title">Install</h3>
+            <p>Get Journal+ for your computer or phone. Or open Journal in your browser and install it from there.</p>
+          </li>
+          <li class="step step-2" data-reveal style="--i:1">
+            <h3 class="step-title">Create a Homebase identity</h3>
+            <p>Journal signs in with a Homebase identity, a private space that belongs to you. Create one at <a href="https://homebase.id">homebase.id</a>, where sign-up is in <strong>closed beta</strong>.</p>
+          </li>
+          <li class="step step-3" data-reveal style="--i:2">
+            <h3 class="step-title">Sign in</h3>
+            <p>Open Journal and enter your identity. Your notes sync between the app, the browser and your other devices.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="phone-title">
       <div class="wrap split buy-name">
         <div class="split-copy">
           <h2 class="h2" id="phone-title" data-reveal>On your phone</h2>
+          <!-- stores-soon -->
           <p class="lede" data-reveal style="--i:1">The iPhone and Android apps are on their way. On a phone today, Journal in the browser installs to your home screen.</p>
           <dl class="covers" data-reveal style="--i:2">
             <div>
@@ -94,11 +119,19 @@
               <dd>Coming soon to Google Play.</dd>
             </div>
           </dl>
+          <!-- /stores-soon -->
+          <!-- stores-live -->
+          <p class="lede" data-reveal style="--i:1">Journal+ for iPhone and Android is a free download with a 3-day trial. In the App Store and Google Play it is listed as Journal - Private Notes.</p>
+          <!-- /stores-live -->
+          <!-- store-badges -->
           <a class="btn btn-secondary" href="/welcome" data-reveal style="--i:3">Open Journal in the browser</a>
         </div>
-        <figure class="phone buy-phone" data-ui data-reveal style="--i:1">
-          <img class="only-light" src="/media/phone-note-light.webp" width="1170" height="2064" loading="lazy" alt="Journal on a phone: a Trip plan note with a task list and a table." />
-          <img class="only-dark" src="/media/phone-note-dark.webp" width="1170" height="2064" loading="lazy" alt="Journal on a phone in dark mode: a Trip plan note with a task list and a table." />
+        <figure class="phone-frame buy-phone" data-ui data-reveal style="--i:1">
+          <div class="phone-screen">
+            <!-- phone-status -->
+            <img class="only-light" src="/media/phone-note-light.webp" width="1170" height="2064" loading="lazy" alt="Journal on a phone: a Trip plan note with a task list and a table." />
+            <img class="only-dark" src="/media/phone-note-dark.webp" width="1170" height="2064" loading="lazy" alt="Journal on a phone in dark mode: a Trip plan note with a task list and a table." />
+          </div>
         </figure>
       </div>
     </section>

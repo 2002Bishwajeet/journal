@@ -7,7 +7,8 @@ const page = (name: string) => resolve(import.meta.dirname, name)
 
 // Every page shares one head, header and footer: `<!-- head -->`, `<!-- header -->` and `<!-- footer -->` are
 // replaced from site/partials, the nav link named by <body data-page> is marked current, and
-// a page's `<!-- credit: ... -->` (picture credits) moves into the footer.
+// a page's `<!-- credit: ... -->` (picture credits) moves into the footer. A phone frame's status bar
+// (`<!-- phone-status -->`) and the store badges (`<!-- store-badges -->`) are shared partials too.
 const read = (name: string) => readFileSync(page(`partials/${name}.html`), 'utf8')
 
 // Buying the native apps is off until billing production and the app downloads are live: the buy page
@@ -17,6 +18,10 @@ export const BILLING_LIVE = process.env.VITE_BILLING_LIVE === 'true'
 // The download page's installer links stay off ("coming soon") until the first desktop release is out
 // (desktop-release.yml). Turn them on with VITE_DOWNLOADS_LIVE=true, like VITE_BILLING_LIVE.
 export const DOWNLOADS_LIVE = process.env.VITE_DOWNLOADS_LIVE === 'true'
+// The App Store and Google Play badges stay off until the phone apps are in the stores.
+// Turn them on with VITE_STORES_LIVE=true, like VITE_BILLING_LIVE.
+export const STORES_LIVE = process.env.VITE_STORES_LIVE === 'true'
+const LIVE = { billing: BILLING_LIVE, downloads: DOWNLOADS_LIVE, stores: STORES_LIVE }
 
 /** Keeps a page's `<!-- <flag>-live -->…<!-- /<flag>-live -->` parts when the flag is on, its `<flag>-soon` parts when it is off. */
 export function flagBlocks(html: string, flag: string, live: boolean): string {
@@ -26,14 +31,16 @@ export function flagBlocks(html: string, flag: string, live: boolean): string {
 
 export const billingBlocks = (html: string, live: boolean): string => flagBlocks(html, 'billing', live)
 
-function render(html: string): string {
+/** A page as built: its partials in place, then each flag's parts kept or dropped (the partials have some too). */
+export function render(html: string, live: Record<keyof typeof LIVE, boolean> = LIVE): string {
   const current = /<body data-page="(\w+)"/.exec(html)?.[1]
   const credit = /<!-- credit: ([\s\S]*?) -->\n?/.exec(html)
-  const out = flagBlocks(billingBlocks(html, BILLING_LIVE), 'downloads', DOWNLOADS_LIVE)
+  const built = html
     .replace(credit?.[0] ?? '', '')
-    .replace(/<!-- (head|header|footer) -->/g, (_, name) => read(name))
+    .replace(/<!-- (head|header|footer|phone-status|store-badges) -->/g, (_, name) => read(name))
     .replace('<!-- credit -->', credit ? `<p class="wrap credit">${credit[1]}</p>` : '')
     .replaceAll(/ data-nav="(\w+)"/g, (_, nav) => (nav === current ? ' aria-current="page"' : ''))
+  const out = Object.entries(live).reduce((h, [flag, on]) => flagBlocks(h, flag, on), built)
   // The page's canonical link and structured data close its head (see seo.ts).
   return out.replace('</head>', `${headTags(current ?? 'home', out)}\n</head>`)
 }
@@ -42,7 +49,7 @@ function partials(): Plugin {
   return {
     name: 'site-partials',
     // 'pre': before Vite reads the page, so the shared head's script and the partials' pictures are bundled.
-    transformIndexHtml: { order: 'pre', handler: render },
+    transformIndexHtml: { order: 'pre', handler: (html) => render(html) },
   }
 }
 

@@ -153,6 +153,13 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
   .ctas { display: grid; grid-template-columns: 1fr; width: 100%; }
   .ctas .btn { width: 100%; }
 }
+/* The App Store and Google Play badges (VITE_STORES_LIVE), at one visible height with a quarter of it between them.
+   The Google Play artwork has its own clear space (41 of its 250px each side), taken back by the negative margin. */
+.store-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.store-badge { display: inline-flex; border-radius: 8px; }
+.store-badge img { height: 48px; width: auto; }
+.store-badge-play img { height: calc(48px * 250 / 168); margin: calc(-48px * 41 / 168); }
+.hero-actions .store-badges { grid-column: 1 / -1; }
 
 /* ---- Navigation ---- */
 .nav {
@@ -220,9 +227,34 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .frame-page img { aspect-ratio: auto; } /* the public page below its header, at its own height */
 .share-page img { aspect-ratio: 16 / 9; } /* the published note ends before the frame does */
 
-/* Phone pictures: a screen in a tone-filled case. */
-.phone { padding: 6px; border-radius: 26px; background: var(--band); }
-.phone img { width: 100%; aspect-ratio: 390 / 844; object-fit: cover; object-position: top; border-radius: 20px; }
+/* A phone picture in its device: a metal rim, a black bezel, side buttons, a Dynamic Island. The markup is
+   a .phone-frame around a .phone-screen that starts with <!-- phone-status -->, then the capture.
+   The screen keeps a real phone's 393 × 852 proportions: a drawn status bar above the capture (which has
+   none) and the note's own paper below it. Inside, sizes are in cqw of the screen's width, from iOS points. */
+.phone-frame {
+  position: relative; container-type: inline-size;
+  padding: 10px; border: 2px solid #4A4844; border-radius: 54px; background: #0E0E0D;
+}
+.phone-frame::before, .phone-frame::after { content: ''; position: absolute; width: 3px; background: #4A4844; }
+.phone-frame::before { /* volume up, and volume down as its copy */
+  left: -5px; top: 150px; height: 56px; border-radius: 2px 0 0 2px; box-shadow: 0 68px 0 #4A4844;
+}
+.phone-frame::after { right: -5px; top: 186px; height: 88px; border-radius: 0 2px 2px 0; } /* side button */
+.phone-screen {
+  position: relative; overflow: hidden; aspect-ratio: 393 / 852;
+  border-radius: 14cqw; background: var(--bg); color: var(--ink);
+}
+.phone-screen::before, .phone-screen::after { content: ''; position: absolute; inset-inline: 0; margin-inline: auto; }
+.phone-screen::before { top: 2.8cqw; width: 32cqw; height: 9.4cqw; border-radius: 9.4cqw; background: #000; } /* Dynamic Island */
+.phone-screen::after { bottom: 2cqw; width: 34cqw; height: 1.3cqw; border-radius: 1cqw; background: var(--ink); } /* home indicator */
+.phone-status {
+  display: grid; grid-template-columns: 1fr 32cqw 1fr; align-items: center; height: 13.7cqw; padding-top: 0.6cqw;
+  font-size: 4.3cqw; font-weight: 620; letter-spacing: -0.01em; text-align: center;
+}
+.phone-status-icons { grid-column: 3; display: flex; justify-content: center; align-items: center; gap: 1.4cqw; }
+.phone-status-icons svg { height: 3.1cqw; width: auto; fill: currentColor; }
+.phone-status-icons svg:last-child { height: 3.3cqw; }
+.phone-screen img { width: 100%; }
 .hero-phone { display: none; max-width: 300px; margin: 0 auto; }
 @media (max-width: 599px) {
   .frame-hero { display: none; }
@@ -281,7 +313,6 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 @media (min-width: 900px) {
   .stage { grid-template-columns: minmax(0, 1fr) 372px; gap: var(--gap); align-items: start; }
   .stage-phone { display: block; }
-  .stage-phone img { aspect-ratio: auto; } /* the capture ends under the table */
 }
 /* Math beside its crop; under the math copy, version history with its own. */
 .moments { display: grid; gap: 24px var(--gap); margin-top: clamp(64px, 8vw, 104px); grid-template-areas: 'math-copy' 'math' 'history'; }
@@ -639,33 +670,6 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .buy-includes { display: grid; gap: 12px; align-content: start; }
 /* The app's name beside the app itself, on a phone. */
 .buy-phone { width: min(100%, 320px); justify-self: center; }
-/* The buy page's phone in its device: a metal rim, a black bezel, side buttons, a Dynamic Island.
-   The screen keeps a real phone's 393 × 852 proportions: a drawn status bar above the capture (which has
-   none) and the note's own paper below it. Inside, sizes are in cqw of the screen's width, from iOS points. */
-.phone-frame {
-  position: relative; container-type: inline-size;
-  padding: 10px; border: 2px solid #4A4844; border-radius: 54px; background: #0E0E0D;
-}
-.phone-frame::before, .phone-frame::after { content: ''; position: absolute; width: 3px; background: #4A4844; }
-.phone-frame::before { /* volume up, and volume down as its copy */
-  left: -5px; top: 150px; height: 56px; border-radius: 2px 0 0 2px; box-shadow: 0 68px 0 #4A4844;
-}
-.phone-frame::after { right: -5px; top: 186px; height: 88px; border-radius: 0 2px 2px 0; } /* side button */
-.phone-screen {
-  position: relative; overflow: hidden; aspect-ratio: 393 / 852;
-  border-radius: 14cqw; background: var(--bg); color: var(--ink);
-}
-.phone-screen::before, .phone-screen::after { content: ''; position: absolute; inset-inline: 0; margin-inline: auto; }
-.phone-screen::before { top: 2.8cqw; width: 32cqw; height: 9.4cqw; border-radius: 9.4cqw; background: #000; } /* Dynamic Island */
-.phone-screen::after { bottom: 2cqw; width: 34cqw; height: 1.3cqw; border-radius: 1cqw; background: var(--ink); } /* home indicator */
-.phone-status {
-  display: grid; grid-template-columns: 1fr 32cqw 1fr; align-items: center; height: 13.7cqw; padding-top: 0.6cqw;
-  font-size: 4.3cqw; font-weight: 620; letter-spacing: -0.01em; text-align: center;
-}
-.phone-status-icons { grid-column: 3; display: flex; justify-content: center; align-items: center; gap: 1.4cqw; }
-.phone-status-icons svg { height: 3.1cqw; width: auto; fill: currentColor; }
-.phone-status-icons svg:last-child { height: 3.3cqw; }
-.phone-screen img { width: 100%; }
 @media (min-width: 980px) { .buy-name { grid-template-columns: 7fr 5fr; } }
 
 /* ---- Download page: the claim beside the installers, the app below them ---- */
@@ -716,6 +720,7 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .footer-cols a[aria-current='page'] { color: var(--ink); text-decoration: underline; } /* the page you are on: underlined, never at the heads' weight */
 @media (hover: hover) and (pointer: fine) { .footer-cols a:hover { color: var(--ink); text-decoration: underline; } }
 .credit { margin-top: 48px; font-size: var(--fs-small); color: var(--muted); }
+.credit + .credit { margin-top: 12px; } /* the store trademarks under a picture credit */
 
 /* ---- Entrance: each part of a section rises 8px into place, once ---- */
 @media (prefers-reduced-motion: no-preference) {

@@ -2,7 +2,7 @@
 
 > Journal is an open source (AGPL-3.0), local-first notebook on your own Homebase identity. Notes live in a database in your browser, work offline, and sync encrypted to your identity. You can share notes with people and circles, publish public pages, write live Mermaid, SVG, HTML and React blocks, and let AI agents read and write the folders you grant through the Journal MCP server.
 
-Journal runs in the browser and signs in with a Homebase identity. The web app is free, with every feature. Journal+, the native apps for iPhone, Android, Mac, Windows and Linux, is coming soon: a 3-day trial, then €24.99 once for a license key that works on up to 5 devices, with a year of updates.
+Journal runs in the browser and signs in with a Homebase identity. The web app is free, with every feature. Journal+, the native apps for iPhone, Android, Mac, Windows and Linux, is coming soon: a 3-day trial, then €24.99 once with a year of updates, and no subscription. On Mac, Windows and Linux the purchase is a license key for up to 5 devices.
 
 ## App
 

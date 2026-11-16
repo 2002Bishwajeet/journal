@@ -19,10 +19,10 @@
       } catch (e) {}
     })();
   </script>
-  <title>Journal: your notes stay home</title>
-  <meta name="description" content="Journal is an open source notebook that keeps your notes on your device first, works offline, and syncs them encrypted to a space you own. AI agents work in the folders you grant." />
-  <meta property="og:title" content="Journal: your notes stay home" />
-  <meta property="og:description" content="An open source notebook. Notes live on your device, work offline and sync encrypted to a space you own." />
+  <title>Journal: private notes, encrypted</title>
+  <meta name="description" content="Journal is an encrypted Markdown notebook. Your notes stay home on your device, work offline and sync encrypted to a space you own. AI agents see only the folders you grant." />
+  <meta property="og:title" content="Journal: private notes, encrypted" />
+  <meta property="og:description" content="An encrypted Markdown notebook. Your notes stay home on your device and sync encrypted to a space you own." />
   <!-- head -->
 </head>
 <body data-page="home">
@@ -32,14 +32,15 @@
     <!-- Hero: the promise, then the app, large -->
     <section class="hero" id="top" aria-labelledby="hero-title">
       <div class="wrap">
-        <h1 class="display hero-title" id="hero-title" data-reveal>Your notes stay home</h1>
-        <p class="lede hero-lede" data-reveal style="--i:1">Journal is a notebook that lives on your device, syncs encrypted to a space you own, and lets agents into the folders you grant.</p>
+        <h1 class="display hero-title" id="hero-title" data-reveal>Private notes, encrypted.</h1>
+        <p class="lede hero-lede" data-reveal style="--i:1">Journal is an encrypted Markdown notebook, and your notes stay home. They live on your device, sync encrypted to a space you own, and agents see only the folders you grant.</p>
         <div class="hero-actions" data-reveal style="--i:2">
           <div class="ctas">
             <a class="btn btn-primary" href="/welcome">Open Journal</a>
             <a class="btn btn-secondary" href="https://homebase.id/sign-up">Join the Homebase wait list</a>
           </div>
           <p class="hero-note">Journal signs in with a <a href="https://homebase.id">Homebase</a> identity, a private space that belongs to you.</p>
+          <!-- store-badges -->
         </div>
         <figure class="hero-media" data-reveal style="--i:3">
           <div class="frame frame-hero" data-ui>
@@ -54,9 +55,12 @@
               <source src="/media/hero-dark.mp4" type="video/mp4" />
             </video>
           </div>
-          <div class="phone hero-phone" data-ui>
-            <img class="only-light" src="/media/phone-live-block-light.webp" width="1170" height="2532" alt="Journal on a phone: a Reading log note with a bar chart and a diagram, both live blocks." />
-            <img class="only-dark" src="/media/phone-live-block-dark.webp" width="1170" height="2532" alt="Journal on a phone in dark mode: a Reading log note with a bar chart and a diagram, both live blocks." />
+          <div class="phone-frame hero-phone" data-ui>
+            <div class="phone-screen">
+              <!-- phone-status -->
+              <img class="only-light" src="/media/phone-live-block-light.webp" width="1170" height="2532" alt="Journal on a phone: a Reading log note with a bar chart and a diagram, both live blocks." />
+              <img class="only-dark" src="/media/phone-live-block-dark.webp" width="1170" height="2532" alt="Journal on a phone in dark mode: a Reading log note with a bar chart and a diagram, both live blocks." />
+            </div>
           </div>
         </figure>
       </div>
@@ -117,9 +121,12 @@
             </div>
           </div>
           <div class="stage-side">
-            <figure class="phone stage-phone" data-ui data-reveal style="--i:1">
-              <img class="only-light" src="/media/phone-note-light.webp" width="1170" height="2064" loading="lazy" alt="The same Trip plan note on a phone, from its title down to the table." />
-              <img class="only-dark" src="/media/phone-note-dark.webp" width="1170" height="2064" loading="lazy" alt="The Trip plan note on a phone in dark mode." />
+            <figure class="phone-frame stage-phone" data-ui data-reveal style="--i:1">
+              <div class="phone-screen">
+                <!-- phone-status -->
+                <img class="only-light" src="/media/phone-note-light.webp" width="1170" height="2064" loading="lazy" alt="The same Trip plan note on a phone, from its title down to the table." />
+                <img class="only-dark" src="/media/phone-note-dark.webp" width="1170" height="2064" loading="lazy" alt="The Trip plan note on a phone in dark mode." />
+              </div>
             </figure>
             <div class="stage-copy" data-reveal style="--i:2">
               <h3 class="h3">On your phone too</h3>
