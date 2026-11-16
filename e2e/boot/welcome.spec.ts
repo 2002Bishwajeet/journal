@@ -41,7 +41,7 @@ for (const [viewport, size] of [['phone', PHONE], ['desktop', DESKTOP]] as const
       await assertTestOrigin(page);
 
       await expect(page.getByRole('heading', { name: 'Welcome to Journal' })).toBeVisible();
-      await expect(page.getByText('Your notes live on your own Homebase, encrypted in transit.')).toBeVisible();
+      await expect(page.getByText('Your notes live on your own Homebase, encrypted.')).toBeVisible();
       await expect(page.getByText('Homebase sign-up is in closed beta')).toBeVisible();
       // The web app is free: no trial, no price.
       await expect(page.getByText(/Free for 3 days|one-time unlock/)).toHaveCount(0);

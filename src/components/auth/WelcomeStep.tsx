@@ -34,7 +34,7 @@ export function WelcomeStep({
           A notebook that works offline and syncs across your devices.
         </p>
         <p className="text-muted-foreground text-sm">
-          Your notes live on your own Homebase, encrypted in transit.
+          Your notes live on your own Homebase, encrypted.
         </p>
         <WelcomeTrial />
       </div>
