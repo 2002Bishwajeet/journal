@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, describe, expect, it } from 'vitest';
-import { isNativeApp, nativePlatform, publicOrigin } from '@/lib/native';
+import { appName, isNativeApp, nativePlatform, publicOrigin } from '@/lib/native';
 
 describe('isNativeApp', () => {
   afterEach(() => {
@@ -31,5 +31,17 @@ describe('publicOrigin', () => {
   it.each(['macos', 'windows', 'linux', 'ios', 'android'] as const)('is journal.cloudx.run in the native app, not its localhost origin (%s)', (platform) => {
     window.__JOURNAL_NATIVE__ = { platform, plugins: [] };
     expect(publicOrigin()).toBe('https://journal.cloudx.run');
+  });
+});
+
+describe("appName", () => {
+  afterEach(() => {
+    delete window.__JOURNAL_NATIVE__;
+  });
+
+  it("is Journal on the web and Journal+ in the native apps", () => {
+    expect(appName()).toBe("Journal");
+    window.__JOURNAL_NATIVE__ = { platform: "ios", plugins: [] };
+    expect(appName()).toBe("Journal+");
   });
 });
