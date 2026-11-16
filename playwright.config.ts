@@ -10,8 +10,9 @@ const edgeBaseURL = process.env.E2E_EDGE_BASE_URL ?? 'http://127.0.0.1:8788';
 
 const buildCommand = 'vite build --mode e2e --outDir dist-e2e';
 
-// The edge server also serves the landing site under /landing/, as the deploy does (#913).
-const landingCommand = 'vite build -c site/vite.config.ts && rm -rf dist-e2e/landing && cp -r site/dist dist-e2e/landing';
+// The edge server also serves the landing site under /landing/, as the deploy does (#913),
+// with billing on as in production, so the buy page shows its checkout (#1302).
+const landingCommand = 'VITE_BILLING_LIVE=true vite build -c site/vite.config.ts && rm -rf dist-e2e/landing && cp -r site/dist dist-e2e/landing';
 
 const webServerCommand = isDevServer
   ? 'vite --mode e2e --host 127.0.0.1 --port 5174 --strictPort'
