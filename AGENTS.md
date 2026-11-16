@@ -684,6 +684,10 @@ Short maps of how each finished epic works. The e2e folder named in each is wher
 ### E2E platform (#196)
 
 `e2e/README.md` is canonical: layers, conventions, scripts, the agent loop and safety rules. Playwright config is `playwright.config.ts` (hermetic, edge, quarantine) and `playwright.live.config.ts` (live tier). Tests only ever run on test origins (`127.0.0.1:4173`, `127.0.0.1:5174`, `127.0.0.1:8788`, `e2e.dotyou.cloud:4443`), never on `dev.dotyou.cloud:5173` or your real identity; `e2e/support/network-fence.ts` and `e2e/support/origin-guard.ts` enforce it. The policy is in Testing above.
+### Welcome note (#1283)
+
+- `useWelcomeNote` (JournalLayout) runs `seedWelcomeNote` (`src/lib/onboarding/welcome.ts`) once the first sync settles: an identity with no notes (trashed included) gets one "Welcome to Journal+" note from `welcomeNote.md`, opened. Never again: the `welcome-note-seeded` flag in `app_state` plus a marker file on the drive (`WelcomeSeededDriveProvider`, file type 617, sync never queries it) cover other devices. An unreachable drive counts as unmarked. Hermetic e2e skips it through `e2e-skip-welcome-note` in `e2e/fixtures/hermetic-auth.json`.
+
 
 ### Agent access / MCP server (#164)
 

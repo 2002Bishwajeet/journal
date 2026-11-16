@@ -66,6 +66,11 @@ export const AGENT_GRANTS_FILE_TYPE = 607;
 export const AGENT_GRANTS_DATA_TYPE = 708;
 export const AGENT_GRANTS_UNIQUE_ID = '17c711ea-6c10-49c9-a9e0-1a3acf329e1c'; // fixed: one grants file per identity
 
+// "Welcome note seeded" marker (#1283): an empty encrypted file, so a later device or sign-in never seeds again
+export const WELCOME_SEEDED_FILE_TYPE = 617;
+export const WELCOME_SEEDED_DATA_TYPE = 718;
+export const WELCOME_SEEDED_UNIQUE_ID = '5b0e3a1c-8d27-4f6a-9c41-2e7d6b8f0a53'; // fixed: one marker per identity
+
 export const JOURNAL_DRIVE: TargetDrive = {
     alias: 'd5f411fa83fd4854a3bd7e974cc9bca9',
     type: '30743710039d4b97bbd352f343d1c9df',
