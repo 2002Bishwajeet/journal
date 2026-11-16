@@ -12,6 +12,10 @@ name: Manual Release
 #
 # With STORE_BUILDS on, the iOS and Android builds of the tag are submitted too: App
 # Review, and the Play release track (ios-release.yml, android-release.yml, #1304).
+#
+# `security` marks the release as a security release: desktop-release.yml adds
+# `"security": true` to its latest.json, and the desktop updater installs it even
+# for a license key whose updates have ended (#1316).
 on:
   workflow_dispatch:
     inputs:
@@ -24,6 +28,10 @@ on:
           - patch
           - minor
           - major
+      security:
+        description: 'Security release: desktop installs it even when the license key''s updates ended'
+        type: boolean
+        default: false
 
 jobs:
   release:
@@ -111,6 +119,7 @@ jobs:
     uses: ./.github/workflows/desktop-release.yml
     with:
       tag: v${{ needs.release.outputs.version }}
+      security: ${{ inputs.security }}
     secrets: inherit
 
   # The App Store and Google Play builds of this release (#1304). Each one checks

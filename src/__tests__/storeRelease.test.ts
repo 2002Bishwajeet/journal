@@ -10,6 +10,7 @@ import {
   lastReleased,
   marketingVersion,
   nextPatch,
+  productsToAdd,
   toCancel,
   versionToUse,
   // @ts-expect-error -- plain .mjs release script, no types
@@ -96,6 +97,76 @@ describe('the App Review submission', () => {
     expect(versionToUse(versions, '2.71.1')?.id).toBe('2.71.1');
     expect(versionToUse(versions, '2.72.0')?.id).toBe('2.71.1');
     expect(versionToUse([version('2.71.0', 'READY_FOR_DISTRIBUTION')], '2.72.0')).toBeUndefined();
+  });
+
+  describe('in-app purchases (#1330)', () => {
+    const iap = (state: string, versions: Array<[string, number, string]>) => ({
+      product: {
+        id: state,
+        attributes: { productId: `journal.${state}`, state },
+        relationships: { versions: { data: versions.map(([id]) => ({ type: 'inAppPurchaseVersions', id })) } },
+      },
+      versions: versions.map(([id, n, versionState]) => ({
+        type: 'inAppPurchaseVersions',
+        id,
+        attributes: { version: n, state: versionState },
+      })),
+    });
+    const added = (iaps: ReturnType<typeof iap>[], inSubmission: string[] = []) =>
+      productsToAdd(
+        iaps.map((i) => i.product),
+        iaps.flatMap((i) => i.versions),
+        inSubmission,
+      ).map((a: { product: { id: string }; version: { id: string } }) => `${a.product.id}:${a.version.id}`);
+
+    it('adds the unapproved ones that can go to review', () => {
+      const iaps = ['READY_TO_SUBMIT', 'DEVELOPER_ACTION_NEEDED', 'REJECTED', 'MISSING_METADATA', 'WAITING_FOR_REVIEW'].map(
+        (state) => iap(state, [[`${state}-v1`, 1, 'PREPARE_FOR_SUBMISSION']]),
+      );
+      expect(added(iaps)).toEqual([
+        'READY_TO_SUBMIT:READY_TO_SUBMIT-v1',
+        'DEVELOPER_ACTION_NEEDED:DEVELOPER_ACTION_NEEDED-v1',
+        'REJECTED:REJECTED-v1',
+      ]);
+    });
+
+    it('skips an approved one', () => {
+      expect(added([iap('APPROVED', [['a1', 1, 'APPROVED']])])).toEqual([]);
+    });
+
+    it('adds the newest version, and only when it can still go to review', () => {
+      expect(
+        added([
+          iap('REJECTED', [
+            ['r1', 1, 'REJECTED'],
+            ['r2', 2, 'PREPARE_FOR_SUBMISSION'],
+          ]),
+        ]),
+      ).toEqual(['REJECTED:r2']);
+      expect(added([iap('READY_TO_SUBMIT', [['w1', 1, 'WAITING_FOR_REVIEW']])])).toEqual([]);
+      expect(added([iap('READY_TO_SUBMIT', [])])).toEqual([]);
+    });
+
+    it('does not add one that is already in the submission twice', () => {
+      expect(added([iap('READY_TO_SUBMIT', [['u1', 1, 'READY_FOR_REVIEW']])], ['u1'])).toEqual([]);
+    });
+
+    it('takes a subscription group, which has no state, by its version alone', () => {
+      const group = {
+        id: 'group',
+        attributes: { referenceName: 'Journal+' },
+        relationships: { versions: { data: [{ type: 'subscriptionGroupVersions', id: 'g1' }] } },
+      };
+      const version = {
+        type: 'subscriptionGroupVersions',
+        id: 'g1',
+        attributes: { version: 1, state: 'PREPARE_FOR_SUBMISSION' },
+      };
+      expect(productsToAdd([group], [version], []).map((a: { version: { id: string } }) => a.version.id)).toEqual([
+        'g1',
+      ]);
+      expect(productsToAdd([], [], [])).toEqual([]);
+    });
   });
 });
 

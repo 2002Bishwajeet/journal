@@ -16,6 +16,37 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.73.0 (2026-11-16)
+
+### Changed
+
+- On Mac, Windows and Linux, Journal installs only the updates that your license key gives you. A license key gives one year of updates. When a new version comes after that year, Journal does not install it and tells you one time. Renew your license key to get it: Journal then installs it at the next update check. During the trial and without a license key, Journal installs all updates.
+
+## 2.72.0 (2026-11-16)
+
+### Changed
+
+- The website starts with private, encrypted notes, on a shorter home page. Phone screenshots now appear on an iPhone, and desktop screenshots in a Mac window. The download page shows the three steps to start: install, create a Homebase identity (closed beta) and sign in.
+- On the website, the pricing and buy pages say that a license key is for Mac, Windows and Linux.
+- The sign-in page has its previous design again. The welcome step for a new device uses the same design.
+- New versions of Journal+ for iPhone, iPad and Android go to the App Store and Google Play on the same day as the web app.
+- After you update the Journal+ app on Mac, Windows, Linux, iPhone, iPad or Android, sign in one time again. Your notes come back from your Homebase identity.
+- The buy page no longer names the payment provider or shows a coupon code, and the renew form stays hidden until keys can be renewed.
+- The app is called Journal everywhere. "Journal+" is now only the name under the icon on iPhone and Android, and the Mac, Windows and Linux apps are named Journal.
+
+### Fixed
+
+- On an iPhone, the top bar stays in its position when the keyboard opens. Before, it moved up and off the screen. The field that you type in stays above the keyboard.
+- The Journal+ app no longer stops at start with "port 47821 is in use" when a test copy of Journal runs on the same computer.
+- On iPhone and iPad, a journal.cloudx.run link to a shared note opens Journal+.
+- The desktop and mobile apps no longer show "App ready to work offline" or the "New version available" prompt. Updates come from the store or the desktop updater.
+- On a phone, Unlock in Settings → Purchase opens the purchase screen. Before, it closed Settings and showed nothing.
+- On Windows and Linux, opening Journal while it is already running focuses the open window instead of showing a "port in use" error.
+
+### Added
+
+- The download page now links to the Mac, Windows and Linux installers.
+
 ## 2.71.1 (2026-11-16)
 
 ### Added

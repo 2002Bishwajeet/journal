@@ -1,3 +1,43 @@
+# [2.73.0](https://github.com/2002Bishwajeet/journal/compare/v2.72.0...v2.73.0) (2026-11-16)
+
+
+### Bug Fixes
+
+* **desktop:** pass the release date to premium::updates_until, which asks the Worker before skipping ([#1316](https://github.com/2002Bishwajeet/journal/issues/1316)) ([733e8e3](https://github.com/2002Bishwajeet/journal/commit/733e8e304f8e253919be9293819f40f7d064bb0d))
+
+
+### Features
+
+* **desktop:** a security release installs even after the key's updates end ([#1316](https://github.com/2002Bishwajeet/journal/issues/1316)) ([a02dfee](https://github.com/2002Bishwajeet/journal/commit/a02dfee96e12198ea34811b0ca1455770d11bf7b))
+* **desktop:** the updater installs only the releases the license's updatesUntil covers ([#1316](https://github.com/2002Bishwajeet/journal/issues/1316)) ([fbc6335](https://github.com/2002Bishwajeet/journal/commit/fbc6335b24a02e9a0f76182532f37a8ec65da7b2))
+# [2.72.0](https://github.com/2002Bishwajeet/journal/compare/v2.71.1...v2.72.0) (2026-11-16)
+
+
+### Bug Fixes
+
+* **ios:** keep Associated Domains in the app entitlements ([#1326](https://github.com/2002Bishwajeet/journal/issues/1326)) ([5e74686](https://github.com/2002Bishwajeet/journal/commit/5e746860eac78a7de15941865982d955c8ea08a1))
+* **ios:** keep the top bar in place when the keyboard opens ([#1300](https://github.com/2002Bishwajeet/journal/issues/1300)) ([7382bd8](https://github.com/2002Bishwajeet/journal/commit/7382bd8674fea3185f61068dbbe10cc1cbba6a75))
+* **ios:** scroll the caret above the keyboard when it arrives at the held height ([#1300](https://github.com/2002Bishwajeet/journal/issues/1300)) ([060d001](https://github.com/2002Bishwajeet/journal/commit/060d0015805e3ace78e0dc1cda29991c451a3561))
+* **ios:** stop the keyboard scroll in the native shell before it is drawn ([#1300](https://github.com/2002Bishwajeet/journal/issues/1300)) ([51a3b1c](https://github.com/2002Bishwajeet/journal/commit/51a3b1c961bc5c22ebd1211fd9db735498023ad0))
+* **mobile:** small-tablet layout from 640 px, touch search sheet, prose-only snippets ([#1289](https://github.com/2002Bishwajeet/journal/issues/1289)) ([fdff35c](https://github.com/2002Bishwajeet/journal/commit/fdff35cbe4d2b69e4699b42b4b435749bb0a7314))
+* **native:** don't show PWA offline/update toasts in native apps ([#1315](https://github.com/2002Bishwajeet/journal/issues/1315)) ([1ee143c](https://github.com/2002Bishwajeet/journal/commit/1ee143c91cdb2d96f8c99667a9e033f30199ffe3))
+* **native:** second launch focuses the running window instead of the port error ([#1313](https://github.com/2002Bishwajeet/journal/issues/1313)) ([c04d335](https://github.com/2002Bishwajeet/journal/commit/c04d335b1c40ccc94fa96a44e5ec0cb559b92e6e))
+* **native:** separate fixed ports for release and development builds ([#1308](https://github.com/2002Bishwajeet/journal/issues/1308)) ([50a989e](https://github.com/2002Bishwajeet/journal/commit/50a989eace056279fe819b80c7906bb490749ee6))
+* **overlays:** an overlay opened as another closes waits for its Back ([d20e438](https://github.com/2002Bishwajeet/journal/commit/d20e4384ecb1ce487f92b0ae56b43e681c106b5e))
+* **search:** keep the palette for a mouse from 640 px; test the 640 px tablet boundary ([#1289](https://github.com/2002Bishwajeet/journal/issues/1289)) ([47c3976](https://github.com/2002Bishwajeet/journal/commit/47c39768d6d954f6ba834aa0f7efa165bdc3a702))
+* **sign-in:** restore the pre-[#1282](https://github.com/2002Bishwajeet/journal/issues/1282) design, keep the welcome step ([#1303](https://github.com/2002Bishwajeet/journal/issues/1303)) ([b9ce423](https://github.com/2002Bishwajeet/journal/commit/b9ce4234516acc118cc0756cba2f4d1a32d59582))
+* **site:** buy page drops provider name and coupon, hides renew form ([#1302](https://github.com/2002Bishwajeet/journal/issues/1302)) ([3bc25d1](https://github.com/2002Bishwajeet/journal/commit/3bc25d15e5367f380c3f4398afd2444735daac23))
+* **site:** rework the launch refresh: macOS window, shorter home page ([#1294](https://github.com/2002Bishwajeet/journal/issues/1294)) ([ddeb1e8](https://github.com/2002Bishwajeet/journal/commit/ddeb1e8bc174103e3e711c118171b936d8ebf6e2))
+* **site:** say Journal, not Journal+, drop unused media, plain hero video in screenshots ([#1294](https://github.com/2002Bishwajeet/journal/issues/1294)) ([e0d75aa](https://github.com/2002Bishwajeet/journal/commit/e0d75aac608f0416f9dd6369f56fee6893e3720e)), closes [#1302](https://github.com/2002Bishwajeet/journal/issues/1302)
+* **welcome:** say notes are encrypted, not just in transit ([f1613e1](https://github.com/2002Bishwajeet/journal/commit/f1613e1fa619b69e4b9fc100c9beebe45b26bbc1))
+
+
+### Features
+
+* **harness:** never merge a draft or held PR, never mark one ready ([#1314](https://github.com/2002Bishwajeet/journal/issues/1314)) ([fb84703](https://github.com/2002Bishwajeet/journal/commit/fb847032a9bdc57731be1d2be815a92050de9af2))
+* **native:** Journal+ only as the iOS/Android app name ([#1311](https://github.com/2002Bishwajeet/journal/issues/1311)) ([b99433a](https://github.com/2002Bishwajeet/journal/commit/b99433a0f39ba3c75ee3c65e58f590b431c02347))
+* **site:** Apple iPhone and MacBook bezels for the site's screenshots ([#1294](https://github.com/2002Bishwajeet/journal/issues/1294)) ([3dba8eb](https://github.com/2002Bishwajeet/journal/commit/3dba8eb77d995e88d59ae3c6c479440669f669de))
+* **site:** privacy-first launch copy, shared phone frame, getting-started steps, flagged store badges ([#1294](https://github.com/2002Bishwajeet/journal/issues/1294)) ([c4a08e5](https://github.com/2002Bishwajeet/journal/commit/c4a08e51b00879dae8239879c9a4c9c23f6cf7aa))
 ## [2.71.1](https://github.com/2002Bishwajeet/journal/compare/v2.71.0...v2.71.1) (2026-11-16)
 # [2.71.0](https://github.com/2002Bishwajeet/journal/compare/v2.70.0...v2.71.0) (2026-11-16)
 
