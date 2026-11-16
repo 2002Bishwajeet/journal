@@ -15,7 +15,8 @@
 //   submit --version <x.y.z> --build <n> --notes-file <file>
 //     Waits until App Store Connect has processed the build (VALID), cancels every
 //     submission still waiting for review or in review (latest wins), creates or reuses
-//     the App Store version, sets its What's New, attaches the build and submits it.
+//     the App Store version, sets its What's New, attaches the build and submits it with
+//     every in-app purchase (and subscription group) App Review has not approved yet.
 import { createSign } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -49,6 +50,10 @@ const EDITABLE = new Set([
 ]);
 /** Review submissions sent to Apple and not finished: a newer release cancels them. */
 const PENDING_REVIEW = new Set(['WAITING_FOR_REVIEW', 'IN_REVIEW', 'UNRESOLVED_ISSUES']);
+/** In-app purchase states App Review has not approved and that can go to review (#1330). */
+const IAP_TO_REVIEW = new Set(['READY_TO_SUBMIT', 'DEVELOPER_ACTION_NEEDED', 'REJECTED']);
+/** States of an in-app purchase or subscription group version that can join a submission. */
+const VERSION_TO_REVIEW = new Set(['PREPARE_FOR_SUBMISSION', 'READY_FOR_REVIEW', 'DEVELOPER_REJECTED', 'REJECTED']);
 
 // appVersionState replaces the deprecated appStoreState; App Store Connect sends both.
 const inState = (states, v) => states.has(v.attributes.appVersionState) || states.has(v.attributes.appStoreState);
@@ -95,6 +100,21 @@ export function marketingVersion({ tag, packageVersion, released }) {
 }
 
 export const toCancel = (submissions) => submissions.filter((s) => PENDING_REVIEW.has(s.attributes.state));
+
+/**
+ * The in-app purchases (or subscription groups, which have no state of their own) to send to
+ * App Review with the app: each unapproved product's newest version, `included` from
+ * `include=versions`, that can still go to review and whose id is not in `inSubmission`.
+ */
+export const productsToAdd = (products, included, inSubmission) =>
+  products
+    .filter((p) => p.attributes.state === undefined || IAP_TO_REVIEW.has(p.attributes.state))
+    .map((product) => {
+      const refs = product.relationships?.versions?.data ?? [];
+      const versions = included.filter((i) => refs.some((r) => r.type === i.type && r.id === i.id));
+      return { product, version: versions.sort((a, b) => b.attributes.version - a.attributes.version)[0] };
+    })
+    .filter(({ version }) => version && VERSION_TO_REVIEW.has(version.attributes.state) && !inSubmission.includes(version.id));
 
 /** The version to give the build: the one with this version string, else the editable one. */
 export const versionToUse = (versions, versionString) =>
@@ -205,6 +225,40 @@ async function cancelPendingReviews() {
   return (await submissions()).data.find((s) => s.attributes.state === 'READY_FOR_REVIEW');
 }
 
+// In-app purchases and subscription groups ride along with the app until App Review approves
+// them (#1330): the first ones must go with an app version. They are read after the older
+// submissions are cancelled, so the ones those held are added again; one still waiting for
+// review or in review then was not freed by the cancel and gets a warning.
+async function addProducts(submissionId, items) {
+  const kinds = [
+    ['in-app purchase', 'inAppPurchasesV2', 'inAppPurchaseVersion', (p) => p.attributes.productId],
+    ['subscription group', 'subscriptionGroups', 'subscriptionGroupVersion', (p) => p.attributes.referenceName],
+  ];
+  for (const [kind, list, relationship, name] of kinds) {
+    const inSubmission = items.map((i) => i.relationships?.[relationship]?.data?.id).filter(Boolean);
+    const { data, included } = await all(`/v1/apps/${APP_ID}/${list}?include=versions&limit=200`);
+    for (const p of data.filter((p) => p.attributes.state)) {
+      const { state } = p.attributes;
+      log(`${kind} ${name(p)}: ${state}`);
+      if (state === 'WAITING_FOR_REVIEW' || state === 'IN_REVIEW') {
+        log(`::warning::${kind} ${name(p)} is still ${state} after the cancel`);
+      }
+    }
+    for (const { product, version } of productsToAdd(data, included, inSubmission)) {
+      log(`Adding ${kind} ${name(product)} (version ${version.attributes.version}, ${version.attributes.state}) to the submission`);
+      await api('POST', '/v1/reviewSubmissionItems', {
+        data: {
+          type: 'reviewSubmissionItems',
+          relationships: {
+            reviewSubmission: { data: { type: 'reviewSubmissions', id: submissionId } },
+            [relationship]: { data: { type: version.type, id: version.id } },
+          },
+        },
+      });
+    }
+  }
+}
+
 async function submit({ version, build, notesFile }) {
   const whatsNew = readFileSync(notesFile, 'utf8').trim();
   const uploaded = await waitForBuild(version, build);
@@ -253,7 +307,11 @@ async function submit({ version, build, notesFile }) {
         },
       })
     ).data;
-  const items = (await all(`/v1/reviewSubmissions/${submission.id}/items`)).data;
+  const items = (
+    await all(
+      `/v1/reviewSubmissions/${submission.id}/items?include=appStoreVersion,inAppPurchaseVersion,subscriptionGroupVersion&limit=200`,
+    )
+  ).data;
   if (!items.some((i) => i.relationships?.appStoreVersion?.data?.id === appVersion.id)) {
     await api('POST', '/v1/reviewSubmissionItems', {
       data: {
@@ -265,6 +323,7 @@ async function submit({ version, build, notesFile }) {
       },
     });
   }
+  await addProducts(submission.id, items);
   await api('PATCH', `/v1/reviewSubmissions/${submission.id}`, {
     data: { type: 'reviewSubmissions', id: submission.id, attributes: { submitted: true } },
   });

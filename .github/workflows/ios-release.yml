@@ -10,6 +10,8 @@ name: iOS Release
 #                  for the tag, sets its What's New from RELEASE_NOTES.md, attaches the
 #                  build and submits it to App Review. A version still waiting for review
 #                  or in review is cancelled first (latest wins; the log names it).
+#                  In-app purchases (and subscription groups) App Review has not approved
+#                  ride along in the same submission until they are approved (#1330).
 #                  Nothing cancels a release build.
 # The release commit itself has [skip ci], so it gets only the submit build.
 #
