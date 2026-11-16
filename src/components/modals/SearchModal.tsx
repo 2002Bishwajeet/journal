@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from "react";
 import { HighlightedText } from "@/components/ui/HighlightedText";
 import { Kbd } from "@/components/ui/kbd";
 import { Search, FileText, Loader2, Sparkles, Type, Tag, FileSearch, Wand2, Clock, X } from "lucide-react";
@@ -7,8 +8,17 @@ import type { AdvancedSearchResult, DocumentMetadata } from "@/types";
 import { followKeyboard } from "@/lib/keyboardViewport";
 import { proseOnly, CODE_SEPARATOR } from "@/lib/previewText";
 import { useOverlayHistory } from "@/hooks/useOverlayHistory";
-import { useSheetMode } from "@/hooks/useSheetMode";
 import { useSearchModal, isAdvancedResult, type SearchResult, type SearchEntry } from "@/hooks/useSearchModal";
+
+// Phones, and touch screens below the desktop breakpoint, get the full-screen search; a mouse keeps
+// the palette from 640 px, where it always had it (#1289).
+const SHEET_QUERY = "(max-width: 639px), (max-width: 1023px) and (pointer: coarse)";
+
+function subscribeSheet(onChange: () => void) {
+  const mql = window.matchMedia(SHEET_QUERY);
+  mql.addEventListener("change", onChange);
+  return () => mql.removeEventListener("change", onChange);
+}
 
 interface SearchModalProps {
   isOpen: boolean;
@@ -255,8 +265,7 @@ export default function SearchModal({
     handleClearRecents,
   } = useSearchModal({ isOpen, onClose, onSelectNote, initialQuery });
   useOverlayHistory(isOpen, handleClose);
-  // Phones and touch tablets get the full-screen search; a mouse, or a wide screen, the palette (#1289).
-  const palette = !useSheetMode();
+  const palette = !useSyncExternalStore(subscribeSheet, () => window.matchMedia(SHEET_QUERY).matches, () => false);
 
   if (!isOpen) return null;
 
