@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.71.1 (2026-11-16)
+
+### Added
+
+- Journal+ desktop apps for Mac, Windows and Linux. Try every feature for 3 days, then unlock it with a one-time purchase that includes a year of updates.
+
 ## 2.71.0 (2026-11-16)
 
 ### New
