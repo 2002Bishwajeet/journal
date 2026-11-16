@@ -86,8 +86,8 @@ jobs:
         env:
           SITE_URL: https://journal.cloudx.run
           VITE_BILLING_LIVE: 'true'
-          # The download page's installer links (#305): 'true' once desktop-release.yml has published a release.
-          VITE_DOWNLOADS_LIVE: 'false'
+          # The download page's installer links (#305): on since v2.71.1 published the first desktop release.
+          VITE_DOWNLOADS_LIVE: 'true'
           # The App Store and Google Play badges on the home and download pages: 'true' once both phone apps are live.
           VITE_STORES_LIVE: 'false'
 

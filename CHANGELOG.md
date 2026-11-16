@@ -1,3 +1,40 @@
+## [2.71.1](https://github.com/2002Bishwajeet/journal/compare/v2.71.0...v2.71.1) (2026-11-16)
+# [2.71.0](https://github.com/2002Bishwajeet/journal/compare/v2.70.0...v2.71.0) (2026-11-16)
+
+
+### Bug Fixes
+
+* **editor:** phone bar holds through keyboard rise, Aa panel fits, long-press selects a word ([#1272](https://github.com/2002Bishwajeet/journal/issues/1272)) ([8aeb6f5](https://github.com/2002Bishwajeet/journal/commit/8aeb6f538bb0690336eec39c7f5496155ea0be7e))
+* **routing:** mount /today at desktop width ([#1213](https://github.com/2002Bishwajeet/journal/issues/1213)) ([0573472](https://github.com/2002Bishwajeet/journal/commit/0573472b9126a533e952eacd1ce7bc5a048da99f))
+
+
+### Features
+
+* **ai:** make Qwen3.5 0.8B the editor model default, thinking off ([#1265](https://github.com/2002Bishwajeet/journal/issues/1265)) ([be577fb](https://github.com/2002Bishwajeet/journal/commit/be577fb3952e58d8ab0284acfe5665ffe5f62e96))
+* **ai:** remove Qwen 2.5 0.5B and 1.5B editor models ([#1265](https://github.com/2002Bishwajeet/journal/issues/1265)) ([bde6e57](https://github.com/2002Bishwajeet/journal/commit/bde6e57183e5501d26c6b9e41e27e378eacd58ce))
+* **ai:** use Apple's on-device model for writing help on iOS ([#1266](https://github.com/2002Bishwajeet/journal/issues/1266)) ([94e2863](https://github.com/2002Bishwajeet/journal/commit/94e2863391e02d3c25a1fef2a9e8eb737ae5a9c8))
+* **editor:** context-aware phone bar: insert, format and Aa style panel ([#1272](https://github.com/2002Bishwajeet/journal/issues/1272)) ([fb6922c](https://github.com/2002Bishwajeet/journal/commit/fb6922c6acda8dfa665a3878930daa65e8a985f3)), closes [#1258](https://github.com/2002Bishwajeet/journal/issues/1258)
+* **editor:** undo/redo in the Aa panel, /emoji slash entry, Android insert bar e2e ([#1272](https://github.com/2002Bishwajeet/journal/issues/1272)) ([61605c9](https://github.com/2002Bishwajeet/journal/commit/61605c973213d8a6f03a20265c175baf95bd7226))
+* **mcp:** search_notes matches every word, returns snippets, ranks title hits first, filters and caches bodies ([#1232](https://github.com/2002Bishwajeet/journal/issues/1232)) ([0187acc](https://github.com/2002Bishwajeet/journal/commit/0187acc96d627b0ffdde06df77de7d492c89760c))
+* **native:** native apps call themselves Journal+ in app copy ([#1284](https://github.com/2002Bishwajeet/journal/issues/1284)) ([7c4693f](https://github.com/2002Bishwajeet/journal/commit/7c4693f12b6ab5cc47626b0e8ac859cea3e2c5ed))
+* **onboarding:** first-run welcome step with Homebase sign-up and the trial ([#1282](https://github.com/2002Bishwajeet/journal/issues/1282)) ([484daf8](https://github.com/2002Bishwajeet/journal/commit/484daf8df4147e32b0236ff1a3b79c24e813c867))
+* **onboarding:** seed one Welcome to Journal+ note on first sign-in ([#1283](https://github.com/2002Bishwajeet/journal/issues/1283)) ([0d30f9a](https://github.com/2002Bishwajeet/journal/commit/0d30f9a8c56dddfdc6a8e26dbd48713e08cbe52f))
+* **search:** bounded empty state, no blink while typing, folder/date/tags and title highlight in rows ([#1226](https://github.com/2002Bishwajeet/journal/issues/1226)) ([ce83a7b](https://github.com/2002Bishwajeet/journal/commit/ce83a7b47aa6b0a45329b5d249e51b3bdb9d432a))
+* **search:** ignore accents and match tag names ([#1229](https://github.com/2002Bishwajeet/journal/issues/1229)) ([37712ff](https://github.com/2002Bishwajeet/journal/commit/37712ffc576726373fb51f14e3f310cfc6e8ed59))
+* **voice:** /voice capture screen and voice-note review wiring ([#1250](https://github.com/2002Bishwajeet/journal/issues/1250)) ([9069309](https://github.com/2002Bishwajeet/journal/commit/90693092a2631b6b4158b0ec37bb6ed0db29e1e5))
+* **voice:** voiceNotes stub and formatter in native ([#1249](https://github.com/2002Bishwajeet/journal/issues/1249)) ([c791df3](https://github.com/2002Bishwajeet/journal/commit/c791df37a3954a68d6570328644cc84358c38288))
+
+
+### Performance Improvements
+
+* **search:** call unaccent directly outside index expressions ([#1229](https://github.com/2002Bishwajeet/journal/issues/1229)) ([b2fa42c](https://github.com/2002Bishwajeet/journal/commit/b2fa42cb31e892fc7778d52a581b1ecf3f46e34c))
+* **search:** rank with ts_rank_cd on a bounded candidate set ([#1225](https://github.com/2002Bishwajeet/journal/issues/1225)) ([d7b8be7](https://github.com/2002Bishwajeet/journal/commit/d7b8be7f47a032b14895e390411ef58a48815a7c))
+* **search:** staged, index-backed advancedSearch with prefix, phrase and -word ([#1225](https://github.com/2002Bishwajeet/journal/issues/1225)) ([53beaa9](https://github.com/2002Bishwajeet/journal/commit/53beaa9b2a630bcb0b5b3eb7617983a97869ee18))
+
+
+### Reverts
+
+* Revert "TEMP: cold npm cache in tests.yml" ([aad90dd](https://github.com/2002Bishwajeet/journal/commit/aad90dd0b9eab6a1a9a0405778f9c19de405232e))
 # [2.70.0](https://github.com/2002Bishwajeet/journal/compare/v2.69.0...v2.70.0) (2026-11-13)
 # [2.69.0](https://github.com/2002Bishwajeet/journal/compare/v2.68.0...v2.69.0) (2026-11-13)
 

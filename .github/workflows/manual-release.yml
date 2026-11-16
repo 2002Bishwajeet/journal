@@ -3,6 +3,12 @@ name: Manual Release
 # Bumps, tags (pushed with the RELEASE_DEPLOY_KEY deploy key) and releases, then deploys that tag to production.
 # Releases made with github.token don't fire `release: published`, so the deploys
 # are called here instead.
+#
+# Releases are immutable once published: no asset can be added after that. With
+# DESKTOP_RELEASES on, the release is made as a draft, desktop-release.yml attaches
+# the installers and latest.json to it, then publishes it. If a desktop build fails,
+# the release stays a draft: re-run the failed jobs, or run Desktop Release by hand
+# with the tag and publish on. With DESKTOP_RELEASES off, the release is published at once.
 on:
   workflow_dispatch:
     inputs:
@@ -71,10 +77,11 @@ jobs:
           git push origin main --tags
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      # A draft doesn't create its tag, so --verify-tag makes sure the pushed one is used.
       - name: Create GitHub Release
         run: |
           VERSION=${{ steps.tag.outputs.version }}
-          gh release create v$VERSION --title "v$VERSION" --notes-file "$RUNNER_TEMP/release-notes.md"
+          gh release create v$VERSION --verify-tag ${{ vars.DESKTOP_RELEASES == 'true' && '--draft' || '' }} --title "v$VERSION" --notes-file "$RUNNER_TEMP/release-notes.md"
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
@@ -82,19 +89,22 @@ jobs:
     needs: release
     permissions:
       contents: read
+      packages: read
       deployments: write
     uses: ./.github/workflows/deploy-cloudflare.yml
     with:
       version: ${{ needs.release.outputs.version }}
     secrets: inherit
 
-  # Desktop installers and the updater manifest for this release (#305). Off until
+  # Desktop installers and the updater manifest for this release (#305); it then
+  # publishes the draft release. Off until
   # the signing secrets are set: `gh variable set DESKTOP_RELEASES --body true`.
   desktop-release:
     needs: release
     if: vars.DESKTOP_RELEASES == 'true'
     permissions:
       contents: write
+      packages: read
     uses: ./.github/workflows/desktop-release.yml
     with:
       tag: v${{ needs.release.outputs.version }}

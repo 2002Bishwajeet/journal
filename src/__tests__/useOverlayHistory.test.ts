@@ -8,6 +8,9 @@ import { useOverlayHistory, overlayEntryOpen } from '@/hooks/useOverlayHistory';
 // When set, the hook's navigate only writes the browser entry, as BrowserRouter does
 // before the location renders in its transition.
 const pendingPush = vi.hoisted(() => ({ on: false }));
+// When set, Back (navigate(-1)) lands later, as a browser's history.back() does: queued
+// until the test runs it.
+const laterBack = vi.hoisted(() => ({ on: false, queue: [] as (() => void)[] }));
 vi.mock('react-router-dom', async (importOriginal) => {
     const actual = await importOriginal<typeof import('react-router-dom')>();
     return {
@@ -17,7 +20,9 @@ vi.mock('react-router-dom', async (importOriginal) => {
             return ((to: unknown, options?: { state?: unknown }) =>
                 pendingPush.on && typeof to === 'object'
                     ? window.history.pushState({ usr: options?.state, key: 'sheet', idx: 2 }, '')
-                    : navigate(to as never, options)) as typeof navigate;
+                    : laterBack.on && typeof to === 'number'
+                      ? void laterBack.queue.push(() => navigate(to))
+                      : navigate(to as never, options)) as typeof navigate;
         },
     };
 });
@@ -50,6 +55,8 @@ function mount(initial: Spec[]) {
 beforeEach(() => {
     window.innerWidth = 393;
     pendingPush.on = false;
+    laterBack.on = false;
+    laterBack.queue = [];
 });
 
 describe('useOverlayHistory', () => {
@@ -137,6 +144,44 @@ describe('useOverlayHistory', () => {
         render([{ open: true, close }]);
         window.history.replaceState(null, '');
         expect(close).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps an overlay opened as another closes, when that one\'s Back lands later', () => {
+        // Settings (its sheet, then the Purchase page on top) closes as its Unlock opens the
+        // paywall, in one render. The paywall must outlive Settings' Backs.
+        const closeSheet = vi.fn();
+        const closePage = vi.fn();
+        const closePaywall = vi.fn();
+        const { probe, render } = mount([
+            { open: true, close: closeSheet },
+            { open: false, close: closePage },
+            { open: false, close: closePaywall },
+        ]);
+        render([
+            { open: true, close: closeSheet },
+            { open: true, close: closePage },
+            { open: false, close: closePaywall },
+        ]);
+        expect(probe.stack()).toHaveLength(2);
+        laterBack.on = true;
+        render([
+            { open: false, close: closeSheet },
+            { open: false, close: closePage },
+            { open: true, close: closePaywall },
+        ]);
+        // Each Back lands, then the next overlay's.
+        while (laterBack.queue.length) act(() => laterBack.queue.shift()!());
+        expect(closePaywall).not.toHaveBeenCalled();
+        expect(probe.stack()).toHaveLength(1);
+        // Back closes the paywall, then leaves the screen: no entry of Settings is left.
+        laterBack.on = false;
+        act(() => probe.navigate(-1));
+        expect(closePaywall).toHaveBeenCalledTimes(1);
+        expect(probe.stack()).toHaveLength(0);
+        act(() => probe.navigate(-1));
+        expect(probe.path()).toBe('/');
+        expect(closeSheet).not.toHaveBeenCalled();
+        expect(closePage).not.toHaveBeenCalled();
     });
 
     it('does nothing on desktop', () => {

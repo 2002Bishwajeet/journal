@@ -16,6 +16,43 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.71.1 (2026-11-16)
+
+### Added
+
+- Journal+ desktop apps for Mac, Windows and Linux. Try every feature for 3 days, then unlock it with a one-time purchase that includes a year of updates.
+
+## 2.71.0 (2026-11-16)
+
+### New
+
+- On an iPhone or iPad with Apple Intelligence, writing help (autocomplete, grammar and rewrite) can use the Apple on-device model. It is built in, so there is nothing to download. It is the default on these devices. You can select a different model in Settings → AI. The assistant continues to use its own model.
+- When you open Journal for the first time on a device, a welcome screen tells you what Journal is and why it uses a Homebase identity. Use "Create your Homebase identity" to get an identity (sign-up is in closed beta), or "I have an identity" to sign in.
+- In the iPhone and iPad app, the welcome screen shows the trial: 3 days free, then a one-time unlock at the App Store price.
+
+### Changed
+
+- Search is faster when you have many notes.
+- Search finds a word while you type it.
+- In search, put words in quotes (`"garden recipe"`) to find only that phrase. Put a minus sign before a word (`-recipe`) to remove the notes that contain it.
+- Search opens faster: it loads your 30 latest notes instead of the whole library, and the list no longer flashes a spinner while you type. A small spinner shows in the search field instead.
+- Each search result shows its folder, when it changed and its tags, and the part of the title that matches your search is marked.
+- Search ignores accents: `cafe` finds "café" and `zurich` finds "Zürich". It also finds notes by their tags, listed under title matches and above body matches. Notes written before this update are re-indexed in the background a short while after the app opens.
+- The MCP `search_notes` tool matches notes that hold every word of the query, ignoring case and accents, and "double quotes" keep a phrase together. It lists title matches first, then tag matches, then body matches, each with a snippet of the text around the match. It also takes `folderId`, `tag`, `modifiedAfter` and `modifiedBefore`, and keeps note text it has read so repeated searches are faster.
+- The sign-in page on a computer has new text, and the dots that did nothing are gone. "Welcome back" shows only on a device that signed in before.
+
+### Fixed
+
+- A note that you can only view shows no controls to change its images, callouts or toggles.
+- A read-only note shows its tags. On a computer, the Contents button stays available.
+- After the app becomes read-only, live blocks show the latest saved state.
+- If the app cannot check this device, "Save a copy" tells you. Before, it gave the wrong reason.
+- On Android, journal.cloudx.run share links open the Journal app installed from Google Play.
+
+### Added
+
+- You can now buy Journal+ on the website: a one-time purchase with a year of updates, delivered as a license key.
+
 ## 2.70.0 (2026-11-13)
 
 ### New
