@@ -26,6 +26,11 @@ describe('desktop icons (scripts/generate-desktop-icons.mjs)', () => {
     expect(sizes).toEqual(expect.arrayContaining([16, 32, 48, 256]));
   });
 
+  it('has the macOS menu bar icon at 1x and 2x (scripts/generate-tray-icons.mjs)', () => {
+    expect(pngSize('tray/tray-template.png')).toEqual([18, 18]);
+    expect(pngSize('tray/tray-template@2x.png')).toEqual([36, 36]);
+  });
+
   it('has a macOS icon', () => {
     expect(read('icon.icns').subarray(0, 4).toString()).toBe('icns');
   });
