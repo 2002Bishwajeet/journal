@@ -29,9 +29,10 @@ class MainActivity : TauriActivity() {
     // The page posts the colour of the surface under the bars (src/lib/themeColor.ts)
     // so the status and navigation bar icons follow the in-app theme, not only the OS.
     // Only the app's own origin, main frame, may call it: embedded pages cannot.
+    // Release builds and every other build each have their own port (PORT in src-tauri/src/lib.rs).
     if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
       WebViewCompat.addWebMessageListener(
-        webView, "JournalSystemBars", setOf("http://localhost:47821")
+        webView, "JournalSystemBars", setOf("http://localhost:23941", "http://localhost:23942")
       ) { _, message, _, isMainFrame, _ ->
         if (isMainFrame) message.data?.let { setBarIcons(it) }
       }

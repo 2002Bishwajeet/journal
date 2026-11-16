@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   The shell serves the built frontend over a real HTTP origin on loopback
-  (http://localhost:47821 - see src-tauri/src/lib.rs). That is an ordinary TCP
-  socket, not an intercepted custom scheme, so it is subject to Android's
-  network security policy.
+  (http://localhost:23941 for release builds, http://localhost:23942 for every
+  other build - see PORT in src-tauri/src/lib.rs; a domain-config covers every
+  port). That is an ordinary TCP socket, not an intercepted custom scheme, so
+  it is subject to Android's network security policy.
 
   Android 9+ (API 28+) defaults cleartextTrafficPermitted to false, and the
   implicit localhost exemption only landed in Android 17 (API 37). On the
