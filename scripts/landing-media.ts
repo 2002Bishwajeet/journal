@@ -12,6 +12,8 @@
  *   npx vite build --mode e2e --outDir dist-e2e
  *   npx vite preview --mode e2e --outDir dist-e2e --host 127.0.0.1 --port 5174 --strictPort &
  *   npx vite-node scripts/landing-media.ts [shots|features|video]
+ *
+ * Then put them in their device frames with scripts/device-frames.ts.
  */
 import { chromium, expect, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { execFileSync } from 'node:child_process';

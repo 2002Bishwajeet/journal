@@ -227,34 +227,13 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .frame-page img { aspect-ratio: auto; } /* the public page below its header, at its own height */
 .share-page img { aspect-ratio: 16 / 9; } /* the published note ends before the frame does */
 
-/* A phone picture in its device: a metal rim, a black bezel, side buttons, a Dynamic Island. The markup is
-   a .phone-frame around a .phone-screen that starts with <!-- phone-status -->, then the capture.
-   The screen keeps a real phone's 393 × 852 proportions: a drawn status bar above the capture (which has
-   none) and the note's own paper below it. Inside, sizes are in cqw of the screen's width, from iOS points. */
-.phone-frame {
-  position: relative; container-type: inline-size;
-  padding: 10px; border: 2px solid #4A4844; border-radius: 54px; background: #0E0E0D;
+/* A capture in Apple's iPhone or MacBook bezel, flattened into one picture (scripts/device-frames.ts), so it
+   needs no mat. A desktop picture that swaps to a bare phone capture on a phone keeps its mat there. */
+.device img, .device video { width: 100%; height: auto; vertical-align: top; }
+@media (min-width: 600px) {
+  .frame.device, .crop.device { padding: 0; border-radius: 0; background: none; }
+  .frame.device img, .crop.device img { aspect-ratio: auto; border-radius: 0; background: none; }
 }
-.phone-frame::before, .phone-frame::after { content: ''; position: absolute; width: 3px; background: #4A4844; }
-.phone-frame::before { /* volume up, and volume down as its copy */
-  left: -5px; top: 150px; height: 56px; border-radius: 2px 0 0 2px; box-shadow: 0 68px 0 #4A4844;
-}
-.phone-frame::after { right: -5px; top: 186px; height: 88px; border-radius: 0 2px 2px 0; } /* side button */
-.phone-screen {
-  position: relative; overflow: hidden; aspect-ratio: 393 / 852;
-  border-radius: 14cqw; background: var(--bg); color: var(--ink);
-}
-.phone-screen::before, .phone-screen::after { content: ''; position: absolute; inset-inline: 0; margin-inline: auto; }
-.phone-screen::before { top: 2.8cqw; width: 32cqw; height: 9.4cqw; border-radius: 9.4cqw; background: #000; } /* Dynamic Island */
-.phone-screen::after { bottom: 2cqw; width: 34cqw; height: 1.3cqw; border-radius: 1cqw; background: var(--ink); } /* home indicator */
-.phone-status {
-  display: grid; grid-template-columns: 1fr 32cqw 1fr; align-items: center; height: 13.7cqw; padding-top: 0.6cqw;
-  font-size: 4.3cqw; font-weight: 620; letter-spacing: -0.01em; text-align: center;
-}
-.phone-status-icons { grid-column: 3; display: flex; justify-content: center; align-items: center; gap: 1.4cqw; }
-.phone-status-icons svg { height: 3.1cqw; width: auto; fill: currentColor; }
-.phone-status-icons svg:last-child { height: 3.3cqw; }
-.phone-screen img { width: 100%; }
 .hero-phone { display: none; max-width: 300px; margin: 0 auto; }
 @media (max-width: 599px) {
   .frame-hero { display: none; }

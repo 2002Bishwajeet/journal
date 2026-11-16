@@ -7,8 +7,8 @@ const page = (name: string) => resolve(import.meta.dirname, name)
 
 // Every page shares one head, header and footer: `<!-- head -->`, `<!-- header -->` and `<!-- footer -->` are
 // replaced from site/partials, the nav link named by <body data-page> is marked current, and
-// a page's `<!-- credit: ... -->` (picture credits) moves into the footer. A phone frame's status bar
-// (`<!-- phone-status -->`) and the store badges (`<!-- store-badges -->`) are shared partials too.
+// a page's `<!-- credit: ... -->` (picture credits) moves into the footer. The store badges
+// (`<!-- store-badges -->`) are a shared partial too.
 const read = (name: string) => readFileSync(page(`partials/${name}.html`), 'utf8')
 
 // Buying the native apps is off until billing production and the app downloads are live: the buy page
@@ -37,7 +37,7 @@ export function render(html: string, live: Record<keyof typeof LIVE, boolean> = 
   const credit = /<!-- credit: ([\s\S]*?) -->\n?/.exec(html)
   const built = html
     .replace(credit?.[0] ?? '', '')
-    .replace(/<!-- (head|header|footer|phone-status|store-badges) -->/g, (_, name) => read(name))
+    .replace(/<!-- (head|header|footer|store-badges) -->/g, (_, name) => read(name))
     .replace('<!-- credit -->', credit ? `<p class="wrap credit">${credit[1]}</p>` : '')
     .replaceAll(/ data-nav="(\w+)"/g, (_, nav) => (nav === current ? ' aria-current="page"' : ''))
   const out = Object.entries(live).reduce((h, [flag, on]) => flagBlocks(h, flag, on), built)

@@ -1,8 +1,9 @@
 /**
- * #1294: the landing site for launch. The home page leads with privacy, the phone pictures sit in the
- * one shared phone frame, the download page has the app's three getting-started steps, and the
+ * #1294: the landing site for launch. The home page leads with privacy, the pictures sit in Apple's
+ * iPhone and MacBook bezels, the download page has the app's three getting-started steps, and the
  * App Store and Google Play badges appear only in a build with VITE_STORES_LIVE on.
  */
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { render, STORES_LIVE } from '../../site/vite.config';
@@ -23,14 +24,33 @@ describe('the home page', () => {
     });
 });
 
-describe('the phone frame', () => {
-    it.each(['index.html', 'download.html', 'buy.html'])('holds every phone picture on %s, with the shared status bar', (file) => {
+describe('the device frames', () => {
+    // Apple's bezels are never committed: only composites flattened by scripts/device-frames.ts.
+    it.each(['index.html', 'download.html', 'buy.html'])('hold every phone picture on %s', (file) => {
         const html = built(file, false);
-        expect(html).not.toMatch(/class="phone /);
-        const frames = html.match(/class="phone-frame /g)?.length ?? 0;
-        expect(frames).toBeGreaterThan(0);
-        expect(html.match(/class="phone-status"/g)).toHaveLength(frames);
-        expect(html).not.toContain('<!-- phone-status -->');
+        expect(html).not.toMatch(/phone-frame|phone-status/);
+        expect(html).toMatch(/src="\/media\/phone-note-iphone-light\.webp"/);
+        expect(html).toMatch(/src="\/media\/phone-note-iphone-dark\.webp"/);
+    });
+
+    it.each(['index.html', 'download.html'])('hold the hero video on %s', (file) => {
+        const html = built(file, false);
+        for (const theme of ['light', 'dark']) {
+            expect(html).toContain(`poster="/media/hero-poster-mac-${theme}.webp"`);
+            expect(html).toContain(`src="/media/hero-mac-${theme}.mp4"`);
+        }
+    });
+
+    it('hold the home page desktop pictures', () => {
+        const html = built('index.html', false);
+        for (const name of ['phone-live-block-iphone', 'feature-blocks-mac', 'public-page-mac', 'agent-result-mac']) {
+            for (const theme of ['light', 'dark']) expect(html).toContain(`src="/media/${name}-${theme}.webp"`);
+        }
+    });
+
+    it('commit no raw bezel', () => {
+        const tracked = execFileSync('git', ['ls-files'], { encoding: 'utf8' }).split('\n');
+        expect(tracked.filter((f) => /iPhone 18|MacBook Pro M5|bezel/i.test(f) && /\.(png|psd|dmg)$/i.test(f))).toEqual([]);
     });
 });
 
@@ -89,10 +109,14 @@ describe('the pricing and buy copy', () => {
             const sentences = built(file, false)
                 .replace(/<(script|style)\b[\s\S]*?<\/\1>/g, '')
                 .replace(/<[^>]+>/g, '\n')
-                .split(/[.?!\n]/);
+                .split(/[.?!](?!\d)|\n/); // not inside a price
             const keyed = sentences.filter((s) => /\bkey\b/.test(s));
             expect(keyed.length).toBeGreaterThan(0);
             for (const s of keyed) expect(s, file).not.toMatch(/iPhone|Android/);
+            // The 5-device limit is the desktop key's, so each line with it says which devices.
+            const limits = sentences.filter((s) => /up to 5\b/.test(s));
+            expect(limits.length).toBeGreaterThan(0);
+            for (const s of limits) expect(s, file).toMatch(/Mac, Windows (and|or) Linux/);
         }
     });
 });
