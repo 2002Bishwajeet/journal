@@ -20,6 +20,10 @@ jobs:
     permissions:
       contents: read
       packages: read
+    env:
+      # Agent-harness PRs keep their screenshots for the e2e-evidence job below (#1324). The
+      # branch name too: `gh pr create --label` adds the label after the PR's opened event.
+      HARNESS_PR: ${{ github.event_name == 'pull_request' && (startsWith(github.head_ref, 'agent/') || contains(github.event.pull_request.labels.*.name, 'agent-harness')) }}
     strategy:
       fail-fast: false
       matrix:
@@ -91,7 +95,8 @@ jobs:
         # Hit 8 minutes on PRs #955 and #956 on 2026-11-02, with every test passing so far.
         # Hit 14.1 minutes on PR #996 on 2026-11-04 on slow runners, with all 107 passing.
         timeout-minutes: 20
-        run: npm run e2e:mobile
+        # Its own output folder: a run empties its folder first, and the hermetic run's screenshots stay.
+        run: npm run e2e:mobile -- --output=test-results/mobile
         env:
           CI: true
 
@@ -105,6 +110,23 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 14
+
+      # Evidence never fails a shard: `e2e` below is the required check.
+      - name: Keep screenshots for the evidence job
+        if: always() && env.HARNESS_PR == 'true'
+        continue-on-error: true
+        run: mkdir -p evidence && find test-results -name '*.png' -exec cp --parents {} evidence/ \;
+
+      - name: Upload screenshots for the evidence job
+        if: always() && env.HARNESS_PR == 'true'
+        continue-on-error: true
+        timeout-minutes: 1
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-evidence-${{ matrix.shard }}-${{ github.run_attempt }}
+          path: evidence/
+          if-no-files-found: ignore
+          retention-days: 3
 
   # WebKit and quarantined specs only inform, so they run beside the shards and
   # `e2e` does not wait for them. A cold apt cache on a slow mirror can take
@@ -192,3 +214,32 @@ jobs:
     steps:
       - name: All shards passed
         run: test "${{ needs.e2e-shard.result }}" = success
+
+  # Agents never run e2e locally (#1324), so for an agent-harness PR this job publishes the
+  # screenshots its changed specs took on purpose: to the agent-evidence branch under <issue>/
+  # (from the PR's "Closes #N") and as one PR comment with the gallery. Never a required check.
+  e2e-evidence:
+    needs: e2e-shard
+    if: always() && github.event_name == 'pull_request' && (startsWith(github.head_ref, 'agent/') || contains(github.event.pull_request.labels.*.name, 'agent-harness'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts/harness
+
+      - name: Download screenshots
+        uses: actions/download-artifact@v8
+        with:
+          pattern: e2e-evidence-*
+          path: evidence
+
+      - name: Publish screenshots
+        run: node scripts/harness/evidence.mjs evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}

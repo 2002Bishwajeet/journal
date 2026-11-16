@@ -534,11 +534,12 @@ npx vite-node -c scripts/bench/vite.config.ts scripts/bench/search-bench.ts -- -
 `/implement <epic#|issue#…>` (`.claude/commands/implement.md`) works every unblocked `agent-ready` issue unattended:
 
 - `scripts/harness/select.mjs` picks issues: open, `agent-ready`, not `needs-design`/`blocked`, no open PR, and every issue on its `Depends on:` line closed. Epics expand recursively to their sub-issues. The `agent-ready` label is the queue; pass issue or epic numbers.
-- The `implement-epic` workflow (`.claude/workflows/implement-epic.js`) runs 2 issues at a time: an implementer in its own worktree (effort follows `Size:`), a fresh Sonnet verifier that runs the issue's `## Verification` (e2e first) and reviews the diff, 1 fix round, then a PR labelled `agent-harness` with `Closes #N` and the check table.
+- The `implement-epic` workflow (`.claude/workflows/implement-epic.js`) runs 2 issues at a time: an implementer in its own worktree (effort follows `Size:`), a fresh Sonnet verifier that runs the issue's `## Verification` (e2e commands excepted) and reviews the diff, 1 fix round, then a PR labelled `agent-harness` with `Closes #N` and the check table.
+- No agent runs e2e or Playwright locally (#1324): agents write and update specs (which take the screenshots the issue asks for) and list them with `npx playwright test --list`; CI runs every e2e spec, and its `e2e-evidence` job posts the screenshots on the PR. The orchestrator checks those images before merging; developers can still run e2e by hand.
 - The harness never merges a draft PR or one labelled `hold`, and never marks a PR ready; held PRs are reported as `held: <reason>`.
 - `--dry` prints the selection table and starts nothing. `--loop` waits for you to merge/close an `agent-harness` PR, then selects the next wave (stops when nothing is left, or after 12 h). `--max N` caps a wave (default 3). Start it from a fresh session to keep token use down.
 - A STOP condition or still-failing verification comments on the issue and adds `blocked`; remove the label to make it selectable again.
-- Heavy commands go through `scripts/harness/serial.sh` (one build/test/lint/e2e at a time). The owner is the only merge gate.
+- Heavy commands go through `scripts/harness/serial.sh` (one build/test/lint at a time). The owner is the only merge gate.
 
 ## Private native features (`native/`)
 
@@ -595,6 +596,7 @@ Enforced minimums for all UI components. Do not go below these:
 
 - **Integration first.** The default verification is an integration test: Vitest in Node (`src/__tests__/`), real PGlite + real Yjs, no server. Drive/network calls are stubbed at the app's provider boundary with per-test canned values. This carries most coverage: DB/SQL, sync bookkeeping, image queues, Yjs merging, routing/URL logic, parsers. Runs on every PR.
 - **E2E only for core flows.** Playwright specs in `e2e/`. Backend-free specs (`*.spec.ts`, the `hermetic` project on `127.0.0.1`) run on every PR via `npm run e2e`. Realtime, websocket, second-device and MCP flows are live-tier specs (`*.live.spec.ts`) against a real Homebase: `npm run e2e:live` locally (hand-logged-in identity) or `npm run e2e:live:docker` (throwaway Docker identity); in CI they run nightly and on PRs labelled `e2e-live`, never as a required check. Pages headers and the share Function are covered by `e2e/edge/` (`npm run e2e:edge`). The HAR-recorded layer described in #196 was dropped (#202, superseded by the live tier).
+- **Agents never run e2e or Playwright locally** (harness or one-off, #1324): on the 16 GB machine it starves everything else. They run lint, `npm run build` and `vitest related`; CI runs the e2e specs and publishes their screenshots. Developers can still run e2e by hand.
 - **E2E cost.** One behaviour run per spec; both themes are screenshots inside it (`screenshotInBothThemes` / `inBothThemes` in `e2e/support/actions.ts`) unless the assertion is theme-specific. Never wait on a fixed timer for a save: use `waitForNoteSaved(page)`.
 - **No behavioural fakes of Homebase.** Never add an in-memory/stateful imitation of the drive; stub only at the provider boundary in integration tests, or use a real backend in E2E.
 - Bug fixes: regression test at the lowest layer that reproduces the bug.
