@@ -1,11 +1,14 @@
 [
   {
-    "relation": ["delegate_permission/common.handle_all_urls"],
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
     "target": {
       "namespace": "android_app",
       "package_name": "com.biswa.journal",
       "sha256_cert_fingerprints": [
-        "0F:9C:49:2A:EE:62:12:22:87:8D:5A:D0:ED:2F:83:33:F8:D9:B7:8C:D0:3B:7D:DE:6B:A8:1D:72:BE:A1:BF:BB"
+        "0F:9C:49:2A:EE:62:12:22:87:8D:5A:D0:ED:2F:83:33:F8:D9:B7:8C:D0:3B:7D:DE:6B:A8:1D:72:BE:A1:BF:BB",
+        "A3:F6:9E:4C:85:CC:1D:AF:B0:57:D7:AC:2E:BC:CE:E1:ED:ED:AA:24:67:A3:51:AA:76:52:DF:81:BD:4D:D8:FA"
       ]
     }
   }
