@@ -81,6 +81,18 @@ export default function LandingPage() {
     }
   };
 
+  const mobileLogo = (
+    <div className="lg:hidden flex justify-center mb-8">
+      <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center overflow-hidden p-2 border border-border/50 ">
+        <img
+          src={logo}
+          alt="Journal Logo"
+          className="w-full h-full object-contain opacity-90"
+        />
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-dvh w-full flex bg-background font-sans text-foreground selection:bg-stone-200 selection:text-black">
       {/* Left Side - Landing / Branding */}
@@ -99,12 +111,27 @@ export default function LandingPage() {
             </span>
           </div>
           <h1 className="text-6xl font-serif text-foreground leading-[1.05] mb-8 max-w-lg tracking-tight">
-            Your notes stay home
+            Capture your thoughts with clarity and calm.
           </h1>
           <p className="text-xl text-muted-foreground max-w-md leading-relaxed font-light">
-            Write offline, sync across your devices, and share a note only
-            when you choose.
+            A minimalist space for your intellectual journey. Distraction-free,
+            by design.
           </p>
+        </div>
+
+        <div className="z-10">
+          <div className="flex gap-3">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className={`h-1.5 rounded-full transition-all duration-500 ${
+                  i === 1
+                    ? "w-12 bg-foreground/40"
+                    : "w-2 bg-foreground/10 hover:bg-foreground/20"
+                }`}
+              />
+            ))}
+          </div>
         </div>
 
         {/* Abstract Background Element */}
@@ -117,20 +144,16 @@ export default function LandingPage() {
           key={welcome ? "welcome" : "sign-in"}
           className="w-full max-w-90 space-y-10 animate-in fade-in slide-in-from-bottom-8 duration-300 ease-out fill-mode-forwards"
         >
-          <div className="lg:hidden flex justify-center">
-            <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center overflow-hidden p-2 border border-border/50 ">
-              <img
-                src={logo}
-                alt="Journal Logo"
-                className="w-full h-full object-contain opacity-90"
-              />
-            </div>
-          </div>
           {welcome ? (
-            <WelcomeStep appName={APP_NAME} onHaveIdentity={() => setWelcome(false)} />
+            <WelcomeStep
+              appName={APP_NAME}
+              logo={mobileLogo}
+              onHaveIdentity={() => setWelcome(false)}
+            />
           ) : (
             <>
               <div className="text-center space-y-4">
+                {mobileLogo}
                 <h2 className="text-2xl font-medium tracking-tight text-foreground">
                   {signedInBefore ? "Welcome back" : "Sign in"}
                 </h2>
