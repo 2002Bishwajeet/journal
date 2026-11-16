@@ -27,15 +27,20 @@ async function loadAllPictures(page: Page) {
 for (const colorScheme of ['light', 'dark'] as const) {
   for (const viewport of VIEWPORTS) {
     test(`launch pages, ${colorScheme}, ${viewport.name}`, async ({ page }) => {
-      // Reduced motion: the entrance reveal (data-reveal) shows everything at once.
-      await page.emulateMedia({ colorScheme, reducedMotion: 'reduce' });
+      // Default motion, as most visitors see it: reduced motion would give the hero video its player controls.
+      await page.emulateMedia({ colorScheme });
       await page.setViewportSize(viewport);
       for (const { name, path } of PAGES) {
         await page.goto(path);
         await expect(page.locator('h1')).toBeVisible();
         await expect(page.locator('.store-badges')).toHaveCount(0);
         await loadAllPictures(page);
-        await page.screenshot({ path: test.info().outputPath(`${name}-${colorScheme}-${viewport.name}.png`), fullPage: true });
+        // Scroll through once, so every entrance reveal (data-reveal) has run, then back to the top.
+        await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }));
+        await expect(page.locator('[data-reveal]:not(.in)')).toHaveCount(0);
+        await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+        await expect(page.locator('.hero-video[controls]')).toHaveCount(0);
+        await page.screenshot({ path: test.info().outputPath(`${name}-${colorScheme}-${viewport.name}.png`), fullPage: true, animations: 'disabled' });
       }
     });
   }

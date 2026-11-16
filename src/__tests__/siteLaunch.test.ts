@@ -23,11 +23,11 @@ describe('the home page', () => {
         expect(html).toContain('"alternativeHeadline":"Private notes, encrypted."');
     });
 
-    // Owner, 2026-11-16: every version is encrypted on Homebase; only Journal+ encrypts the device copy;
+    // Owner, 2026-11-16: every version is encrypted on Homebase; only the native apps encrypt the device copy;
     // public pages are not encrypted.
     it('says precisely what is encrypted where', () => {
         expect(html).toContain('encrypted on a Homebase identity you own');
-        expect(html).toContain('Journal+ encrypts this copy too.');
+        expect(html).toContain('The Journal apps encrypt this copy too.');
         expect(html).toContain('A public page is not encrypted');
     });
 });
@@ -123,7 +123,7 @@ describe('the store badges', () => {
 describe('the pricing and buy copy', () => {
     it.each(['pricing.html', 'buy.html'])('%s states the model', (file) => {
         const html = built(file, false);
-        for (const words of ['3-day trial', '€24.99', '€14.99', 'year of updates', 'Journal+']) expect(html).toContain(words);
+        for (const words of ['3-day trial', '€24.99', '€14.99', 'year of updates', 'Journal apps']) expect(html).toContain(words);
         expect(html).toMatch(/[Nn]o subscription/);
     });
 
