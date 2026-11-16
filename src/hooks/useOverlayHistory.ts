@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useLayoutEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useDeviceType } from "@/hooks/useDeviceType";
 
@@ -28,6 +28,10 @@ const entryPopped = (id: string) => {
   return current?.idx !== undefined && !stackOf(current.usr).includes(id);
 };
 
+// Whether each mounted overlay is open, by id. Layout effects run before every hook's
+// effect, so an overlay opening sees one that closed in the same render.
+const openById = new Map<string, boolean>();
+
 // Below the desktop breakpoint an open overlay owns one history entry, so the
 // system Back gesture closes it and stays on the same screen.
 // idle -> pushing (entry requested) -> active (entry is the current location).
@@ -42,9 +46,21 @@ export function useOverlayHistory(open: boolean, close: () => void) {
   const inStack = stack.includes(id);
   const isTop = stack[stack.length - 1] === id;
 
+  useLayoutEffect(() => {
+    openById.set(id, open);
+    return () => {
+      openById.delete(id);
+    };
+  }, [id, open]);
+
   useEffect(() => {
     if (isDesktop) return;
-    if (open && phase.current === "idle") {
+    // The top entry belongs to an overlay that closed in this render and has yet to pop it
+    // (Settings closing as its Unlock opens the paywall). Pushing now would put our entry
+    // above it, and its Back, which lands later, would pop ours and close us: wait for its
+    // pop to render (the new location renders this hook again).
+    const topClosing = openById.get(stack[stack.length - 1]) === false;
+    if (open && phase.current === "idle" && !topClosing) {
       phase.current = "pushing";
       const { pathname, search, hash } = location;
       navigate(
