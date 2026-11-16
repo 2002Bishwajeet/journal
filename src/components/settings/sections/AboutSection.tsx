@@ -6,7 +6,7 @@ import { useSettingsPlatform } from "@/hooks/useSettingsPlatform";
 import { isNativeSettings } from "@/lib/settingsPlatform";
 import { useLatestWhatsNew } from "@/hooks/useWhatsNew";
 import { BILLING_URL, DOWNLOAD_URL } from "@/lib/billing";
-import { appName, isNativeApp } from "@/lib/native";
+import { isNativeApp } from "@/lib/native";
 
 const links = [
   { label: "Source code", href: "https://github.com/2002Bishwajeet/journal" },
@@ -22,7 +22,7 @@ export default function AboutSection() {
 
   const copyVersion = async () => {
     try {
-      await navigator.clipboard.writeText(`${appName()} ${version}${native ? "" : ` · ${navigator.userAgent}`}`);
+      await navigator.clipboard.writeText(`Journal ${version}${native ? "" : ` · ${navigator.userAgent}`}`);
       toast.success("Copied");
     } catch {
       toast.error("Couldn't copy to clipboard");
@@ -58,7 +58,7 @@ export default function AboutSection() {
         <p className="text-xs leading-relaxed text-muted-foreground text-pretty">
           Your notes are stored on this device and synced end-to-end encrypted
           to your own Homebase. On-device AI runs {native ? "on this device" : "in this browser"}; model files
-          are downloaded once from a public model host. {appName()} has no
+          are downloaded once from a public model host. Journal has no
           analytics.
         </p>
       </div>

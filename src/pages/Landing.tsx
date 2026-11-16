@@ -6,13 +6,10 @@ import { useAuth } from "@/hooks/auth/useAuth";
 import { useYouAuthAuthorization } from "@/hooks/auth/useYouAuthAuthorization";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { sanitizeReturnUrl } from "@/lib/utils";
-import { isNativeApp, startSignIn } from "@/lib/native";
+import { startSignIn } from "@/lib/native";
 import { hasSignedInBefore, opensOnWelcome } from "@/lib/firstRun";
 import { WelcomeStep } from "@/components/auth/WelcomeStep";
 import logo from "@/assets/logo_withoutbg.png";
-
-/** The native apps are Journal+; the web app (and the PWA) is Journal. */
-const APP_NAME = isNativeApp() ? "Journal+" : "Journal";
 
 export default function LandingPage() {
   useDocumentTitle("Sign in");
@@ -95,7 +92,7 @@ export default function LandingPage() {
               />
             </div>
             <span className="text-3xl font-script text-foreground tracking-wide opacity-90">
-              {APP_NAME}
+              Journal
             </span>
           </div>
           <h1 className="text-6xl font-serif text-foreground leading-[1.05] mb-8 max-w-lg tracking-tight">
@@ -127,7 +124,7 @@ export default function LandingPage() {
             </div>
           </div>
           {welcome ? (
-            <WelcomeStep appName={APP_NAME} onHaveIdentity={() => setWelcome(false)} />
+            <WelcomeStep onHaveIdentity={() => setWelcome(false)} />
           ) : (
             <>
               <div className="text-center space-y-4">

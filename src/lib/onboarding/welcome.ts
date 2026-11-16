@@ -4,7 +4,7 @@ import { MAIN_FOLDER_ID, WelcomeSeededDriveProvider } from '@/lib/homebase';
 import type { DotYouClient } from '@homebase-id/js-lib/core';
 import welcomeMarkdown from './welcomeNote.md?raw';
 
-export const WELCOME_TITLE = 'Welcome to Journal+';
+export const WELCOME_TITLE = 'Welcome to Journal';
 export const WELCOME_SEEDED_KEY = 'welcome-note-seeded';
 
 /** Seed only when the welcome note was never offered, here or on another device, and nothing exists yet. */
@@ -13,7 +13,7 @@ export function shouldSeedWelcome(state: { seededLocally: boolean; seededRemotel
 }
 
 /**
- * First sign-in (#1283): create the one "Welcome to Journal+" note for an identity with no notes.
+ * First sign-in (#1283): create the one "Welcome to Journal" note for an identity with no notes.
  * The seeded flag is kept in app_state and, best effort, as a marker file on the drive so another
  * device (or a sign-in after the note was deleted for good) never seeds again. An unreachable
  * drive counts as "not marked": a brand-new account offline still gets its note.

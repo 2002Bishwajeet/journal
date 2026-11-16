@@ -11,12 +11,12 @@ const pressable =
  * The sign-in page's first screen on a device no identity signed in on (#1282): what the app
  * is, why it needs a Homebase identity, the trial in a store build, and the two ways on.
  */
-export function WelcomeStep({ appName, onHaveIdentity }: { appName: string; onHaveIdentity: () => void }) {
+export function WelcomeStep({ onHaveIdentity }: { onHaveIdentity: () => void }) {
   return (
     <>
       <div className="text-center space-y-4">
         <h2 className="text-2xl font-medium tracking-tight text-foreground">
-          Welcome to {appName}
+          Welcome to Journal
         </h2>
         <p className="text-muted-foreground text-sm">
           A notebook that works offline and syncs across your devices.

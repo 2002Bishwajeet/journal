@@ -51,7 +51,6 @@ import { BarTitle, LargeTitle } from "./LargeTitle";
 import { MobileSyncPill } from "./MobileSyncPill";
 import { largeTitleBarClass } from "./largeTitleClasses";
 import { useCanEdit } from "@/hooks/useCanEdit";
-import { appName } from "@/lib/native";
 
 interface SidebarProps {
   folders: Folder[];
@@ -337,7 +336,7 @@ export default function Sidebar({
         {!isDesktop ? (
           <div className={cn(largeTitleBarClass(largeTitle.collapsed), largeTitle.collapsed && "border-sidebar-border")}>
             {isPhone && <MobileSyncPill />}
-            <BarTitle show={largeTitle.collapsed}>{appName()}</BarTitle>
+            <BarTitle show={largeTitle.collapsed}>Journal</BarTitle>
           </div>
         ) : (
         <div
@@ -352,7 +351,7 @@ export default function Sidebar({
             <div className="flex items-center gap-2">
                <OwnerImage size="xs" />
                <span className="text-sm font-semibold text-sidebar-foreground">
-                 {appName()}
+                 Journal
                </span>
             </div>
           )}
@@ -394,7 +393,7 @@ export default function Sidebar({
             <>
               {/* The owner's picture sits at the end of the title row, as in the iOS App Store. */}
               <div className="flex items-center pr-4 [&>h2]:min-w-0 [&>h2]:flex-1">
-                <LargeTitle titleRef={largeTitle.ref}>{appName()}</LargeTitle>
+                <LargeTitle titleRef={largeTitle.ref}>Journal</LargeTitle>
                 <OwnerImage size="custom" className="size-9 shrink-0" />
               </div>
               {topRows}

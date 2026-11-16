@@ -31,7 +31,7 @@ test('ios store build: the welcome step states the trial with the store price', 
     await page.goto('/welcome');
     await assertTestOrigin(page);
 
-    await expect(page.getByRole('heading', { name: 'Welcome to Journal+' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Welcome to Journal' })).toBeVisible();
     await expect(page.getByText(`Free for 3 days, then a one-time unlock for ${PRICE}.`)).toBeVisible();
     // Signed out: it asks the store for the price only, and starts no trial clock.
     expect(calls.filter((cmd) => cmd.startsWith('plugin:journal-'))).toEqual(['plugin:journal-iap|products']);

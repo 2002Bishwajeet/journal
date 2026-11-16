@@ -9,7 +9,6 @@ import { cn } from "@/lib/utils";
 import { MAIN_FOLDER_ID } from "@/lib/homebase";
 import { useCanEdit } from "@/hooks/useCanEdit";
 import { sharedNote } from "@/lib/sharedNote";
-import { appName } from "@/lib/native";
 
 export default function ShareTargetPage() {
   const [searchParams] = useSearchParams();
@@ -58,7 +57,7 @@ export default function ShareTargetPage() {
   return (
     <div className="min-h-svh bg-background flex flex-col p-4 md:p-8 max-w-2xl mx-auto pt-[env(safe-area-inset-top)]">
       <div className="flex items-center justify-between mb-8 mt-4">
-        <h1 className="text-2xl font-bold tracking-tight">Save to {appName()}</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Save to Journal</h1>
         <Button variant="ghost" size="icon" aria-label="Cancel" onClick={handleCancel}>
           <X className="w-5 h-5" />
         </Button>
@@ -92,7 +91,7 @@ export default function ShareTargetPage() {
 
         {!canEdit && (
           <p role="status" className="text-sm text-muted-foreground text-pretty">
-            Your notes are read-only on this device. Unlock {appName()} to keep writing.
+            Your notes are read-only on this device. Unlock Journal to keep writing.
           </p>
         )}
 
