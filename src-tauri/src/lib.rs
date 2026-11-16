@@ -24,7 +24,10 @@ mod premium {
 
     /// No license key in the public build: every update installs.
     #[cfg(desktop)]
-    pub fn updates_until(_app: &tauri::AppHandle) -> Option<time::OffsetDateTime> {
+    pub async fn updates_until(
+        _app: &tauri::AppHandle,
+        _pub_date: Option<time::OffsetDateTime>,
+    ) -> Option<time::OffsetDateTime> {
         None
     }
 
@@ -437,9 +440,10 @@ async fn update(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>
     let Some(update) = app.updater()?.check().await? else {
         return Ok(());
     };
-    // A license key's updates cover the releases up to its updatesUntil (#1316). A skipped
-    // one isn't downloaded; the web view tells the user about it once.
-    let install = should_install(update.date, premium::updates_until(app));
+    // A license key's updates cover the releases up to its updatesUntil (#1316), as the
+    // billing Worker confirms it. A skipped one isn't downloaded; the web view tells the user
+    // about it once.
+    let install = should_install(update.date, premium::updates_until(app, update.date).await);
     premium::set_skipped_update(app, (!install).then(|| update.version.clone()));
     if !install {
         return Ok(());
