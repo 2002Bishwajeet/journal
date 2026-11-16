@@ -54,6 +54,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     permissions:
       contents: write
+      packages: read
     steps:
       - name: Check secrets
         shell: bash
@@ -102,11 +103,13 @@ jobs:
           node-version: 22
           cache: npm
 
+      # @homebase-id/js-lib is public, which the job token can read; the fine-grained
+      # GH_TOKEN can't read GitHub Packages (403 without a warm npm cache).
       - name: Authenticate to Github packages
         shell: bash
         run: |
           echo "@homebase-id:registry=https://npm.pkg.github.com" > .npmrc
-          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GH_TOKEN }}" >> .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${{ github.token }}" >> .npmrc
 
       - name: Install dependencies
         run: npm ci
