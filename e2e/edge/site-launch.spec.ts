@@ -54,16 +54,22 @@ test('the home hero leads with privacy, its phone in the iPhone frame', async ({
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Private notes, encrypted.');
   await expectLoaded(page, '.hero-phone img[src$="/media/phone-live-block-iphone-light.webp"]');
+  await expect(page.locator('.frame-hero')).toBeHidden(); // no desktop window squeezed onto a phone
+  expect(await page.locator('main .window:visible, main .device:visible').count()).toBeLessThanOrEqual(3);
 });
 
-test('the home desktop pictures sit in the MacBook frame', async ({ page }) => {
+test('the home desktop pictures sit in a macOS window, the phone in front of it', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' });
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
-  await expect(page.locator('.frame-hero video.only-dark')).toHaveAttribute('poster', /\/media\/hero-poster-mac-dark\.webp$/);
-  await expect(page.locator('.frame-hero video.only-dark source')).toHaveAttribute('src', /\/media\/hero-mac-dark\.mp4$/);
-  for (const name of ['feature-blocks', 'public-page', 'agent-result']) await expectLoaded(page, `img[src$="/media/${name}-mac-dark.webp"]`);
-  await expectLoaded(page, '.stage-phone img[src$="/media/phone-note-iphone-dark.webp"]');
+  await expect(page.locator('.window.frame-hero video.only-dark')).toHaveAttribute('poster', /\/media\/hero-poster-dark\.webp$/);
+  await expectLoaded(page, '.hero-phone img[src$="/media/phone-live-block-iphone-dark.webp"]');
+  await expectLoaded(page, '.window.share-page img[src$="/media/public-page-dark.webp"]');
+  // The window draws its title bar above the capture: the traffic lights sit in the window's top padding.
+  const bar = await page.locator('.window.share-page').evaluate((el) => parseFloat(getComputedStyle(el).paddingTop));
+  expect(bar).toBeGreaterThan(20);
+  // Three framed screenshots on the home page at most (owner, 2026-11-16).
+  expect(await page.locator('main .window:visible, main .device:visible').count()).toBeLessThanOrEqual(3);
 });
 
 test('the download page shows the three getting-started steps', async ({ page }) => {

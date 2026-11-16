@@ -1,11 +1,11 @@
 /**
- * Puts the landing site's screenshots (site/public/media/) into Apple's device bezels: phone shots in the
- * iPhone 18 Pro Max (*-iphone-{light,dark}.webp), desktop shots and the hero video in the 14-inch MacBook Pro M5
- * (*-mac-{light,dark}.webp, hero-mac-*.mp4). Silver for light, black for dark.
+ * Puts the landing site's phone screenshots (site/public/media/) into Apple's iPhone 18 Pro Max bezel
+ * (*-iphone-{light,dark}.webp): Silver for light, Black for dark. Desktop shots get no bezel: the site draws
+ * a plain macOS window around them in CSS (.window in site/src/styles.css).
  *
  * The bezels are Apple Design Resources (https://developer.apple.com/design/resources/), used under that
  * license. They are never committed: only the flattened composites this writes go in the repo. Point
- * APPLE_BEZEL_DIR at the folder holding the two downloads, then run (needs ImageMagick and ffmpeg):
+ * APPLE_BEZEL_DIR at the folder holding the iPhone-18-PNG download, then run (needs ImageMagick):
  *
  *   APPLE_BEZEL_DIR=~/agent-work/apple-bezels npx vite-node scripts/device-frames.ts
  */
@@ -16,7 +16,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 const DIR = process.env.APPLE_BEZEL_DIR;
-if (!DIR) throw new Error('Set APPLE_BEZEL_DIR to the folder with the Apple bezel downloads (iPhone-18-PNG, MacBook-Pro-M5).');
+if (!DIR) throw new Error('Set APPLE_BEZEL_DIR to the folder with the Apple bezel download (iPhone-18-PNG).');
 
 const MEDIA = 'site/public/media';
 const WORK = mkdtempSync(path.join(tmpdir(), 'device-frames-'));
@@ -24,58 +24,17 @@ const WORK = mkdtempSync(path.join(tmpdir(), 'device-frames-'));
 const SCALE = 0.6;
 
 type Theme = 'light' | 'dark';
-const PAGE_BG: Record<Theme, string> = { light: '#FDFCF8', dark: '#1C1B1A' }; // --bg in site/src/styles.css
 
 const PHONE = {
   bezel: (theme: Theme) => path.join(DIR, 'iPhone-18-PNG/iPhone 18 Pro Max', `iPhone 18 Pro Max - ${theme === 'light' ? 'Silver' : 'Black'} - Portrait.png`),
   size: { width: 1470, height: 3000 },
   screen: { x: 75, y: 66, width: 1320, height: 2868 }, // 440 × 956 points at 3x
 };
-const MAC = {
-  bezel: (theme: Theme) => path.join(DIR, 'MacBook-Pro-M5/Bezel-MacBook-Pro-M5/PNG', `MacBook Pro M5 14-inch ${theme === 'light' ? 'Silver' : 'Space Black'}.png`),
-  size: { width: 3860, height: 2540 },
-  // The screen's corners are under the bezel, so the bezel drawn over a capture is its mask. The top 64px,
-  // beside the notch, is the menu bar's row: black, as macOS shows it for an app scaled to fit below the camera.
-  screen: { x: 418, y: 352, width: 3024, height: 1900 },
-  menuBar: 64,
-};
 
-const out = (name: string, theme: Theme, device: string) => `${MEDIA}/${name}-${device}-${theme}`;
+const out = (name: string, theme: Theme) => `${MEDIA}/${name}-iphone-${theme}.webp`;
 /** The capture's bottom-left pixel: the paper a capture shorter than its screen is laid on. */
 const paper = (file: string) => `#${execFileSync('magick', [file, '-flip', '-format', '%[hex:p{0,0}]', 'info:']).toString().trim().slice(0, 6)}`;
 const dataUrl = (file: string, type: string) => `data:${type};base64,${readFileSync(file).toString('base64')}`;
-
-// ---- MacBook: ffmpeg lays the capture under the bezel, top-aligned and fitted to the screen ----
-
-/** The capture fitted to the screen, the bezel over it, on `canvas` (transparent for a still, page paper for the video). */
-function macGraph(capture: string, canvas: string): string {
-  const { x, y, width, height } = MAC.screen;
-  const fill = paper(capture).replace('#', '0x');
-  return [
-    `color=c=${canvas}:s=${MAC.size.width}x${MAC.size.height}:r=30,format=rgba,drawbox=x=${x}:y=${y - MAC.menuBar}:w=${width}:h=${MAC.menuBar}:color=black:t=fill[bg]`,
-    `[0:v]scale=${width}:${height}:force_original_aspect_ratio=decrease:flags=lanczos,pad=${width}:${height}:(ow-iw)/2:0:color=${fill}[screen]`,
-    `[bg][screen]overlay=${x}:${y}:shortest=1[shot]`,
-    `[shot][1:v]overlay=0:0,scale=${Math.round(MAC.size.width * SCALE)}:-2:flags=lanczos`,
-  ].join(';');
-}
-
-function macStill(name: string, theme: Theme): void {
-  const capture = `${MEDIA}/${name}-${theme}.webp`;
-  const png = path.join(WORK, `${name}-${theme}.png`);
-  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', capture, '-i', MAC.bezel(theme),
-    '-filter_complex', macGraph(capture, 'black@0'), '-frames:v', '1', png]);
-  // ImageMagick's WebP keeps the outside fully transparent; ffmpeg's leaves it at 1/255.
-  execFileSync('magick', [png, '-quality', '84', `${out(name, theme, 'mac')}.webp`]);
-}
-
-/** The hero video: an mp4 has no transparency, so it sits on the page's paper; its poster is its first frame. */
-function macVideo(theme: Theme): void {
-  const graph = macGraph(`${MEDIA}/hero-poster-${theme}.webp`, PAGE_BG[theme].replace('#', '0x'));
-  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', `${MEDIA}/hero-${theme}.mp4`, '-i', MAC.bezel(theme),
-    '-filter_complex', graph, '-c:v', 'libx264', '-preset', 'slow', '-crf', '28', '-tune', 'stillimage', '-pix_fmt', 'yuv420p',
-    '-movflags', '+faststart', '-an', `${out('hero', theme, 'mac')}.mp4`]);
-  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', `${MEDIA}/hero-mac-${theme}.mp4`, '-frames:v', '1', '-c:v', 'libwebp', '-quality', '86', `${out('hero-poster', theme, 'mac')}.webp`]);
-}
 
 // ---- iPhone: Chromium draws the status bar over the capture, masked to the screen under the bezel ----
 
@@ -125,16 +84,14 @@ async function phoneStill(page: Page, name: string, theme: Theme): Promise<void>
   await page.evaluate(() => document.fonts.ready);
   const png = path.join(WORK, `${name}-${theme}.png`);
   await page.locator('.device').screenshot({ path: png, omitBackground: true });
-  execFileSync('magick', [png, '-resize', `${SCALE * 100}%`, '-quality', '84', `${out(name, theme, 'iphone')}.webp`]);
+  execFileSync('magick', [png, '-resize', `${SCALE * 100}%`, '-quality', '84', out(name, theme)]);
 }
 
 const browser = await chromium.launch();
 try {
   const page = await browser.newPage({ viewport: PHONE.size });
   for (const theme of ['light', 'dark'] as const) {
-    for (const name of ['phone-live-block', 'phone-note']) await phoneStill(page, name, theme);
-    for (const name of ['feature-blocks', 'public-page', 'agent-result']) macStill(name, theme);
-    macVideo(theme);
+    for (const name of ['phone-live-block', 'phone-note', 'phone-public-page']) await phoneStill(page, name, theme);
   }
 } finally {
   await browser.close();

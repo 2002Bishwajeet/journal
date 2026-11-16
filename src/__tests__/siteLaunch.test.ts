@@ -1,7 +1,7 @@
 /**
- * #1294: the landing site for launch. The home page leads with privacy, the pictures sit in Apple's
- * iPhone and MacBook bezels, the download page has the app's three getting-started steps, and the
- * App Store and Google Play badges appear only in a build with VITE_STORES_LIVE on.
+ * #1294: the landing site for launch. The home page leads with privacy, phone pictures sit in Apple's
+ * iPhone bezel and desktop pictures in a plain macOS window, the download page has the app's three
+ * getting-started steps, and the App Store and Google Play badges appear only in a build with VITE_STORES_LIVE on.
  */
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -22,6 +22,22 @@ describe('the home page', () => {
         expect(html).toMatch(/<meta name="description" content="Journal is an encrypted Markdown notebook\. Your notes stay home/);
         expect(html).toContain('"alternativeHeadline":"Private notes, encrypted."');
     });
+
+    // Owner, 2026-11-16: every version is encrypted on Homebase; only Journal+ encrypts the device copy;
+    // public pages are not encrypted.
+    it('says precisely what is encrypted where', () => {
+        expect(html).toContain('encrypted on a Homebase identity you own');
+        expect(html).toContain('Journal+ encrypts this copy too.');
+        expect(html).toContain('A public page is not encrypted');
+    });
+});
+
+describe('the owner copy rules', () => {
+    // Owner, 2026-11-16: never name the payment provider, and no coupon codes (#1302 cleans the buy page).
+    it.each(['index.html', 'download.html', 'pricing.html'])('%s names no provider and no coupon', (file) => {
+        const html = built(file, true);
+        expect(html).not.toMatch(/Dodo|EARLYBIRD/);
+    });
 });
 
 describe('the device frames', () => {
@@ -29,21 +45,29 @@ describe('the device frames', () => {
     it.each(['index.html', 'download.html', 'buy.html'])('hold every phone picture on %s', (file) => {
         const html = built(file, false);
         expect(html).not.toMatch(/phone-frame|phone-status/);
-        expect(html).toMatch(/src="\/media\/phone-note-iphone-light\.webp"/);
-        expect(html).toMatch(/src="\/media\/phone-note-iphone-dark\.webp"/);
+        const phones = [...html.matchAll(/(?:src|srcset)="\/media\/(phone-[\w-]+)\.webp"/g)].map(([, name]) => name);
+        expect(phones.length).toBeGreaterThan(0);
+        for (const name of phones) expect(name).toMatch(/-iphone-(light|dark)$/);
     });
 
-    it.each(['index.html', 'download.html'])('hold the hero video on %s', (file) => {
+    // Owner, 2026-11-16: no laptop. Desktop shots sit in a plain macOS window drawn in CSS.
+    it.each(['index.html', 'download.html', 'buy.html'])('use no MacBook on %s', (file) => {
+        expect(built(file, false)).not.toMatch(/-mac-(light|dark)\.(webp|mp4)/);
+    });
+
+    it.each(['index.html', 'download.html'])('put the hero video in the window on %s', (file) => {
         const html = built(file, false);
+        expect(html).toMatch(/<div class="window[^"]*"[^>]*>\s*<video class="hero-video only-light"/);
         for (const theme of ['light', 'dark']) {
-            expect(html).toContain(`poster="/media/hero-poster-mac-${theme}.webp"`);
-            expect(html).toContain(`src="/media/hero-mac-${theme}.mp4"`);
+            expect(html).toContain(`poster="/media/hero-poster-${theme}.webp"`);
+            expect(html).toContain(`src="/media/hero-${theme}.mp4"`);
         }
     });
 
-    it('hold the home page desktop pictures', () => {
+    // How many show at once, per width, is the e2e spec's to check (site-launch.spec.ts).
+    it('hold the home page pictures', () => {
         const html = built('index.html', false);
-        for (const name of ['phone-live-block-iphone', 'feature-blocks-mac', 'public-page-mac', 'agent-result-mac']) {
+        for (const name of ['phone-live-block-iphone', 'public-page', 'phone-public-page-iphone']) {
             for (const theme of ['light', 'dark']) expect(html).toContain(`src="/media/${name}-${theme}.webp"`);
         }
     });
