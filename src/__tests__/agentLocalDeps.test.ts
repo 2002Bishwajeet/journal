@@ -107,6 +107,28 @@ describe('createLocalDeps through the registry tools', () => {
         expect(partial.data[0].snippet).toContain('lighthouses');
     });
 
+    it('search_notes applies folder, tag and date filters to its hits, and finds the notes tagged with the query (#1232)', async () => {
+        const TAGGED = '10000000-0000-0000-0000-0000000000c1';
+        const now = new Date().toISOString();
+        await upsertSearchIndex({
+            docId: TAGGED,
+            title: 'Dinner',
+            plainTextContent: 'Pasta.',
+            metadata: { title: 'Dinner', folderId: F2, tags: ['zucchini-recipes'], timestamps: { created: now, modified: now }, excludeFromAI: false },
+        });
+        await saveDocumentUpdate(TAGGED, Y.encodeStateAsUpdate(bodyDoc('Pasta.')));
+
+        const ids = async (args: Record<string, unknown>) => (await run('search_notes', args)).data.map((n: { id: string }) => n.id);
+        expect(await ids({ query: 'zucchini-recipes' })).toEqual([TAGGED]);
+        expect(await ids({ query: 'zucchini' })).toContain(NORMAL_A);
+        expect(await ids({ query: 'zucchini', folderId: F2 })).not.toContain(NORMAL_A);
+        expect(await ids({ query: 'zucchini', folderId: F1 })).toContain(NORMAL_A);
+        expect(await ids({ query: 'zucchini', tag: 'nope' })).toEqual([]);
+        expect(await ids({ query: 'zucchini-recipes', tag: 'Zucchini-Recipes' })).toEqual([TAGGED]);
+        expect(await ids({ query: 'zucchini', modifiedAfter: '2999-01-01' })).toEqual([]);
+        expect(await ids({ query: 'zucchini', modifiedBefore: '2999-01-01' })).toContain(NORMAL_A);
+    });
+
     it('search_notes still returns an archived note', async () => {
         const ARCHIVED = '10000000-0000-0000-0000-0000000000a1';
         await addNote(ARCHIVED, 'Shelved', 'Archived zucchini notes.', F1, { archivalStatus: 1 });

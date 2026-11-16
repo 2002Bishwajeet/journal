@@ -3,7 +3,7 @@
  * folder is granted 'write', so `resolveAccess` still hides `excludeFromAI` notes; trashed
  * notes are left out here.
  */
-import type { NoteSummary, ReadDeps } from '@/lib/agent/tools/read';
+import { matchesSearchFilters, type NoteSummary, type ReadDeps } from '@/lib/agent/tools/read';
 import type { AgentGrants } from '@/lib/agent/grants';
 import { toMarkdown } from '@/lib/agent/editEngine';
 import { getDatabase } from '@/lib/db/pglite';
@@ -69,12 +69,26 @@ export function createLocalDeps(): ReadDeps {
             return note && { summary: note.summary, markdown: toMarkdown(note.doc, targets) };
         },
 
-        async searchNotes(query) {
-            const hits = await advancedSearch(query, { includeArchived: true });
-            return hits.map((hit) => ({
+        async searchNotes(query, _limit, filters = {}) {
+            const hits = (await advancedSearch(query, { includeArchived: true })).map((hit) => ({
                 summary: toSummary(hit.docId, hit.title, hit.metadata),
                 snippet: toSnippet(hit.contentHighlight ?? hit.titleHighlight),
             }));
+            // advancedSearch looks at the text, not the tags: a query that is exactly a tag also finds its notes.
+            const tag = query.trim();
+            if (tag) {
+                const db = await getDatabase();
+                const { rows } = await db.query<{ doc_id: string; title: string; metadata: DocumentMetadata }>(
+                    `SELECT doc_id, title, metadata FROM search_index
+                     WHERE metadata->'tags' ? $1 AND COALESCE((metadata->>'archivalStatus')::int, 0) <> ${TRASHED}`,
+                    [tag]
+                );
+                const found = new Set(hits.map((hit) => hit.summary.id));
+                for (const row of rows) {
+                    if (!found.has(row.doc_id)) hits.push({ summary: toSummary(row.doc_id, row.title, row.metadata), snippet: '' });
+                }
+            }
+            return hits.filter((hit) => matchesSearchFilters(hit.summary, filters));
         },
     };
 }

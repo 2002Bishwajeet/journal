@@ -48,6 +48,7 @@ export function toJsonSchema(tool: Pick<AnyJournalTool, 'input'>): z.core.JSONSc
 }
 
 const index = z.number().int().min(0);
+const isoDate = z.string().refine((date) => !Number.isNaN(Date.parse(date)), 'Not an ISO date').optional();
 
 export const TOOLS: AnyJournalTool[] = [
     defineTool({
@@ -101,13 +102,20 @@ export const TOOLS: AnyJournalTool[] = [
     defineTool({
         name: 'search_notes',
         title: 'Search notes',
-        description: 'Case-insensitive substring search over the title, tags and body of granted notes.',
+        description:
+            'Search granted notes. query is split into words (double quotes keep a phrase together); a note matches when every word is in its title, tags or body, ignoring case and accents. ' +
+            'Results are title matches first, then tag matches, then body matches, each newest first; a body match has a snippet around the first word found. ' +
+            'folderId, tag (exact), modifiedAfter (inclusive) and modifiedBefore (exclusive), ISO dates, narrow the notes first; with a filter, query may be "" to list the filtered notes newest first. limit defaults to 20, at most 100.',
         input: z.object({
             query: z.string(),
-            limit: z.number().int().min(1).optional(),
+            limit: z.number().int().min(1).max(readTools.MAX_SEARCH_LIMIT).optional(),
+            folderId: z.string().optional(),
+            tag: z.string().optional(),
+            modifiedAfter: isoDate,
+            modifiedBefore: isoDate,
         }),
         readOnly: true,
-        execute: async (deps, { query, limit }) => ({ data: await readTools.searchNotes(deps, { query, limit }) }),
+        execute: async (deps, params) => ({ data: await readTools.searchNotes(deps, params) }),
     }),
     defineTool({
         name: 'get_authoring_guide',

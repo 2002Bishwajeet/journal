@@ -276,7 +276,8 @@ declare const journal: {
     listNotes(options?: { folderId?: string; limit?: number; fields?: Field[] }): Promise<Partial<NoteRef>[]>;
     getNote(id: string): Promise<Note>;
     outline(id: string): Promise<Outline>;
-    search(query: string, limit?: number): Promise<(NoteRef & { snippet?: string })[]>;
+    /** Every word of query in the title, tags or body, title matches first; query may be "" with a filter. `search(query, 5)` is `search(query, { limit: 5 })`. */
+    search(query: string, limitOrOptions?: number | { limit?: number; folderId?: string; tag?: string; modifiedAfter?: string; modifiedBefore?: string }): Promise<(NoteRef & { snippet?: string })[]>;
     create(note: { title: string; markdown: string; folderId: string; tags?: string[] }): Promise<WriteResult & { title: string; folderId: string }>;
     /** update_note: body, title, tags (replacing the note's) and/or a move to folderId. */
     update(changes: { id: string; markdown?: string; title?: string; tags?: string[]; folderId?: string; expectedModified?: string }): Promise<WriteResult>;

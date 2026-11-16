@@ -110,8 +110,11 @@ Claude Desktop (`claude_desktop_config.json`):
   blocks cut to ~80 characters). With `format: "blocks"`, it is the blocks (`id`, `type`,
   `markdown`, `attrs` when set), whose ids `edit_block` takes; `blockIds` or `section`
   (a heading's text) returns only those, and `includeRows` adds a table's cells as `rows`.
-- `search_notes` — case-insensitive substring search over title, tags and body of
-  granted notes.
+- `search_notes` — a note matches when every word of `query` is in its title, tags or body
+  (case and accents ignored; "double quotes" keep a phrase together). Title matches come first,
+  then tag matches, then body matches, newest first, each body match with a `snippet`.
+  `folderId`, `tag`, `modifiedAfter` and `modifiedBefore` narrow the notes (`query` may be `""`
+  with one of them); `limit` defaults to 20, at most 100.
 - `get_authoring_guide` — the authoring reference, [`AUTHORING.md`](AUTHORING.md): everything a
   note can hold and how to write it. With no argument it returns an index; `section`
   (`native`, `editing`, `script`, `mermaid-svg`, `html`, `react`, `charts`, `design` or `examples`)
