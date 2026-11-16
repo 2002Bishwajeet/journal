@@ -266,6 +266,21 @@ describe('run_script sandbox (#1005)', () => {
         expect(writes).toEqual([]);
     });
 
+    it('search takes a limit or an options object, both reaching search_notes (#1232)', async () => {
+        const { deps } = fakeDrive(NOTES());
+        const { output, error } = await runScript(
+            deps,
+            `
+            console.log((await journal.search('lisbon', 1)).length);
+            console.log((await journal.search('lisbon', { limit: 5 })).length);
+            console.log((await journal.search('', { limit: 5, tag: 'home' })).map((n) => n.id).join(','));
+            console.log((await journal.search('lisbon', { folderId: 'FR' })).map((n) => n.id).join(','));
+            `
+        );
+        expect(error).toBeUndefined();
+        expect(output.split('\n')).toEqual(['1', '2', 'w2', 'r1']);
+    });
+
     it('refuses images from a file or a data: URI before writing anything', async () => {
         const { deps, writes } = fakeDrive(NOTES());
         const { output } = await runScript(

@@ -33,7 +33,7 @@ const READS: Record<string, Binding> = {
     listNotes: [tool('list_notes'), (options = {}) => options],
     getNote: [tool('get_note'), (id) => ({ id })],
     outline: [tool('get_note'), (id) => ({ id, format: 'outline' })],
-    search: [tool('search_notes'), (query, limit) => ({ query, limit })],
+    search: [tool('search_notes'), (query, limitOrOptions) => ({ query, ...(typeof limitOrOptions === 'number' ? { limit: limitOrOptions } : (limitOrOptions as object | undefined)) })],
     listFolders: [tool('list_folders'), () => ({})],
 };
 

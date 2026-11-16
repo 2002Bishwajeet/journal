@@ -3,6 +3,8 @@ import { NotesDriveProvider } from '@/lib/homebase/NotesDriveProvider';
 import { FolderDriveProvider } from '@/lib/homebase/FolderDriveProvider';
 import { AgentGrantsDriveProvider } from '@/lib/homebase/AgentGrantsDriveProvider';
 import { toMarkdown, type LinkTarget } from '@/lib/agent/editEngine';
+import { previewTextFromFragment } from '@/lib/yjs/previewText';
+import { CODE_SEPARATOR } from '@/lib/previewText';
 import { buildPublicCard } from '@/lib/share/publicCard';
 import { setFolderAccess, type AgentAccess } from '@/lib/agent/grants';
 import { noteShareUrl } from '@/lib/share/sharedFolder';
@@ -21,6 +23,7 @@ import type { McpCredentials } from './credentials';
 import { createClient } from './client';
 import { JOURNAL_MCP_APP_ID, appOrigin } from './config';
 import type { FeedDeps } from './feed';
+import { createNoteTextCache } from './noteTextCache';
 import type { McpDriveDeps } from './createServer';
 
 export function toNoteSummary(file: HomebaseFile<NoteFileContent>): NoteSummary | null {
@@ -217,6 +220,14 @@ export function createDriveDeps(creds: McpCredentials): McpDriveDeps {
         return note ? { summary: note.summary, markdown: toMarkdown(note.doc, targets) } : null;
     }
 
+    /** A note's plain text for search, kept until the note changes. */
+    const getNoteText = createNoteTextCache(async (id) => {
+        const note = await fetchNoteForEdit(id);
+        if (!note) return null;
+        const text = previewTextFromFragment(note.doc.getXmlFragment('prosemirror')).replace(CODE_SEPARATOR, ' ');
+        return { modified: note.summary.modified, text };
+    });
+
     /** The note's `modified` as the drive has it now: an upload's result doesn't carry it. */
     async function modifiedOf(id: string): Promise<string> {
         const file = await notesProvider.getNote(id, undefined, { decrypt: false });
@@ -298,6 +309,7 @@ export function createDriveDeps(creds: McpCredentials): McpDriveDeps {
         listFolders,
         listNotes,
         getNote,
+        getNoteText,
         fetchNoteForEdit,
         uploadNoteEdit,
         uploadNoteImage,

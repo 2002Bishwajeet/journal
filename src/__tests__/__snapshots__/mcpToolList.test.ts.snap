@@ -82,16 +82,28 @@ exports[`MCP tools/list > lists the same tools, titles, descriptions and input s
     "title": "Get note",
   },
   {
-    "description": "Case-insensitive substring search over the title, tags and body of granted notes.",
+    "description": "Search granted notes. query is split into words (double quotes keep a phrase together); a note matches when every word is in its title, tags or body, ignoring case and accents. Results are title matches first, then tag matches, then body matches, each newest first; a body match has a snippet around the first word found. folderId, tag (exact), modifiedAfter (inclusive) and modifiedBefore (exclusive), ISO dates, narrow the notes first; with a filter, query may be "" to list the filtered notes newest first. limit defaults to 20, at most 100.",
     "inputSchema": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "properties": {
+        "folderId": {
+          "type": "string",
+        },
         "limit": {
-          "maximum": 9007199254740991,
+          "maximum": 100,
           "minimum": 1,
           "type": "integer",
         },
+        "modifiedAfter": {
+          "type": "string",
+        },
+        "modifiedBefore": {
+          "type": "string",
+        },
         "query": {
+          "type": "string",
+        },
+        "tag": {
           "type": "string",
         },
       },
