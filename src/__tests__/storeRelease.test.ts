@@ -125,6 +125,14 @@ describe('the store release notes', () => {
     expect(() => storeNotes(notes, '2.71.1', 4000)).toThrow(/no "## 2\.71\.1" section/);
   });
 
+  it('match a version with regex metacharacters and backslashes literally', () => {
+    const md = '## 1.0.0-rc+1\\b (2026-11-20)\n\n- Literal.\n';
+    expect(storeNotes(md, '1.0.0-rc+1\\b', 4000)).toBe('• Literal.');
+    expect(() => storeNotes(md, '1.0.0-rc+1', 4000)).toThrow(/no "## 1\.0\.0-rc\+1" section/);
+    expect(() => storeNotes(notes, '2.72.0|.*', 4000)).toThrow(/section/);
+    expect(() => storeNotes(notes, '2.7(', 4000)).toThrow(/section/);
+  });
+
   it('are cut at a whole line, and never end on a section name', () => {
     const cut = storeNotes(notes, '2.72.0', 50);
     expect(cut).toBe('New\n• A bold change with code and a link.\n…');

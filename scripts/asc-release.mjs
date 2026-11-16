@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // The App Store Connect steps of ios-release.yml (#1304), ported from the owner's
-// local asc-version.mjs. The API key comes from the names Tauri's iOS signing reads:
-// APPLE_API_KEY (key ID), APPLE_API_ISSUER and APPLE_API_KEY_PATH (the .p8 file).
+// local asc-version.mjs. The API key comes from ASC_KEY_ID (the APPLE_API_KEY secret, the
+// key ID), APPLE_API_ISSUER and APPLE_API_KEY_PATH (the .p8 file). The key ID has its own
+// name because CodeQL takes anything named like API_KEY for a password, and the JWT header
+// that holds the (public) key ID is what ES256 signs.
 //
 //   versions --commit-count <n> --package-version <x.y.z> [--tag <vX.Y.Z>] [--offline]
 //     Prints build_number=<n> and version=<x.y.z> for $GITHUB_OUTPUT. The build number
@@ -100,13 +102,13 @@ export const versionToUse = (versions, versionString) =>
   versions.find((v) => inState(EDITABLE, v));
 
 function token() {
-  const { APPLE_API_KEY, APPLE_API_ISSUER, APPLE_API_KEY_PATH } = process.env;
-  if (!APPLE_API_KEY || !APPLE_API_ISSUER || !APPLE_API_KEY_PATH) {
-    throw new Error('APPLE_API_KEY, APPLE_API_ISSUER and APPLE_API_KEY_PATH must be set');
+  const { ASC_KEY_ID, APPLE_API_ISSUER, APPLE_API_KEY_PATH } = process.env;
+  if (!ASC_KEY_ID || !APPLE_API_ISSUER || !APPLE_API_KEY_PATH) {
+    throw new Error('ASC_KEY_ID, APPLE_API_ISSUER and APPLE_API_KEY_PATH must be set');
   }
   const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
   const iat = Math.floor(Date.now() / 1000);
-  const input = `${b64({ alg: 'ES256', kid: APPLE_API_KEY, typ: 'JWT' })}.${b64({ iss: APPLE_API_ISSUER, iat, exp: iat + 600, aud: 'appstoreconnect-v1' })}`;
+  const input = `${b64({ alg: 'ES256', kid: ASC_KEY_ID, typ: 'JWT' })}.${b64({ iss: APPLE_API_ISSUER, iat, exp: iat + 600, aud: 'appstoreconnect-v1' })}`;
   const signature = createSign('SHA256')
     .update(input)
     .sign({ key: readFileSync(APPLE_API_KEY_PATH), dsaEncoding: 'ieee-p1363' })

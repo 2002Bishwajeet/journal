@@ -188,7 +188,7 @@ jobs:
       - name: Build number and version
         id: versions
         env:
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          ASC_KEY_ID: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         # pipefail: a failed asc-release.mjs (auth, tag not above the released version) fails the step.
         shell: bash
@@ -229,7 +229,7 @@ jobs:
       - name: Submit to App Review
         if: env.MODE == 'submit' && env.DRY_RUN != 'true'
         env:
-          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          ASC_KEY_ID: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           VERSION: ${{ steps.versions.outputs.version }}
           BUILD: ${{ steps.versions.outputs.build_number }}

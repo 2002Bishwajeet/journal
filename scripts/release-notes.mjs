@@ -48,7 +48,7 @@ export function stampRelease(markdown, version, date, fragments = []) {
 
 /** A version's notes as plain text of at most `limit` characters, cut at a line. */
 export function storeNotes(markdown, version, limit) {
-  const escaped = version.replace(/\./g, '\\.');
+  const escaped = version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const match = new RegExp(`^## ${escaped}[ \\t]+\\(.*\\r?\\n([\\s\\S]*?)(?=^## |(?![\\s\\S]))`, 'm').exec(markdown);
   if (!match) throw new Error(`RELEASE_NOTES.md has no "## ${version}" section`);
   const lines = [];
