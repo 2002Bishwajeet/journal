@@ -669,6 +669,7 @@ const unsub = documentBroadcast.subscribe(handler);   // Listen for messages
 | `/:folderId` | EmptyEditorPage | Yes |
 | `/:folderId/:noteId` | EditorPage | Yes |
 | `/share-target` | ShareTargetPage | Yes |
+| `/voice` | VoicePage (voice-note capture, `@premium`'s `VoiceCapture`; native only, the web redirects to `/`) | Yes |
 | `/save-shared?identity=&file=` | SaveSharedPage (saves a copy of a shared note; logic in `useSaveSharedNote`) | Yes |
 | `/open-shared?identity=&file=` | OpenSharedPage (opens a share link's note that is not public, or says no access; logic in `useOpenSharedNote`) | Yes |
 | `/welcome` | Landing | No |

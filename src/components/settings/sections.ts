@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { UserRound, Monitor, Sparkles, Bot, Bell, Shield, Database, Keyboard, KeyRound, Info, Activity, type LucideIcon } from "lucide-react";
+import { UserRound, Monitor, Sparkles, Mic, Bot, Bell, Shield, Database, Keyboard, KeyRound, Info, Activity, type LucideIcon } from "lucide-react";
 import type { SettingsPlatform } from "@/lib/settingsPlatform";
 import AccountSection from "./sections/AccountSection";
 import AppearanceSection from "./sections/AppearanceSection";
@@ -12,9 +12,10 @@ import ShortcutsSection from "./sections/ShortcutsSection";
 import AboutSection from "./sections/AboutSection";
 import DiagnosticsSection from "./sections/DiagnosticsSection";
 import { LicenseSection } from "@/components/license/License";
+import { VoiceNotesSection } from "@/components/voice/VoiceNotes";
 import { billingEnabled } from "@/lib/billing";
 
-export type SettingsSectionId = "account" | "appearance" | "ai" | "agent-access" | "notifications" | "security" | "data" | "license" | "shortcuts" | "about" | "diagnostics";
+export type SettingsSectionId = "account" | "appearance" | "ai" | "voice" | "agent-access" | "notifications" | "security" | "data" | "license" | "shortcuts" | "about" | "diagnostics";
 
 export interface SettingsSection {
   id: SettingsSectionId;
@@ -52,6 +53,14 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
     Component: AISection,
     // The phone app only on iOS devices that passed the on-device AI check (#1143).
     platforms: ["web-desktop", "native-desktop", "native-phone"],
+  },
+  {
+    id: "voice",
+    label: "Voice notes",
+    description: "Style, language and on-device models",
+    icon: Mic,
+    Component: VoiceNotesSection,
+    platforms: ["native-phone", "native-desktop"],
   },
   {
     id: "agent-access",

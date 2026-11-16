@@ -1,7 +1,14 @@
 import { existsSync } from 'fs';
 import { describe, expect, it } from 'vitest';
 import { hasPremium, voiceNotes } from '@premium';
-import { useEntitlement, voiceNotes as stubVoiceNotes } from '@/lib/premiumStub';
+import {
+  useEntitlement,
+  voiceNotes as stubVoiceNotes,
+  VoiceCapture,
+  VoiceDraftOffer,
+  VoiceNotesSection,
+  VoiceReviewBar,
+} from '@/lib/premiumStub';
 
 describe('@premium', () => {
   it('is the stub unless the native/ submodule is checked out', () => {
@@ -11,6 +18,13 @@ describe('@premium', () => {
   it('has voice notes only with the native/ submodule', () => {
     expect(stubVoiceNotes).toBeNull();
     expect(voiceNotes === null).toBe(!existsSync('native/web/index.ts'));
+  });
+
+  it('draws no voice-note screens without the submodule', () => {
+    expect(VoiceCapture()).toBeNull();
+    expect(VoiceReviewBar({ noteId: 'n' })).toBeNull();
+    expect(VoiceDraftOffer()).toBeNull();
+    expect(VoiceNotesSection()).toBeNull();
   });
 });
 

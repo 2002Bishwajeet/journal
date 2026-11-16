@@ -15,6 +15,7 @@ const McpCodePage = lazy(() => import("@/pages/McpCodePage"));
 const ShareTargetPage = lazy(() => import("@/pages/ShareTargetPage"));
 const SaveSharedPage = lazy(() => import("@/pages/SaveSharedPage"));
 const CapturePage = lazy(() => import("@/pages/CapturePage"));
+const VoicePage = lazy(() => import("@/pages/VoicePage"));
 const OpenSharedPage = lazy(() => import("@/pages/OpenSharedPage"));
 const JournalLayout = lazy(() => import("@/layouts/JournalLayout"));
 import { Toaster } from "@/components/ui/sonner";
@@ -132,6 +133,18 @@ function App() {
                         <AuthGuard>
                           <SyncProvider>
                             <CapturePage />
+                          </SyncProvider>
+                        </AuthGuard>
+                      }
+                    />
+
+                    {/* Voice note capture (#1250): native only, the web goes home */}
+                    <Route
+                      path="/voice"
+                      element={
+                        <AuthGuard>
+                          <SyncProvider>
+                            <VoicePage />
                           </SyncProvider>
                         </AuthGuard>
                       }

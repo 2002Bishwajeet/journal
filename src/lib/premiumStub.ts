@@ -120,6 +120,25 @@ export interface VoiceNotes {
 
 export const voiceNotes: VoiceNotes | null = null;
 
+// Voice notes UI (#1250): the /voice capture screen, the review bar on a voice note, the
+// "Finish your voice note" offer after a crash, and Settings → Voice notes. Native only.
+export function VoiceCapture(): ReactNode {
+    return null;
+}
+
+export function VoiceReviewBar(props: { noteId: string }): ReactNode {
+    void props;
+    return null;
+}
+
+export function VoiceDraftOffer(): ReactNode {
+    return null;
+}
+
+export function VoiceNotesSection(): ReactNode {
+    return null;
+}
+
 /** What can unlock the native app (#1173). */
 export type EntitlementSource = 'appStore' | 'play' | 'licenseKey' | 'owner';
 
