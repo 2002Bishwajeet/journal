@@ -17,6 +17,8 @@ export const BILLING_LIVE = process.env.VITE_BILLING_LIVE === 'true'
 // The download page's installer links stay off ("coming soon") until the first desktop release is out
 // (desktop-release.yml). Turn them on with VITE_DOWNLOADS_LIVE=true, like VITE_BILLING_LIVE.
 export const DOWNLOADS_LIVE = process.env.VITE_DOWNLOADS_LIVE === 'true'
+// The buy page's renew form stays off until the first keys can be renewed (November 2027). Turn it on with VITE_RENEW_LIVE=true.
+export const RENEW_LIVE = process.env.VITE_RENEW_LIVE === 'true'
 
 /** Keeps a page's `<!-- <flag>-live -->…<!-- /<flag>-live -->` parts when the flag is on, its `<flag>-soon` parts when it is off. */
 export function flagBlocks(html: string, flag: string, live: boolean): string {
@@ -29,7 +31,7 @@ export const billingBlocks = (html: string, live: boolean): string => flagBlocks
 function render(html: string): string {
   const current = /<body data-page="(\w+)"/.exec(html)?.[1]
   const credit = /<!-- credit: ([\s\S]*?) -->\n?/.exec(html)
-  const out = flagBlocks(billingBlocks(html, BILLING_LIVE), 'downloads', DOWNLOADS_LIVE)
+  const out = flagBlocks(flagBlocks(billingBlocks(html, BILLING_LIVE), 'downloads', DOWNLOADS_LIVE), 'renew', RENEW_LIVE)
     .replace(credit?.[0] ?? '', '')
     .replace(/<!-- (head|header|footer) -->/g, (_, name) => read(name))
     .replace('<!-- credit -->', credit ? `<p class="wrap credit">${credit[1]}</p>` : '')

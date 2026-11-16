@@ -38,17 +38,15 @@ export async function invokeNative<T>(plugin: string, command: string, args?: In
   return invoke<T>(`plugin:${plugin}|${command}`, args);
 }
 
-/** What the app calls itself: the native apps are Journal+, the PWA is Journal. */
-export function appName(): string {
-  return isNativeApp() ? 'Journal+' : 'Journal';
-}
+/** The in-app product name on every platform; only the iOS/Android home-screen name (Info.ios.plist, Android strings.xml) adds the "+". */
+export const APP_NAME = "Journal";
 
 /** The hosted app. Links for other people point here from the native app. */
 export const PUBLIC_ORIGIN = 'https://journal.cloudx.run';
 
 /**
  * The origin of links the app hands to other people (share, folder and feed links).
- * The native app's own origin is `http://localhost:47821` (src-tauri/src/lib.rs), so
+ * The native app's own origin is `http://localhost:<PORT>` (src-tauri/src/lib.rs), so
  * it uses the hosted app; the web uses its own origin, so dev and preview keep theirs.
  */
 export function publicOrigin(): string {

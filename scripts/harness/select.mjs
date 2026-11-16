@@ -50,6 +50,12 @@ export function parseRouting(body) {
     return out;
 }
 
+/** A PR may be auto-merged only when it is not a draft and carries no `hold` label. */
+export function isMergeEligible(pr) {
+    if (pr.isDraft) return false;
+    return !(pr.labels ?? []).some((l) => (typeof l === 'string' ? l : l.name) === 'hold');
+}
+
 export function classify(issue, { subIssueCount, openPrForIssue, deps }) {
     const labels = issue.labels.map((l) => l.name ?? l);
     if (issue.state.toLowerCase() === 'closed') return { ready: false, reason: 'closed' };

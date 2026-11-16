@@ -46,7 +46,42 @@ mod ios_recovery;
 /// OS-assigned (port 0) or otherwise changing port would hand the webview a
 /// different origin on every launch and silently wipe the user's notes.
 /// Never make this dynamic, and never change the value once shipped.
-const PORT: u16 = 47821;
+///
+/// There are two ports, one per build type (#1308), so a development build (or
+/// a build in the iOS Simulator, which shares the Mac's loopback) never blocks
+/// the installed app:
+///
+///   - `PROD_PORT`: builds made by the release and store workflows, which set
+///     `JOURNAL_RELEASE_BUILD=1` when they compile (desktop-release.yml, and
+///     the iOS and Android CI of #1304).
+///   - `DEV_PORT`: every other build, local release-profile builds included.
+///     That is why this is an env var and not `debug_assertions`.
+///
+/// How the two were chosen (IANA CSV checked 2026-11-16):
+///
+///   - Below every OS's ephemeral range (Linux and Android 32768–60999; macOS,
+///     Windows and IANA 49152–65535), so an outgoing connection never borrows
+///     them. The old 47821 was inside the Linux and Android range. Windows'
+///     Hyper-V / WinNAT excluded ranges are taken from the dynamic range
+///     (49152–65535 by default), so they stay clear of these as well, unless
+///     someone moved that range down (`netsh int ipv4 show dynamicport tcp`).
+///   - Unassigned in the IANA service-name registry: 23900–23999 has no entry.
+///   - No common developer tool uses them (Vite 5173/4173/24678, Next 3000,
+///     Storybook 6006, Jupyter 8888, Expo 19000–19006, Ollama 11434, MongoDB
+///     27017, Syncthing 22000, Kubernetes NodePorts 30000–32767, ...).
+///
+/// The capabilities, Info.plist and the Android config list both origins.
+const PROD_PORT: u16 = 23941;
+const DEV_PORT: u16 = 23942;
+const PORT: u16 = port_for(option_env!("JOURNAL_RELEASE_BUILD"));
+
+/// `PROD_PORT` when the build sets `JOURNAL_RELEASE_BUILD=1`, else `DEV_PORT`.
+const fn port_for(release_build: Option<&str>) -> u16 {
+    match release_build {
+        Some(value) if matches!(value.as_bytes(), b"1") => PROD_PORT,
+        _ => DEV_PORT,
+    }
+}
 
 /// A loopback address on `PORT` that something else already holds (or that
 /// failed to bind for any other reason).
@@ -88,20 +123,40 @@ fn bind_loopback(port: u16) -> Result<Vec<Server>, BindError> {
     Ok(servers)
 }
 
-/// Tells the user the app can't start, then exits non-zero. Explicit, so it
-/// holds in every build — not only release builds with `panic = "abort"`.
-fn abort_on_bind_failure(err: &BindError) -> ! {
-    eprintln!("Journal can't start: {err}");
+/// Argument of the helper process that shows the port-in-use dialog (#1313).
+const PORT_ERROR_ARG: &str = "--journal-port-error";
+
+fn is_port_error_invocation(args: impl IntoIterator<Item = String>) -> bool {
+    args.into_iter().nth(1).as_deref() == Some(PORT_ERROR_ARG)
+}
+
+fn show_port_error() {
     #[cfg(desktop)]
     rfd::MessageDialog::new()
         .set_level(rfd::MessageLevel::Error)
         .set_title("Journal")
         .set_description(format!(
-            "Journal can't start: port {PORT} is in use by another program. \
+            "Journal can't start: port {PORT} is in use. Most likely another copy \
+             of Journal (or a Journal developer build) is already running. \
              Close it and try again."
         ))
         .set_buttons(rfd::MessageButtons::Ok)
         .show();
+}
+
+/// Tells the user the app can't start, then exits non-zero. Explicit, so it
+/// holds in every build — not only release builds with `panic = "abort"`.
+///
+/// This runs from Tauri's setup, after the single-instance plugin has had its
+/// say, so Tauri already owns GTK and rfd's dialog would never appear on
+/// Linux. The dialog therefore runs in a fresh process of this executable
+/// that exits before it initialises Tauri (see `run`).
+fn abort_on_bind_failure(err: &BindError) -> ! {
+    eprintln!("Journal can't start: {err}");
+    #[cfg(desktop)]
+    if let Ok(exe) = std::env::current_exe() {
+        let _ = std::process::Command::new(exe).arg(PORT_ERROR_ARG).status();
+    }
     std::process::exit(1);
 }
 
@@ -423,11 +478,12 @@ fn link_plugins<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
 /// exports this as the symbol the generated Xcode / Gradle project calls.
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Bind before Tauri starts, so no window ever loads a page from another
-    // process that holds the port. It also has to happen before Tauri
-    // initialises GTK: on Linux, rfd's dialog runs GTK on a thread of its own
-    // and never appears once the event loop owns GTK's main context.
-    let servers = bind_loopback(PORT).unwrap_or_else(|e| abort_on_bind_failure(&e));
+    // Helper invocation from `abort_on_bind_failure`: show the dialog before
+    // Tauri initialises GTK, which would otherwise swallow it on Linux.
+    if is_port_error_invocation(std::env::args()) {
+        show_port_error();
+        return;
+    }
 
     let builder = premium::register_first(tauri::Builder::default())
         // journal.cloudx.run links (iOS Universal Links, Android App Links) and
@@ -441,7 +497,14 @@ pub fn run() {
     let builder = link_plugins(builder);
 
     premium::register(builder)
-        .setup(move |app| {
+        .setup(|app| {
+            // Bound here, not before Tauri starts, so a second launch of this
+            // build reaches the single-instance plugin (registered first, and
+            // it focuses the running window and exits) instead of failing on
+            // the port the first launch holds (#1313). Still before any window
+            // exists, so none loads a page from another process on the port.
+            let servers = bind_loopback(PORT).unwrap_or_else(|e| abort_on_bind_failure(&e));
+
             // Installers register journal:// on Windows and Linux; this covers
             // dev builds and AppImages. macOS registers it from Info.plist.
             #[cfg(any(windows, target_os = "linux"))]
@@ -552,6 +615,19 @@ mod tests {
     }
 
     #[test]
+    fn release_builds_get_their_own_port_below_every_ephemeral_range() {
+        assert_ne!(PROD_PORT, DEV_PORT);
+        for port in [PROD_PORT, DEV_PORT] {
+            assert!((10000..=32767).contains(&port), "{port}");
+        }
+        assert_eq!(port_for(Some("1")), PROD_PORT);
+        assert_eq!(port_for(None), DEV_PORT);
+        assert_eq!(port_for(Some("")), DEV_PORT);
+        assert_eq!(port_for(Some("0")), DEV_PORT);
+        assert_eq!(PORT, port_for(option_env!("JOURNAL_RELEASE_BUILD")));
+    }
+
+    #[test]
     fn app_headers_match_the_web() {
         let headers = app_headers();
         let get = |name| headers.iter().find(|(n, _)| *n == name).map(|(_, v)| *v);
@@ -581,6 +657,14 @@ mod tests {
     fn no_native_plugins_without_premium() {
         assert!(native_plugins().is_empty());
         assert!(native_flag_script().ends_with("plugins: [] };"));
+    }
+
+    #[test]
+    fn port_error_helper_is_recognised_by_its_first_argument() {
+        let args = |a: &[&str]| a.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert!(is_port_error_invocation(args(&["journal", PORT_ERROR_ARG])));
+        assert!(!is_port_error_invocation(args(&["journal"])));
+        assert!(!is_port_error_invocation(args(&["journal", "journal://note/1"])));
     }
 
     #[test]

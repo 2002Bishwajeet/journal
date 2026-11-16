@@ -186,6 +186,9 @@ jobs:
           # (native/AGENTS.md): VITE_ for the web, JOURNAL_ compiled into the Rust side.
           VITE_BILLING_URL: ${{ vars.DESKTOP_BILLING_URL }}
           JOURNAL_BILLING_URL: ${{ vars.DESKTOP_BILLING_URL }}
+          # The release port (PROD_PORT in src-tauri/src/lib.rs, #1308): set only in the
+          # release and store workflows, so a local or dev build never blocks the installed app.
+          JOURNAL_RELEASE_BUILD: '1'
         with:
           # No release id (publish off): tauri-action builds and uploads nothing.
           releaseId: ${{ steps.release.outputs.id }}

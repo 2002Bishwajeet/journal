@@ -18,7 +18,7 @@ Lead with privacy and the device. Homebase is "your own private space" under the
 ## Naming
 
 - The PWA and the website are **Journal**.
-- The native apps (iOS, Android, Mac, Windows, Linux) are **Journal+**.
+- The product is **Journal** everywhere: the PWA, the website, the desktop apps and inside the iOS and Android apps. **Journal+** is only the iOS and Android home-screen name (the label under the icon and in the app switcher), because "Journal" is taken on the App Store.
 - The store listings are named **Journal - Private Notes**.
 
 ## Pricing

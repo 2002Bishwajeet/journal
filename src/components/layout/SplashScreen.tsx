@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 import { getBootProgress, getBootError, getBootFailureCount, subscribeBootProgress } from '@/lib/bootProgress';
 import { Button } from '@/components/ui/button';
 import logo from '@/assets/logo_withoutbg.png';
-import { appName } from "@/lib/native";
+import { APP_NAME } from '@/lib/native';
 
 interface SplashScreenProps {
   className?: string;
@@ -141,7 +141,7 @@ export function SplashScreen({ className }: SplashScreenProps) {
       >
         <img src={logo} alt="" className="h-16 w-16 object-contain opacity-70" />
         <div className="space-y-1">
-          <h1 className="text-base font-medium">{appName()} is taking too long to open</h1>
+          <h1 className="text-base font-medium">{APP_NAME} is taking too long to open</h1>
           <p className="max-w-xs text-xs text-muted-foreground">
             Your notes are safe on this device. Reloading usually gets it going again.
           </p>

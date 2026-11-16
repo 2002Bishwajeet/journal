@@ -534,6 +534,7 @@ npx vite-node -c scripts/bench/vite.config.ts scripts/bench/search-bench.ts -- -
 
 - `scripts/harness/select.mjs` picks issues: open, `agent-ready`, not `needs-design`/`blocked`, no open PR, and every issue on its `Depends on:` line closed. Epics expand recursively to their sub-issues. The `agent-ready` label is the queue; pass issue or epic numbers.
 - The `implement-epic` workflow (`.claude/workflows/implement-epic.js`) runs 2 issues at a time: an implementer in its own worktree (effort follows `Size:`), a fresh Sonnet verifier that runs the issue's `## Verification` (e2e first) and reviews the diff, 1 fix round, then a PR labelled `agent-harness` with `Closes #N` and the check table.
+- The harness never merges a draft PR or one labelled `hold`, and never marks a PR ready; held PRs are reported as `held: <reason>`.
 - `--dry` prints the selection table and starts nothing. `--loop` waits for you to merge/close an `agent-harness` PR, then selects the next wave (stops when nothing is left, or after 12 h). `--max N` caps a wave (default 3). Start it from a fresh session to keep token use down.
 - A STOP condition or still-failing verification comments on the issue and adds `blocked`; remove the label to make it selectable again.
 - Heavy commands go through `scripts/harness/serial.sh` (one build/test/lint/e2e at a time). The owner is the only merge gate.
@@ -687,7 +688,7 @@ Short maps of how each finished epic works. The e2e folder named in each is wher
 `e2e/README.md` is canonical: layers, conventions, scripts, the agent loop and safety rules. Playwright config is `playwright.config.ts` (hermetic, edge, quarantine) and `playwright.live.config.ts` (live tier). Tests only ever run on test origins (`127.0.0.1:4173`, `127.0.0.1:5174`, `127.0.0.1:8788`, `e2e.dotyou.cloud:4443`), never on `dev.dotyou.cloud:5173` or your real identity; `e2e/support/network-fence.ts` and `e2e/support/origin-guard.ts` enforce it. The policy is in Testing above.
 ### Welcome note (#1283)
 
-- `useWelcomeNote` (JournalLayout) runs `seedWelcomeNote` (`src/lib/onboarding/welcome.ts`) once the first sync settles: an identity with no notes (trashed included) gets one "Welcome to Journal+" note from `welcomeNote.md`, opened. Never again: the `welcome-note-seeded` flag in `app_state` plus a marker file on the drive (`WelcomeSeededDriveProvider`, file type 617, sync never queries it) cover other devices. An unreachable drive counts as unmarked. Hermetic e2e skips it through `e2e-skip-welcome-note` in `e2e/fixtures/hermetic-auth.json`.
+- `useWelcomeNote` (JournalLayout) runs `seedWelcomeNote` (`src/lib/onboarding/welcome.ts`) once the first sync settles: an identity with no notes (trashed included) gets one "Welcome to Journal" note from `welcomeNote.md`, opened. Never again: the `welcome-note-seeded` flag in `app_state` plus a marker file on the drive (`WelcomeSeededDriveProvider`, file type 617, sync never queries it) cover other devices. An unreachable drive counts as unmarked. Hermetic e2e skips it through `e2e-skip-welcome-note` in `e2e/fixtures/hermetic-auth.json`.
 
 
 ### Agent access / MCP server (#164)

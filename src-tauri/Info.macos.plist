@@ -18,7 +18,7 @@
 			<key>NSMessage</key>
 			<string>newNote</string>
 			<key>NSPortName</key>
-			<string>Journal+</string>
+			<string>Journal</string>
 			<key>NSRequiredContext</key>
 			<dict/>
 			<key>NSSendTypes</key>
@@ -36,7 +36,7 @@
 			<key>NSMessage</key>
 			<string>addToToday</string>
 			<key>NSPortName</key>
-			<string>Journal+</string>
+			<string>Journal</string>
 			<key>NSRequiredContext</key>
 			<dict/>
 			<key>NSSendTypes</key>

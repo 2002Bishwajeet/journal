@@ -14,6 +14,7 @@ import { createRoot } from 'react-dom/client';
 const mocks = vi.hoisted(() => ({
     update: vi.fn<() => Promise<void>>(async () => { }),
     onRegisteredSW: undefined as ((url: string, r: unknown) => void) | undefined,
+    onOfflineReady: undefined as (() => void) | undefined,
     onNeedRefresh: undefined as (() => Promise<void>) | undefined,
     onNeedReload: undefined as (() => Promise<void>) | undefined,
     setNeedRefresh: vi.fn(),
@@ -23,10 +24,12 @@ const mocks = vi.hoisted(() => ({
 vi.mock('virtual:pwa-register/react', () => ({
     useRegisterSW: (opts: {
         onRegisteredSW?: (url: string, r: unknown) => void;
+        onOfflineReady?: () => void;
         onNeedRefresh?: () => Promise<void>;
         onNeedReload?: () => Promise<void>;
     }) => {
         mocks.onRegisteredSW = opts.onRegisteredSW;
+        mocks.onOfflineReady = opts.onOfflineReady;
         mocks.onNeedRefresh = opts.onNeedRefresh;
         mocks.onNeedReload = opts.onNeedReload;
         return {
@@ -248,6 +251,35 @@ describe('UpdatePrompt — when a new worker takes control', () => {
         await mocks.onNeedReload?.();
 
         expect(reload).not.toHaveBeenCalled();
+        await p.unmount();
+    });
+});
+
+describe('UpdatePrompt — native apps', () => {
+    afterEach(() => { delete window.__JOURNAL_NATIVE__; });
+
+    it('shows no offline toast in native, and does on the web', async () => {
+        window.__JOURNAL_NATIVE__ = { platform: 'linux' };
+        const p = await mountPrompt();
+        mocks.onOfflineReady?.();
+        expect(mocks.toast.success).not.toHaveBeenCalled();
+
+        delete window.__JOURNAL_NATIVE__;
+        mocks.onOfflineReady?.();
+        expect(mocks.toast.success).toHaveBeenCalledWith('App ready to work offline');
+        await p.unmount();
+    });
+
+    it('takes over a waiting worker from another build silently in native', async () => {
+        window.__JOURNAL_NATIVE__ = { platform: 'linux' };
+        const waiting = fakeWorker('newer-build');
+        setServiceWorker({ waiting });
+        const p = await mountPrompt();
+
+        await act(async () => { await mocks.onNeedRefresh?.(); });
+
+        expect(mocks.toast.info).not.toHaveBeenCalled();
+        expect(waiting.postMessage).toHaveBeenCalledWith({ type: 'SKIP_WAITING' });
         await p.unmount();
     });
 });
