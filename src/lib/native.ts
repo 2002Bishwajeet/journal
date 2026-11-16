@@ -38,6 +38,11 @@ export async function invokeNative<T>(plugin: string, command: string, args?: In
   return invoke<T>(`plugin:${plugin}|${command}`, args);
 }
 
+/** What the app calls itself: the native apps are Journal+, the PWA is Journal. */
+export function appName(): string {
+  return isNativeApp() ? 'Journal+' : 'Journal';
+}
+
 /** The hosted app. Links for other people point here from the native app. */
 export const PUBLIC_ORIGIN = 'https://journal.cloudx.run';
 
