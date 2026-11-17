@@ -414,18 +414,131 @@ fn allow_swipe_navigation(webview: tauri::webview::PlatformWebview) {
 }
 
 /// Desktop auto-update (#1141). Checks the `plugins.updater` endpoint in
-/// tauri.conf.json at launch and then daily, downloads in the background, and
-/// installs only when the user picks "Restart now". The plugin refuses an
-/// update whose signature doesn't match the public key there. A failed check
-/// or download is a log line; the next check retries.
+/// tauri.conf.json at launch, every `UPDATE_EVERY`, and when the machine wakes
+/// or the main window gets the focus once `UPDATE_MIN_GAP` has passed since the
+/// last check (#1349). It downloads in the background and installs when the
+/// user picks "Restart now", or at the next quit after "Later". The plugin
+/// refuses an update whose signature doesn't match the public key there. A
+/// failed check or download is a log line; the next check retries.
 #[cfg(desktop)]
 fn update_loop(app: tauri::AppHandle) {
-    std::thread::spawn(move || loop {
-        if let Err(e) = tauri::async_runtime::block_on(update(&app)) {
-            eprintln!("update check failed: {e}");
-        }
-        std::thread::sleep(std::time::Duration::from_secs(24 * 60 * 60));
+    use std::sync::mpsc::RecvTimeoutError;
+    use std::time::SystemTime;
+
+    let (nudge, nudges) = std::sync::mpsc::channel();
+    app.manage(Updater {
+        nudge,
+        pending: Pending::default(),
     });
+    // Wall-clock time, which goes on while the machine sleeps (`Instant` doesn't on macOS
+    // and Linux). A clock set back counts as a long time, so it only checks once more.
+    let since = |t: SystemTime| SystemTime::now().duration_since(t).unwrap_or(Duration::MAX);
+    std::thread::spawn(move || {
+        let mut last_check: Option<SystemTime> = None;
+        let mut nudged = false;
+        loop {
+            if update_due(last_check.map_or(Duration::MAX, since), nudged) {
+                last_check = Some(SystemTime::now());
+                if let Err(e) = tauri::async_runtime::block_on(update(&app)) {
+                    eprintln!("update check failed: {e}");
+                }
+            }
+            let waited_from = SystemTime::now();
+            nudged = match nudges.recv_timeout(UPDATE_TICK) {
+                Ok(()) => true,
+                Err(RecvTimeoutError::Timeout) => woke(since(waited_from)),
+                Err(RecvTimeoutError::Disconnected) => return,
+            };
+        }
+    });
+}
+
+#[cfg(desktop)]
+const UPDATE_EVERY: Duration = Duration::from_secs(4 * 60 * 60);
+#[cfg(desktop)]
+const UPDATE_MIN_GAP: Duration = Duration::from_secs(60 * 60);
+#[cfg(desktop)]
+const UPDATE_TICK: Duration = Duration::from_secs(60);
+
+/// Whether the update loop checks now, `since` the last check: every `UPDATE_EVERY`, and on a
+/// wake or a focus (`nudged`) at most once per `UPDATE_MIN_GAP`.
+#[cfg(desktop)]
+fn update_due(since: Duration, nudged: bool) -> bool {
+    since >= UPDATE_EVERY || (nudged && since >= UPDATE_MIN_GAP)
+}
+
+/// Whether a wait of one `UPDATE_TICK` took so long that the machine slept in it.
+#[cfg(desktop)]
+fn woke(waited: Duration) -> bool {
+    waited > 5 * UPDATE_TICK
+}
+
+/// The update loop's state: `nudge` asks it for a check (the window got the focus), and
+/// `pending` holds the update the user put off with "Later".
+#[cfg(desktop)]
+struct Updater {
+    nudge: std::sync::mpsc::Sender<()>,
+    pending: Pending<(tauri_plugin_updater::Update, Vec<u8>)>,
+}
+
+/// A downloaded update and its version, kept until "Restart now" or the quit (#1349).
+#[cfg(desktop)]
+struct Pending<U>(std::sync::Mutex<Option<(String, U)>>);
+
+#[cfg(desktop)]
+impl<U> Default for Pending<U> {
+    fn default() -> Self {
+        Self(std::sync::Mutex::new(None))
+    }
+}
+
+#[cfg(desktop)]
+impl<U> Pending<U> {
+    /// Whether `version` is still to download and ask about: not when it is already pending.
+    fn wants(&self, version: &str) -> bool {
+        self.0.lock().unwrap().as_ref().map(|(v, _)| v.as_str()) != Some(version)
+    }
+
+    /// Keeps `update` in place of the one pending before.
+    fn set(&self, version: String, update: U) {
+        *self.0.lock().unwrap() = Some((version, update));
+    }
+
+    fn take(&self) -> Option<U> {
+        self.0.lock().unwrap().take().map(|(_, update)| update)
+    }
+}
+
+/// Gives the update loop the main window's focus, and installs the pending update when the
+/// app quits (tray Quit, Cmd+Q, closing the last window where that quits the app).
+#[cfg(desktop)]
+fn updater_events<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
+    tauri::plugin::Builder::new("journal-updater")
+        .on_event(|app, event| {
+            // None in dev, where the loop doesn't run.
+            let Some(updater) = app.try_state::<Updater>() else {
+                return;
+            };
+            match event {
+                tauri::RunEvent::WindowEvent {
+                    label,
+                    event: tauri::WindowEvent::Focused(true),
+                    ..
+                } if label == "main" => {
+                    let _ = updater.nudge.send(());
+                }
+                tauri::RunEvent::Exit => {
+                    if let Some((update, bytes)) = updater.pending.take() {
+                        // The user quit: Windows' installer mustn't open the app again.
+                        if let Err(e) = update.restart_after_install(false).install(bytes) {
+                            eprintln!("can't install the update: {e}");
+                        }
+                    }
+                }
+                _ => {}
+            }
+        })
+        .build()
 }
 
 #[cfg(desktop)]
@@ -455,13 +568,20 @@ async fn update(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>
     if !install {
         return Ok(());
     }
+    // Already put off with "Later": it installs at the quit, so don't ask again.
+    let pending = &app.state::<Updater>().inner().pending;
+    if !pending.wants(&update.version) {
+        return Ok(());
+    }
     let bytes = update.download(|_, _| {}, || {}).await?;
+    let version = update.version.clone();
+    // A newer release replaces the pending one, also when the user quits with this prompt open.
+    pending.set(version.clone(), (update, bytes));
 
     // rfd's dialog has to run on the main thread once GTK's event loop owns
     // it (see run()), and macOS wants UI on the main thread anyway.
     const RESTART: &str = "Restart now";
     let name = app.package_info().name.clone();
-    let version = update.version.clone();
     let (tx, rx) = std::sync::mpsc::channel();
     app.run_on_main_thread(move || {
         let result = rfd::MessageDialog::new()
@@ -480,10 +600,13 @@ async fn update(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>
         );
     })?;
 
+    // Taken out first, so the restart's own exit doesn't install it a second time.
     if rx.recv()? {
-        // On Windows this starts the installer and exits the app.
-        update.install(bytes)?;
-        app.restart();
+        if let Some((update, bytes)) = pending.take() {
+            // On Windows this starts the installer and exits the app.
+            update.install(bytes)?;
+            app.restart();
+        }
     }
     Ok(())
 }
@@ -545,7 +668,9 @@ pub fn run() {
         .plugin(tauri_plugin_deep_link::init())
         .plugin(system_bars_plugin());
     #[cfg(desktop)]
-    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
+    let builder = builder
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(updater_events());
     #[cfg(target_os = "ios")]
     let builder = ios_recovery::register(builder);
     let builder = link_plugins(builder);
@@ -764,6 +889,41 @@ mod tests {
         assert!(!manifest(serde_json::json!({})));
         assert!(!manifest(serde_json::json!({ "security": false })));
         assert!(!manifest(serde_json::json!({ "security": "true" })));
+    }
+
+    #[cfg(desktop)]
+    #[test]
+    fn updates_are_checked_every_few_hours_and_on_a_wake_at_most_hourly() {
+        let minutes = |m: u64| Duration::from_secs(m * 60);
+        assert!(update_due(Duration::MAX, false), "the first check, at launch");
+        assert!(!update_due(minutes(239), false));
+        assert!(update_due(minutes(240), false), "every 4 hours");
+        // A wake or a focus checks, but not again within the hour.
+        assert!(!update_due(minutes(59), true));
+        assert!(update_due(minutes(60), true));
+        assert!(!update_due(minutes(60), false));
+
+        assert!(!woke(UPDATE_TICK), "an ordinary tick");
+        assert!(!woke(minutes(5)), "a busy machine");
+        assert!(woke(minutes(6)));
+        assert!(woke(Duration::MAX), "the clock set back");
+    }
+
+    #[cfg(desktop)]
+    #[test]
+    fn a_pending_update_is_not_asked_about_twice_and_a_newer_one_replaces_it() {
+        let pending = Pending::default();
+        assert!(pending.wants("2.74.0"), "nothing pending");
+
+        pending.set("2.74.0".into(), "2.74.0 bytes");
+        assert!(!pending.wants("2.74.0"), "already pending: no download, no prompt");
+        assert!(pending.wants("2.75.0"));
+
+        pending.set("2.75.0".into(), "2.75.0 bytes");
+        assert!(!pending.wants("2.75.0"));
+        assert_eq!(pending.take(), Some("2.75.0 bytes"), "the quit installs the newer one");
+        assert_eq!(pending.take(), None, "and only once");
+        assert!(pending.wants("2.75.0"));
     }
 
     #[test]
