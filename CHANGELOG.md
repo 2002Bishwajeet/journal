@@ -1,3 +1,16 @@
+## [2.73.5](https://github.com/2002Bishwajeet/journal/compare/v2.73.4...v2.73.5) (2026-11-17)
+
+
+### Bug Fixes
+
+* **desktop:** recover a killed web view on macOS like iOS, and log every reload ([#1368](https://github.com/2002Bishwajeet/journal/issues/1368)) ([0010e15](https://github.com/2002Bishwajeet/journal/commit/0010e1550b37cbde6b8b5427ae142e3c623d1419))
+
+
+### Features
+
+* **feed:** author-written Summary for Publish to feed, kept on the note ([#1360](https://github.com/2002Bishwajeet/journal/issues/1360)) ([ffdb2e6](https://github.com/2002Bishwajeet/journal/commit/ffdb2e6b54423b59850f2a9d1377e6f5d722f6f7)), closes [#1355](https://github.com/2002Bishwajeet/journal/issues/1355)
+* **lightbox:** previous/next through a gallery's images on the share page and in the editor ([#1369](https://github.com/2002Bishwajeet/journal/issues/1369)) ([ca52239](https://github.com/2002Bishwajeet/journal/commit/ca52239735a41635868deb6ba2ff13690818ee58))
+* **share:** follow the OS light/dark switch live on the share page ([#1370](https://github.com/2002Bishwajeet/journal/issues/1370)) ([e70c1fb](https://github.com/2002Bishwajeet/journal/commit/e70c1fbc11fb5e44dc563151a96751d875de211c))
 ## [2.73.4](https://github.com/2002Bishwajeet/journal/compare/v2.73.3...v2.73.4) (2026-11-17)
 
 
