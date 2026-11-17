@@ -7,7 +7,7 @@
 import { useContext, useEffect, useState, type CSSProperties } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { motion, useMotionValue, useTransform, type MotionValue } from "framer-motion";
-import { Download, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, X } from "lucide-react";
 import { Dialog, DialogContent, DialogPortal, DialogTitle } from "@/components/ui/dialog";
 import { OdinImage } from "@/components/OdinImage/OdinImage";
 import { EditedImage } from "@/components/EditedImage";
@@ -17,6 +17,9 @@ import { hasEdits, NO_EDITS, type ImageEdits } from "@/lib/images/imageEdits";
 import { useImageDownload } from "@/hooks/image/useImageDownload";
 import { useZoomPan } from "@/hooks/image/useZoomPan";
 import { useSwipeToClose } from "@/hooks/image/useSwipeToClose";
+import { useSwipeToStep } from "@/hooks/image/useSwipeToStep";
+import { useLightboxGallery } from "@/hooks/image/useLightboxGallery";
+import type { LightboxGallery, LightboxItem } from "@/lib/images/lightboxGallery";
 import { useSheetMode } from "@/hooks/useSheetMode";
 import { cn } from "@/lib/utils";
 import { ImageOwnerContext } from "./imageOwnerContext";
@@ -27,6 +30,63 @@ interface ImageLightboxProps {
   src: string;
   alt: string;
   edits?: ImageEdits;
+  /** The images of the gallery `src` is in, with `src`'s place among them (#1369): previous and next step through them. */
+  gallery?: LightboxGallery;
+}
+
+/** The picture itself: an attachment fetched at full size, or a plain <img>, with its edits applied. */
+function StageImage({ src, alt, edits }: { src: string; alt: string; edits: ImageEdits }) {
+  const dotYouClient = useDotYouClientContext();
+  const owner = useContext(ImageOwnerContext);
+  const isAttachment = src.startsWith("attachment://");
+  const [fileId, fileKey] = src.replace("attachment://", "").split("/");
+
+  return hasEdits(edits) ? (
+    // The edited box fits the stage; the image fills the frame's layer
+    <EditedImage edits={edits} maxHeight="var(--viewer-max-h)">
+      {isAttachment ? (
+        <OdinImage
+          dotYouClient={dotYouClient}
+          odinId={owner}
+          targetDrive={JOURNAL_DRIVE}
+          fileId={fileId}
+          fileKey={fileKey}
+          alt={alt}
+          lazyLoad={false}
+          maxWidth="none"
+        />
+      ) : (
+        <img src={src} alt={alt} className="block h-full w-full" />
+      )}
+    </EditedImage>
+  ) : isAttachment ? (
+    <OdinImage
+      dotYouClient={dotYouClient}
+      odinId={owner}
+      targetDrive={JOURNAL_DRIVE}
+      fileId={fileId}
+      fileKey={fileKey}
+      alt={alt}
+      lazyLoad={false}
+      fit="contain"
+      className="max-h-[var(--viewer-max-h)]"
+    />
+  ) : (
+    <img src={src} alt={alt} className="max-h-[var(--viewer-max-h)] max-w-full object-contain" />
+  );
+}
+
+/** The neighbours drawn unseen at the stage's size, so stepping to one finds it loaded (#1369). */
+function Preload({ items }: { items: LightboxItem[] }) {
+  return (
+    <div aria-hidden className="pointer-events-none invisible absolute inset-0 flex items-center justify-center overflow-hidden">
+      {items.map((item, i) => (
+        <div key={i} className="absolute flex w-full justify-center">
+          <StageImage src={item.src} alt={item.alt} edits={item.edits ?? NO_EDITS} />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 /** Mounted only while the dialog is open, so every opening starts fitted. */
@@ -37,6 +97,7 @@ function ZoomStage({
   onClose,
   swipeY,
   onZoomedChange,
+  onStep,
 }: {
   src: string;
   alt: string;
@@ -45,17 +106,15 @@ function ZoomStage({
   /** The full-screen viewer passes the value its background fades with; a swipe at fit moves it (#829). */
   swipeY?: MotionValue<number>;
   onZoomedChange?: (zoomed: boolean) => void;
+  /** Set inside a gallery: a sideways swipe at fit steps to the next or previous image (#1369). */
+  onStep?: (dir: -1 | 1) => void;
 }) {
-  const dotYouClient = useDotYouClientContext();
-  const owner = useContext(ImageOwnerContext);
-  const isAttachment = src.startsWith("attachment://");
-  const [fileId, fileKey] = src.replace("attachment://", "").split("/");
   const [stage, setStage] = useState<HTMLDivElement | null>(null);
   const { view, stageProps, wasDragged } = useZoomPan(stage);
-  const edited = hasEdits(edits);
   const ownY = useMotionValue(0);
   const y = swipeY ?? ownY;
   const swipe = useSwipeToClose(y, Boolean(swipeY) && view.scale === 1, onClose);
+  const step = useSwipeToStep(Boolean(onStep) && view.scale === 1, (dir) => onStep?.(dir));
   const zoomed = view.scale > 1;
   useEffect(() => onZoomedChange?.(zoomed), [zoomed, onZoomedChange]);
 
@@ -67,6 +126,7 @@ function ZoomStage({
       onPointerDown={(e) => {
         stageProps.onPointerDown(e);
         swipe.onPointerDown(e);
+        step.onPointerDown(e);
       }}
       onPointerMove={(e) => {
         stageProps.onPointerMove(e);
@@ -75,10 +135,12 @@ function ZoomStage({
       onPointerUp={(e) => {
         stageProps.onPointerUp(e);
         swipe.onPointerUp(e);
+        step.onPointerUp(e);
       }}
       onPointerCancel={(e) => {
         stageProps.onPointerCancel(e);
         swipe.onPointerCancel(e);
+        step.onPointerCancel(e);
       }}
       onClick={(e) => {
         stageProps.onClick(e);
@@ -98,39 +160,7 @@ function ZoomStage({
         className="flex w-full justify-center"
         style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})` }}
       >
-        {edited ? (
-          // The edited box fits the stage; the image fills the frame's layer
-          <EditedImage edits={edits} maxHeight="var(--viewer-max-h)">
-            {isAttachment ? (
-              <OdinImage
-                dotYouClient={dotYouClient}
-                odinId={owner}
-                targetDrive={JOURNAL_DRIVE}
-                fileId={fileId}
-                fileKey={fileKey}
-                alt={alt}
-                lazyLoad={false}
-                maxWidth="none"
-              />
-            ) : (
-              <img src={src} alt={alt} className="block h-full w-full" />
-            )}
-          </EditedImage>
-        ) : isAttachment ? (
-          <OdinImage
-            dotYouClient={dotYouClient}
-            odinId={owner}
-            targetDrive={JOURNAL_DRIVE}
-            fileId={fileId}
-            fileKey={fileKey}
-            alt={alt}
-            lazyLoad={false}
-            fit="contain"
-            className="max-h-[var(--viewer-max-h)]"
-          />
-        ) : (
-          <img src={src} alt={alt} className="max-h-[var(--viewer-max-h)] max-w-full object-contain" />
-        )}
+        <StageImage src={src} alt={alt} edits={edits} />
       </div>
       </motion.div>
     </div>
@@ -140,6 +170,33 @@ function ZoomStage({
 /** The tallest the image may grow: the dialog on desktop, the screen less the bars on a phone. */
 const DESKTOP_MAX_H = "calc(95vh - 3rem)";
 const PHONE_MAX_H = "calc(100dvh - 7rem - env(safe-area-inset-top) - env(safe-area-inset-bottom))";
+
+type GalleryNav = ReturnType<typeof useLightboxGallery>;
+
+/** Previous or next image; at an end it is disabled. */
+function StepButton({ dir, nav, className }: { dir: -1 | 1; nav: GalleryNav; className: string }) {
+  const Icon = dir === 1 ? ChevronRight : ChevronLeft;
+  return (
+    <button
+      type="button"
+      aria-label={dir === 1 ? "Next image" : "Previous image"}
+      disabled={dir === 1 ? nav.atEnd : nav.atStart}
+      onClick={() => nav.step(dir)}
+      className={className}
+    >
+      <Icon aria-hidden />
+    </button>
+  );
+}
+
+/** "2 / 5", announced as it changes. */
+function Position({ nav, className }: { nav: GalleryNav; className: string }) {
+  return (
+    <p aria-live="polite" className={cn("tabular-nums", className)}>
+      {nav.index + 1} / {nav.count}
+    </p>
+  );
+}
 
 /** Near black while at rest, see-through as the image is pulled away. */
 const fade = (y: number, over: number) => Math.max(0, 1 - Math.abs(y) / over);
@@ -154,8 +211,9 @@ function PhoneViewer({
   src,
   alt,
   edits,
+  nav,
   download,
-}: ImageLightboxProps & { edits: ImageEdits; download: () => void }) {
+}: ImageLightboxProps & { edits: ImageEdits; nav: GalleryNav; download: () => void }) {
   const y = useMotionValue(0);
   const background = useTransform(y, (v) => `rgb(0 0 0 / ${fade(v, 400)})`);
   const chrome = useTransform(y, (v) => fade(v, 120));
@@ -191,13 +249,30 @@ function PhoneViewer({
               <DialogPrimitive.Close aria-label="Close" className={button}>
                 <X aria-hidden />
               </DialogPrimitive.Close>
+              {nav.count > 1 && (
+                <div className="flex items-center">
+                  <StepButton dir={-1} nav={nav} className={cn(button, "disabled:opacity-50")} />
+                  <Position nav={nav} className="min-w-14 text-center text-[15px] leading-5 text-white/90" />
+                  <StepButton dir={1} nav={nav} className={cn(button, "disabled:opacity-50")} />
+                </div>
+              )}
               <button type="button" aria-label="Download image" onClick={download} className={button}>
                 <Download aria-hidden />
               </button>
             </motion.div>
           </div>
-          <div style={{ "--viewer-max-h": PHONE_MAX_H } as CSSProperties} className="flex min-h-0 flex-1 flex-col">
-            <ZoomStage src={src} alt={alt} edits={edits} onClose={() => onOpenChange(false)} swipeY={y} onZoomedChange={setZoomed} />
+          <div style={{ "--viewer-max-h": PHONE_MAX_H } as CSSProperties} className="relative flex min-h-0 flex-1 flex-col">
+            <ZoomStage
+              key={nav.index}
+              src={src}
+              alt={alt}
+              edits={edits}
+              onClose={() => onOpenChange(false)}
+              swipeY={y}
+              onZoomedChange={setZoomed}
+              onStep={nav.count > 1 ? nav.step : undefined}
+            />
+            <Preload items={nav.neighbours} />
           </div>
           {/* The caption is set like a list row's title (15/20), three lines at most. */}
           <div className={cn("shrink-0", hideWhileZoomed)}>
@@ -215,12 +290,15 @@ function PhoneViewer({
   );
 }
 
-export function ImageLightbox({ open, onOpenChange, src, alt, edits = NO_EDITS }: ImageLightboxProps) {
+export function ImageLightbox({ open, onOpenChange, src: openedSrc, alt: openedAlt, edits: openedEdits = NO_EDITS, gallery }: ImageLightboxProps) {
+  const nav = useLightboxGallery(open, gallery, { src: openedSrc, alt: openedAlt, edits: openedEdits });
+  const { src, alt } = nav.current;
+  const edits = nav.current.edits ?? NO_EDITS;
   const download = useImageDownload(src, alt);
   const phone = useSheetMode();
 
   if (phone) {
-    return <PhoneViewer open={open} onOpenChange={onOpenChange} src={src} alt={alt} edits={edits} download={download} />;
+    return <PhoneViewer open={open} onOpenChange={onOpenChange} src={src} alt={alt} edits={edits} nav={nav} download={download} />;
   }
 
   return (
@@ -245,8 +323,25 @@ export function ImageLightbox({ open, onOpenChange, src, alt, edits = NO_EDITS }
         >
           <Download className="size-4" />
         </button>
-        <div style={{ "--viewer-max-h": DESKTOP_MAX_H } as CSSProperties} className="flex min-h-0 w-full flex-1 flex-col">
-          <ZoomStage src={src} alt={alt} edits={edits} onClose={() => onOpenChange(false)} />
+        {nav.count > 1 && (
+          <>
+            <Position nav={nav} className="absolute top-4 left-1/2 z-10 -translate-x-1/2 text-sm text-white/90" />
+            {([-1, 1] as const).map((dir) => (
+              <StepButton
+                key={dir}
+                dir={dir}
+                nav={nav}
+                className={cn(
+                  "absolute top-1/2 z-10 -translate-y-1/2 rounded-xs p-0.5 text-white/80 hover:text-white focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 [&_svg]:size-8",
+                  dir === 1 ? "right-4" : "left-4",
+                )}
+              />
+            ))}
+          </>
+        )}
+        <div style={{ "--viewer-max-h": DESKTOP_MAX_H } as CSSProperties} className="relative flex min-h-0 w-full flex-1 flex-col">
+          <ZoomStage key={nav.index} src={src} alt={alt} edits={edits} onClose={() => onOpenChange(false)} onStep={nav.count > 1 ? nav.step : undefined} />
+          <Preload items={nav.neighbours} />
         </div>
         {alt && <p aria-hidden="true" className="text-center text-sm text-white/90">{alt}</p>}
       </DialogContent>
