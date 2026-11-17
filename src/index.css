@@ -600,7 +600,7 @@ img.ProseMirror-separator {
 }
 
 /* Gallery layouts beyond the row (#602). The row's break elements only exist in row
-   galleries. Grid: square cropped tiles. Masonry: CSS columns, natural heights.
+   galleries. Grid: square tiles, each image whole in its tile (#1357). Masonry: CSS columns, natural heights.
    Carousel: a scroll-snap strip (swipe), driven by .gallery-nav (galleryLayout.ts). */
 .gallery-block {
   position: relative;
@@ -619,7 +619,8 @@ img.ProseMirror-separator {
 
 .prose [data-gallery='grid'] img:not(.h-full) {
   aspect-ratio: 1 / 1;
-  object-fit: cover;
+  object-fit: contain;
+  background-color: var(--muted);
 }
 
 [data-gallery='masonry'] {
