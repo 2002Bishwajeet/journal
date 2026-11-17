@@ -16,6 +16,16 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.73.2 (2026-11-17)
+
+### New
+
+- On a Mac, when you click a Journal share link in Mail, Messages, Notes or a different app, the link opens in the Journal app.
+
+### Fixed
+
+- On a Mac, after you update the app with **Restart now**, the app opens in its pinned Dock icon. It does not show as a second icon.
+
 ## 2.73.1 (2026-11-17)
 
 ### Changed
