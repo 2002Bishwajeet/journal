@@ -30,13 +30,37 @@ describe('the updater', () => {
     });
 });
 
-describe('the desktop app name', () => {
-    it.each(['macos', 'windows', 'linux'])('is Journal on %s', (os) => {
-        expect(json(`src-tauri/tauri.${os}.conf.json`).productName).toBe('Journal');
+// #1340: every local build is "Journal Dev"; only the release workflows opt in to the real names.
+describe('the app name', () => {
+    it.each(['macos', 'windows', 'linux'])('is Journal Dev on %s by default', (os) => {
+        expect(json(`src-tauri/tauri.${os}.conf.json`).productName).toBe('Journal Dev');
     });
 
-    it('stays Journal in the base config, which the iOS and Android projects are generated from', () => {
-        expect(json('src-tauri/tauri.conf.json').productName).toBe('Journal');
+    it('is Journal Dev in the base config, which the iOS and Android projects are generated from', () => {
+        expect(json('src-tauri/tauri.conf.json').productName).toBe('Journal Dev');
+    });
+
+    it('keeps the bundle identifier, so the data dir, deep links and signing do not change', () => {
+        expect(json('src-tauri/tauri.conf.json').identifier).toBe('com.biswa.journal');
+    });
+
+    it('is Journal in the release config', () => {
+        expect(json('src-tauri/tauri.release.conf.json').productName).toBe('Journal');
+    });
+
+    it('is the real name on desktop only where desktop-release.yml merges the release config', () => {
+        expect(read('.github/workflows/desktop-release.yml')).toContain('--config src-tauri/tauri.release.conf.json');
+    });
+
+    it.each(['ios-release.yml', 'android-release.yml'])('is the real name only where %s sets JOURNAL_RELEASE_BUILD', (file) => {
+        expect(read(`.github/workflows/${file}`)).toMatch(/^\s+JOURNAL_RELEASE_BUILD: '1'$/m);
+    });
+
+    it('is swapped to Journal+ on iOS and Android only under JOURNAL_RELEASE_BUILD', () => {
+        for (const script of ['scripts/ios-project.mjs', 'scripts/android-release.mjs']) {
+            expect(read(script)).toContain("process.env.JOURNAL_RELEASE_BUILD === '1'");
+        }
+        expect(read('src-tauri/Info.ios.plist')).toContain('<string>Journal Dev</string>');
     });
 });
 
