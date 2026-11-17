@@ -7,7 +7,7 @@ import rehypeRaw from 'rehype-raw';
 import rehypeKatex from 'rehype-katex';
 import rehypeSanitize from 'rehype-sanitize';
 import { sanitizeSchema } from '@/lib/utils/shareSanitizeSchema';
-import { galleryRowBreaks, toGalleryLayout } from '@/components/editor/nodes/galleryLayout';
+import { galleryBreaks, toGalleryColumns, toGalleryLayout } from '@/components/editor/nodes/galleryLayout';
 
 const lowlight = createLowlight(common);
 // A `react` live block's code is JSX, which the javascript grammar highlights (#426).
@@ -133,7 +133,11 @@ function rehypeGalleryRows() {
                     continue;
                 }
                 const imgs = images(child);
-                const breaks = new Map((toGalleryLayout(child.properties.dataGallery) === 'row' ? galleryRowBreaks(imgs.length) : []).map((b) => [b.index, b.modes.join(' ')]));
+                // Images per row (#1367): an invalid value is dropped, so the page lays the gallery out automatically.
+                const columns = toGalleryColumns(child.properties.dataColumns);
+                if (columns) child.properties.dataColumns = String(columns);
+                else delete child.properties.dataColumns;
+                const breaks = new Map(galleryBreaks(toGalleryLayout(child.properties.dataGallery), columns, imgs.length).map((b) => [b.index, b.modes.join(' ')]));
                 child.children = imgs.flatMap((img, i): Element[] => {
                     const modes = breaks.get(i);
                     if (!modes) return [img];

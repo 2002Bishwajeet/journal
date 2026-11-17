@@ -58,6 +58,15 @@ const find = (node: TiptapJSONContent, type: string): TiptapJSONContent[] =>
     [...(node.type === type ? [node] : []), ...(node.content ?? []).flatMap((c) => find(c, type))];
 
 describe('buildFeedArticle', () => {
+    it('hands the gallery layout and images per row (#1367) to the published doc unchanged', async () => {
+        const doc: TiptapJSONContent = {
+            type: 'doc',
+            content: [{ type: 'gallery', attrs: { layout: 'grid', columns: 3 }, content: [img('https://example.com/a.png'), img('https://example.com/b.png')] }],
+        };
+        const { content } = await buildFeedArticle(input({ doc, coverSrc: undefined }));
+        expect(find(content.bodyDoc.doc, 'gallery').map((g) => g.attrs)).toEqual([{ layout: 'grid', columns: 3 }]);
+    });
+
     it('uploads the note images as post payloads and drops the edit attrs', async () => {
         const args = input();
         const { content, files } = await buildFeedArticle(args);

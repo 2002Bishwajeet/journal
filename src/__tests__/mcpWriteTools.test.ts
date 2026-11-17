@@ -1334,3 +1334,16 @@ describe('write tools: lean reads and moves (#1003)', () => {
         expect(uploads).toHaveLength(0);
     });
 });
+
+describe('write tools: gallery images per row (#1367)', () => {
+    const gallery = (open: string) => `<div ${open}>\n\n![a](https://cdn.example/a.png) ![b](https://cdn.example/b.png)\n\n</div>`;
+
+    it('create_note and update_note keep data-columns, and drop one that is out of range', async () => {
+        const { deps, store } = makeDrive();
+        const { id } = await createNote(deps, { title: 'G', markdown: gallery('data-gallery="grid" data-columns="3"'), folderId: 'FW' });
+        expect(markdownOf(store.get(id)!.blob).trim()).toBe(gallery('data-gallery="grid" data-columns="3"'));
+
+        await updateNote(deps, { id, markdown: gallery('data-gallery="masonry" data-columns="9"') });
+        expect(markdownOf(store.get(id)!.blob).trim()).toBe(gallery('data-gallery="masonry"'));
+    });
+});

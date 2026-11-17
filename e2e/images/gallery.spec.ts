@@ -247,3 +247,64 @@ test(`gallery: cropped and rotated images share their row's height`, async ({ re
   }).toPass();
   await screenshotInBothThemes(app, (colorScheme) => `gallery-edited-editor-${colorScheme}-390.png`);
 });
+
+// #1367: "Per row" in the gallery's toolbar sets how many images a grid has to a row; the
+// choice survives a reload. Equal height within a row, exactly 3 on desktop, 2 on a phone.
+test('gallery: Per row 3 on a grid of 6 makes 2 rows of 3 that survive a reload', async ({ reusedApp: app }) => {
+  test.slow();
+  await app.setViewportSize({ width: 1280, height: 800 });
+  await createNote(app, { title: `Gallery per row ${Date.now()}`, body: 'Photos below.' });
+
+  const editor = activeEditor(app);
+  const text = await box(editor.getByText('Photos below.'));
+  const pictures = [...PICTURES, ...PICTURES.map((p, i) => ({ ...p, name: `again-${i}.png` }))];
+  await editor.evaluate(
+    (el, { pictures, x, y }) => {
+      const data = new DataTransfer();
+      for (const { name, base64 } of pictures) {
+        const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+        data.items.add(new File([bytes], name, { type: 'image/png' }));
+      }
+      el.dispatchEvent(new DragEvent('drop', { dataTransfer: data, clientX: x, clientY: y, bubbles: true, cancelable: true }));
+    },
+    { pictures, x: text.x + text.width - 1, y: text.y + text.height / 2 },
+  );
+  const block = editor.locator('.gallery-block');
+  await expect(editor.locator('[data-gallery="row"] img:not(.ProseMirror-separator)')).toHaveCount(6);
+  await block.hover();
+  await block.getByRole('button', { name: 'Grid', exact: true }).click();
+  await expect(editor.locator('[data-gallery="grid"]')).toHaveCount(1);
+  await block.hover();
+  await block.getByRole('combobox', { name: 'Images per row' }).selectOption('3');
+  await expect(editor.locator('[data-gallery="grid"][data-columns="3"]')).toHaveCount(1);
+
+  const expectRows = async (images: Locator, perRow: number) => {
+    await expect(async () => {
+      const b = await Promise.all([0, 1, 2, 3, 4, 5].map((i) => box(images.nth(i))));
+      for (let row = 0; row < 6 / perRow; row++) {
+        const first = b[row * perRow];
+        for (const t of b.slice(row * perRow + 1, (row + 1) * perRow)) {
+          expect(Math.abs(t.y - first.y)).toBeLessThan(2);
+          expect(Math.abs(t.height - first.height)).toBeLessThan(2);
+          expect(t.x).toBeGreaterThan(first.x);
+        }
+        if (row > 0) expect(first.y).toBeGreaterThan(b[(row - 1) * perRow].y + b[(row - 1) * perRow].height - 1);
+      }
+    }).toPass();
+  };
+  const gridImages = () => activeEditor(app).locator('[data-gallery="grid"] img:not(.ProseMirror-separator)');
+  await expectRows(gridImages(), 3);
+  await screenshotInBothThemes(app, (colorScheme) => `gallery-per-row-${colorScheme}-1280.png`);
+
+  await waitForNoteSaved(app);
+  await reloadNote(app);
+  await expect(activeEditor(app).locator('[data-gallery="grid"][data-columns="3"]')).toHaveCount(1);
+  await expect(activeEditor(app).locator('.gallery-block').getByRole('combobox', { name: 'Images per row' })).toHaveValue('3');
+  await expectRows(gridImages(), 3);
+
+  // Phone: min(3, 2) per row
+  await app.setViewportSize({ width: 390, height: 844 });
+  await expectRows(gridImages(), 2);
+  await expect(() => activeEditor(app).locator('[data-gallery="grid"]').scrollIntoViewIfNeeded()).toPass();
+  await screenshotInBothThemes(app, (colorScheme) => `gallery-per-row-${colorScheme}-390.png`);
+});

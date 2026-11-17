@@ -19,8 +19,8 @@ export const sanitizeSchema = {
     attributes: {
         ...defaultSchema.attributes,
         img: [...(defaultSchema.attributes?.img ?? []), 'width', 'dataAlign', 'dataCaption', 'dataCrop', 'dataRotate', 'dataFlip'],
-        // An image gallery's layout (#601).
-        div: [...(defaultSchema.attributes?.div ?? []), 'dataGallery'],
+        // An image gallery's layout (#601) and images per row (#1367, a number the page checks itself).
+        div: [...(defaultSchema.attributes?.div ?? []), 'dataGallery', 'dataColumns'],
     },
     protocols: {
         ...defaultSchema.protocols,
