@@ -12,6 +12,7 @@ import { makeSlug } from '@homebase-id/js-lib/helpers';
 import {
     BlogConfig,
     getPostByGlobalTransitId,
+    readingTimeOf,
     savePost,
     toStoredArticleBody,
     type Article,
@@ -30,6 +31,8 @@ export interface FeedArticleInput {
     /** The note body as Tiptap JSON (from its Yjs state). */
     doc: TiptapJSONContent;
     title: string;
+    /** The author's own summary, sent as the article's `abstract`; never derived from the body. */
+    summary?: string;
     /** The cover's `attachment://` src, when the note has one. */
     coverSrc?: string;
     /** The note's remote fileId: only images of this note are read (see parseAttachmentSrc). */
@@ -42,12 +45,23 @@ export interface FeedArticleInput {
 }
 
 interface BuiltFeedArticle {
-    content: Pick<Article, 'caption' | 'abstract' | 'primaryMediaFile'> & StoredArticleBody;
+    content: Pick<Article, 'caption' | 'abstract' | 'primaryMediaFile' | 'readingTimeStats'> & StoredArticleBody;
     files: NewMediaFile[];
 }
 
 const textOf = (node: TiptapJSONContent): string =>
     node.type === 'text' ? (node.text ?? '') : (node.content ?? []).map(textOf).join('');
+
+const normalize = (t: string): string => t.replace(/\s+/g, ' ').trim().toLowerCase().replace(/[\s\p{P}]+$/u, '');
+
+/** The summary, or '' when blank or when it only repeats the body's opening (the reader would show it twice). */
+function abstractOf(summary: string | undefined, doc: TiptapJSONContent): string {
+    const trimmed = summary?.trim() ?? '';
+    const wanted = normalize(trimmed);
+    if (!wanted) return '';
+    const opening = (doc.content ?? []).filter((n) => n.type === 'paragraph').map((n) => normalize(textOf(n))).find(Boolean) ?? '';
+    return opening.startsWith(wanted) ? '' : trimmed;
+}
 
 /** The article fields and the payloads to upload with them. */
 export async function buildFeedArticle(input: FeedArticleInput): Promise<BuiltFeedArticle> {
@@ -111,12 +125,12 @@ export async function buildFeedArticle(input: FeedArticleInput): Promise<BuiltFe
     const files = slots.filter((f): f is NewMediaFile => !!f);
     const cover = coverKey ? files.find((f) => f.key === coverKey) : undefined;
     const { body, bodyDoc } = await toStoredArticleBody(doc);
-    const abstract = (doc.content ?? []).filter((n) => n.type === 'paragraph').map((n) => textOf(n).trim()).find(Boolean) ?? '';
 
     return {
         content: {
             caption: input.title,
-            abstract,
+            abstract: abstractOf(input.summary, doc),
+            readingTimeStats: readingTimeOf(doc),
             body,
             bodyDoc,
             primaryMediaFile: cover ? { fileKey: cover.key as string, fileId: undefined, type: cover.file.type } : undefined,

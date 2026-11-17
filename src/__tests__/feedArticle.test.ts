@@ -14,7 +14,7 @@ vi.mock('@homebase-id/js-lib/public', async (importOriginal) => ({
     getPostByGlobalTransitId: mockGetPost,
 }));
 
-import { BlogConfig } from '@homebase-id/js-lib/public';
+import { BlogConfig, readingTimeOf } from '@homebase-id/js-lib/public';
 import { buildFeedArticle, saveFeedPost, type FeedArticleInput } from '@/lib/share/feedArticle';
 import type { TiptapJSONContent } from '@homebase-id/js-lib/public';
 import { fakeDotYouClient } from './fakes';
@@ -100,13 +100,43 @@ describe('buildFeedArticle', () => {
         expect(find(content.bodyDoc.doc, 'codeBlock')[0].attrs).toEqual({ language: 'html id=k3f9 wide' });
     });
 
-    it('stores the Slate body with its hash, the title as caption and the first paragraph as abstract', async () => {
+    it('stores the Slate body with its hash, and the title as caption', async () => {
         const { content } = await buildFeedArticle(input());
 
         expect(content.bodyDoc.format).toBe('tiptap-v1');
         expect(content.bodyDoc.slateHash).toBe(createHash('sha256').update(JSON.stringify(content.body)).digest('hex'));
         expect(content.caption).toBe('My note');
-        expect(content.abstract).toBe('See Public one and Private one');
+    });
+
+    it('sets readingTimeStats from the converted doc', async () => {
+        const { content } = await buildFeedArticle(input());
+        expect(content.readingTimeStats).toEqual(readingTimeOf(content.bodyDoc.doc));
+        expect(content.readingTimeStats?.words).toBeGreaterThan(0);
+    });
+
+    describe('abstract', () => {
+        const para = (t: string): TiptapJSONContent => ({ type: 'paragraph', content: [text(t)] });
+        const doc: TiptapJSONContent = { type: 'doc', content: [{ type: 'heading', attrs: { level: 1 }, content: [text('Title')] }, para('  Hello,   brave new world. '), para('Second paragraph.')] };
+        const abstractFor = async (summary?: string) => (await buildFeedArticle(input({ doc, summary }))).content.abstract;
+
+        it('is empty without a summary, not the first paragraph', async () => {
+            expect(await abstractFor()).toBe('');
+            expect(await abstractFor('   ')).toBe('');
+        });
+
+        it('is the summary as given, trimmed', async () => {
+            expect(await abstractFor('  A short take.  ')).toBe('A short take.');
+        });
+
+        it('is empty when the summary repeats the first paragraph or starts it', async () => {
+            expect(await abstractFor('hello, brave new world')).toBe('');
+            expect(await abstractFor('HELLO,  BRAVE\nNEW   WORLD!')).toBe('');
+            expect(await abstractFor('Hello, brave')).toBe('');
+        });
+
+        it('keeps a summary that goes beyond the first paragraph', async () => {
+            expect(await abstractFor('Hello, brave new world. Second paragraph.')).toBe('Hello, brave new world. Second paragraph.');
+        });
     });
 });
 
