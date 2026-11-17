@@ -420,6 +420,9 @@ fn allow_swipe_navigation(webview: tauri::webview::PlatformWebview) {
 /// user picks "Restart now", or at the next quit after "Later". The plugin
 /// refuses an update whose signature doesn't match the public key there. A
 /// failed check or download is a log line; the next check retries.
+///
+/// "Check for Updates…" (#1353, `check_for_updates`) asks the same loop for a check now, which
+/// tells the user its result in a dialog, errors too.
 #[cfg(desktop)]
 fn update_loop(app: tauri::AppHandle) {
     use std::sync::mpsc::RecvTimeoutError;
@@ -435,22 +438,115 @@ fn update_loop(app: tauri::AppHandle) {
     let since = |t: SystemTime| SystemTime::now().duration_since(t).unwrap_or(Duration::MAX);
     std::thread::spawn(move || {
         let mut last_check: Option<SystemTime> = None;
-        let mut nudged = false;
+        let mut nudge: Option<Nudge> = None;
         loop {
-            if update_due(last_check.map_or(Duration::MAX, since), nudged) {
+            let manual = nudge == Some(Nudge::Manual);
+            if manual || update_due(last_check.map_or(Duration::MAX, since), nudge.is_some()) {
                 last_check = Some(SystemTime::now());
-                if let Err(e) = tauri::async_runtime::block_on(update(&app)) {
+                let checked =
+                    tauri::async_runtime::block_on(update(&app, manual)).map_err(|e| e.to_string());
+                if let Err(e) = &checked {
                     eprintln!("update check failed: {e}");
                 }
+                if manual {
+                    let info = app.package_info();
+                    let current = info.version.to_string();
+                    if let Some(text) = manual_check_message(&info.name, &current, &checked) {
+                        tell(&app, checked.is_err(), text);
+                    }
+                }
+                // The checks asked for while this one ran: it answered them.
+                drain(&nudges);
             }
             let waited_from = SystemTime::now();
-            nudged = match nudges.recv_timeout(UPDATE_TICK) {
-                Ok(()) => true,
-                Err(RecvTimeoutError::Timeout) => woke(since(waited_from)),
+            nudge = match nudges.recv_timeout(UPDATE_TICK) {
+                Ok(n) => Some(n),
+                Err(RecvTimeoutError::Timeout) => woke(since(waited_from)).then_some(Nudge::Wake),
                 Err(RecvTimeoutError::Disconnected) => return,
             };
         }
     });
+}
+
+/// "Check for Updates…" in the tray menu and the macOS app menu (#1353): one update check now,
+/// its result in a dialog. Ignored while a check runs, and in dev, where the loop doesn't run.
+#[cfg(desktop)]
+pub fn check_for_updates<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+    if let Some(updater) = app.try_state::<Updater>() {
+        let _ = updater.nudge.send(Nudge::Manual);
+    }
+}
+
+/// Why the update loop wakes before its tick: a wake or the window's focus, or the user.
+#[cfg(desktop)]
+#[derive(Debug, PartialEq)]
+enum Nudge {
+    Wake,
+    Manual,
+}
+
+/// Drops what is queued on `rx`, so a check is never started a second time for it.
+#[cfg(desktop)]
+fn drain<T>(rx: &std::sync::mpsc::Receiver<T>) {
+    while rx.try_recv().is_ok() {}
+}
+
+/// The end of an update check that didn't fail.
+#[cfg(desktop)]
+#[derive(Debug)]
+enum Checked {
+    UpToDate,
+    /// The "Restart now" / "Later" prompt was shown, or (automatic checks) was put off before.
+    Prompted,
+    /// The release is newer than the license key's updates cover (#1316).
+    NotCovered(String),
+    /// Linux outside an AppImage: the package manager updates the app.
+    #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
+    PackageManager,
+}
+
+/// What the dialog after "Check for Updates…" says, if anything: after a prompt, nothing.
+#[cfg(desktop)]
+fn manual_check_message(
+    name: &str,
+    current: &str,
+    checked: &Result<Checked, String>,
+) -> Option<String> {
+    Some(match checked {
+        Ok(Checked::UpToDate) => format!("{name} is up to date (v{current})."),
+        Ok(Checked::Prompted) => return None,
+        Ok(Checked::NotCovered(version)) => format!(
+            "{name} {version} is out, but your updates have ended. Renew your license to get it."
+        ),
+        Ok(Checked::PackageManager) => {
+            format!("{name} updates come from your package manager on this system.")
+        }
+        Err(_) => format!("{name} can't check for updates. Check your connection and try again."),
+    })
+}
+
+/// Shows `text` with an OK button and waits for it, so the clicks on "Check for Updates…"
+/// meanwhile are drained with the rest.
+#[cfg(desktop)]
+fn tell(app: &tauri::AppHandle, error: bool, text: String) {
+    let name = app.package_info().name.clone();
+    let (tx, rx) = std::sync::mpsc::channel();
+    let shown = app.run_on_main_thread(move || {
+        rfd::MessageDialog::new()
+            .set_level(if error {
+                rfd::MessageLevel::Warning
+            } else {
+                rfd::MessageLevel::Info
+            })
+            .set_title(&name)
+            .set_description(text)
+            .set_buttons(rfd::MessageButtons::Ok)
+            .show();
+        let _ = tx.send(());
+    });
+    if shown.is_ok() {
+        let _ = rx.recv();
+    }
 }
 
 #[cfg(desktop)]
@@ -473,11 +569,11 @@ fn woke(waited: Duration) -> bool {
     waited > 5 * UPDATE_TICK
 }
 
-/// The update loop's state: `nudge` asks it for a check (the window got the focus), and
-/// `pending` holds the update the user put off with "Later".
+/// The update loop's state: `nudge` asks it for a check (the window got the focus, or
+/// "Check for Updates…"), and `pending` holds the update the user put off with "Later".
 #[cfg(desktop)]
 struct Updater {
-    nudge: std::sync::mpsc::Sender<()>,
+    nudge: std::sync::mpsc::Sender<Nudge>,
     pending: Pending<(tauri_plugin_updater::Update, Vec<u8>)>,
 }
 
@@ -525,7 +621,7 @@ fn updater_events<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
                     event: tauri::WindowEvent::Focused(true),
                     ..
                 } if label == "main" => {
-                    let _ = updater.nudge.send(());
+                    let _ = updater.nudge.send(Nudge::Wake);
                 }
                 tauri::RunEvent::Exit => {
                     if let Some((update, bytes)) = updater.pending.take() {
@@ -541,18 +637,23 @@ fn updater_events<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
         .build()
 }
 
+/// One update check. A `manual` one ("Check for Updates…") asks about an update put off with
+/// "Later" again.
 #[cfg(desktop)]
-async fn update(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>> {
+async fn update(
+    app: &tauri::AppHandle,
+    manual: bool,
+) -> Result<Checked, Box<dyn std::error::Error>> {
     use tauri_plugin_updater::UpdaterExt;
 
     // On Linux only the AppImage replaces itself; a .deb is updated by
     // installing the new one.
     #[cfg(target_os = "linux")]
     if std::env::var_os("APPIMAGE").is_none() {
-        return Ok(());
+        return Ok(Checked::PackageManager);
     }
     let Some(update) = app.updater()?.check().await? else {
-        return Ok(());
+        return Ok(Checked::UpToDate);
     };
     // A license key's updates cover the releases up to its updatesUntil (#1316), as the
     // billing Worker confirms it, and every security release. A skipped one isn't
@@ -566,17 +667,18 @@ async fn update(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>
     let install = should_install(update.date, until, security);
     premium::set_skipped_update(app, (!install).then(|| update.version.clone()));
     if !install {
-        return Ok(());
+        return Ok(Checked::NotCovered(update.version));
     }
-    // Already put off with "Later": it installs at the quit, so don't ask again.
+    // Already put off with "Later": it installs at the quit, so only the user asks again.
     let pending = &app.state::<Updater>().inner().pending;
-    if !pending.wants(&update.version) {
-        return Ok(());
-    }
-    let bytes = update.download(|_, _| {}, || {}).await?;
     let version = update.version.clone();
-    // A newer release replaces the pending one, also when the user quits with this prompt open.
-    pending.set(version.clone(), (update, bytes));
+    if pending.wants(&version) {
+        let bytes = update.download(|_, _| {}, || {}).await?;
+        // A newer release replaces the pending one, also when the user quits with this prompt open.
+        pending.set(version.clone(), (update, bytes));
+    } else if !manual {
+        return Ok(Checked::Prompted);
+    }
 
     // rfd's dialog has to run on the main thread once GTK's event loop owns
     // it (see run()), and macOS wants UI on the main thread anyway.
@@ -611,7 +713,7 @@ async fn update(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>
             app.restart();
         }
     }
-    Ok(())
+    Ok(Checked::Prompted)
 }
 
 /// Relaunch the updated app the way Sparkle does (#1350). The updater swaps a
@@ -699,6 +801,29 @@ fn should_install(
     }
 }
 
+/// The app menu's item. Not the tray's id: every menu listener sees both menus' clicks.
+#[cfg(target_os = "macos")]
+const CHECK_FOR_UPDATES_MENU_ID: &str = "app-menu-check-for-updates";
+
+/// Tauri's default macOS menu with "Check for Updates…" after About (#1353).
+#[cfg(target_os = "macos")]
+fn app_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> {
+    use tauri::menu::{Menu, MenuItem, MenuItemKind};
+
+    let menu = Menu::default(app)?;
+    if let Some(MenuItemKind::Submenu(app_menu)) = menu.items()?.first() {
+        let item = MenuItem::with_id(
+            app,
+            CHECK_FOR_UPDATES_MENU_ID,
+            "Check for Updates…",
+            true,
+            None::<&str>,
+        )?;
+        app_menu.insert(&item, 1)?;
+    }
+    Ok(menu)
+}
+
 /// Open external links and the sign-in outside the web view (#1188): the
 /// default browser on desktop, an in-app browser on iOS and Android.
 fn link_plugins<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
@@ -732,6 +857,12 @@ pub fn run() {
     let builder = builder
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(updater_events());
+    #[cfg(target_os = "macos")]
+    let builder = builder.menu(app_menu).on_menu_event(|app, event| {
+        if event.id() == CHECK_FOR_UPDATES_MENU_ID {
+            check_for_updates(app);
+        }
+    });
     #[cfg(target_os = "ios")]
     let builder = ios_recovery::register(builder);
     let builder = link_plugins(builder);
@@ -985,6 +1116,52 @@ mod tests {
         assert_eq!(pending.take(), Some("2.75.0 bytes"), "the quit installs the newer one");
         assert_eq!(pending.take(), None, "and only once");
         assert!(pending.wants("2.75.0"));
+    }
+
+    #[cfg(desktop)]
+    #[test]
+    fn check_for_updates_tells_every_result_but_the_prompt() {
+        let message = |checked| manual_check_message("Journal", "2.73.2", &checked);
+        assert_eq!(
+            message(Ok(Checked::UpToDate)).as_deref(),
+            Some("Journal is up to date (v2.73.2).")
+        );
+        assert_eq!(
+            message(Ok(Checked::Prompted)),
+            None,
+            "the prompt was the answer"
+        );
+        assert_eq!(
+            message(Ok(Checked::NotCovered("2.80.0".into()))).as_deref(),
+            Some(
+                "Journal 2.80.0 is out, but your updates have ended. Renew your license to get it."
+            )
+        );
+        assert_eq!(
+            message(Ok(Checked::PackageManager)).as_deref(),
+            Some("Journal updates come from your package manager on this system.")
+        );
+        assert_eq!(
+            message(Err("error sending request".into())).as_deref(),
+            Some("Journal can't check for updates. Check your connection and try again.")
+        );
+    }
+
+    #[cfg(desktop)]
+    #[test]
+    fn a_check_asked_for_while_one_runs_starts_no_second_one() {
+        let (tx, rx) = std::sync::mpsc::channel();
+        tx.send(Nudge::Manual).unwrap();
+        tx.send(Nudge::Manual).unwrap();
+        tx.send(Nudge::Wake).unwrap();
+        drain(&rx);
+        assert!(rx.try_recv().is_err(), "the running check answered them");
+        tx.send(Nudge::Manual).unwrap();
+        assert_eq!(
+            rx.try_recv(),
+            Ok(Nudge::Manual),
+            "one after it starts a check"
+        );
     }
 
     #[test]
