@@ -25,7 +25,8 @@ function noteContent(): Buffer {
   const doc = new Y.Doc();
   doc.getXmlFragment('prosemirror').push([
     element('paragraph', [new Y.XmlText('A paragraph and a picture.')]),
-    element('image', [], { src: `attachment://${FILE_ID}/jrnl_img0`, alt: 'Picture' }),
+    // Wrapped in a gallery, as share-lightbox.spec.ts does: a bare top-level image doesn't reach the page.
+    element('gallery', [element('image', [], { src: `attachment://${FILE_ID}/jrnl_img0`, alt: 'Picture' })], { layout: 'grid' }),
   ]);
   return Buffer.from(Y.encodeStateAsUpdate(doc));
 }
