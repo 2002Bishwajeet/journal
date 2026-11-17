@@ -1,4 +1,4 @@
-import { createContext, lazy, memo, Suspense, useContext, useRef, useState, type ComponentProps, type CSSProperties } from 'react';
+import { createContext, lazy, memo, Suspense, useContext, useRef, useState, type ComponentProps, type CSSProperties, type KeyboardEvent, type MouseEvent, type PointerEvent } from 'react';
 import { Link } from 'react-router-dom';
 import Markdown, { defaultUrlTransform, type Components, type ExtraProps } from 'react-markdown';
 import { PublicNoteImage } from '@/components/share/PublicNoteImage';
@@ -27,14 +27,22 @@ const ImageLightbox = lazy(() => import('@/components/editor/nodes/ImageLightbox
 /** How far a press may move and still be a tap, not a swipe of a carousel (#1357). */
 const TAP_SLOP = 8;
 
+/** Set inside a link: a linked image follows its link, it doesn't open full size (#1357). */
+const InLinkContext = createContext(false);
+
 // A note link (#616) is an in-app link, same tab.
 function ShareLink({ node, href, ...rest }: ComponentProps<'a'> & ExtraProps) {
     void node;
-    return href?.startsWith('/share/') ? <Link to={href} {...rest} /> : <a href={href} {...rest} />;
+    return (
+        <InLinkContext.Provider value={true}>
+            {href?.startsWith('/share/') ? <Link to={href} {...rest} /> : <a href={href} {...rest} />}
+        </InLinkContext.Provider>
+    );
 }
 
 function ShareImage({ src, alt, node, width, ...rest }: ComponentProps<'img'> & ExtraProps) {
     const { identity, noteFileId, lastModified } = useContext(SharedNoteContext);
+    const linked = useContext(InLinkContext);
     // `node` is react-markdown's own extra prop, not a DOM attribute —
     // exclude it before spreading the rest (title, etc.) onto <img>.
     void node;
@@ -53,7 +61,6 @@ function ShareImage({ src, alt, node, width, ...rest }: ComponentProps<'img'> & 
     const [open, setOpen] = useState(false);
     const pressedAt = useRef<{ x: number; y: number } | null>(null);
     const openFull = (box: HTMLElement) => {
-        if (box.closest('a')) return; // a linked image follows its link
         const img = box.querySelector('img');
         const loaded = img?.currentSrc || img?.getAttribute('src');
         if (!loaded) return; // still loading, or failed: nothing to enlarge
@@ -68,30 +75,32 @@ function ShareImage({ src, alt, node, width, ...rest }: ComponentProps<'img'> & 
     return (
         <>
             {/* Kept in the column; `block` so the image sits on its own line. A span, not a
-                figure: the img sits inside a paragraph. A tap, click or Enter opens it full size. */}
+                figure: the img sits inside a paragraph. A tap, click or Enter opens it full size, unless it sits in a link. */}
             <span
-                className="share-wide share-img block cursor-zoom-in"
+                className={linked ? 'share-wide share-img block' : 'share-wide share-img block cursor-zoom-in'}
                 data-align={align}
                 {...Object.fromEntries(editDataAttrs(edits))}
                 style={px ? ({ '--share-img-width': `${px}px` } as CSSProperties) : undefined}
-                role="button"
-                tabIndex={0}
-                aria-label={alt ? `${alt}, view full size` : 'View full size'}
-                onPointerDown={(e) => {
-                    pressedAt.current = { x: e.clientX, y: e.clientY };
-                }}
-                onClick={(e) => {
-                    const at = pressedAt.current;
-                    pressedAt.current = null;
-                    // A drag (a carousel swipe with the mouse) ends in a click too; only a tap opens.
-                    if (at && Math.hypot(e.clientX - at.x, e.clientY - at.y) > TAP_SLOP) return;
-                    openFull(e.currentTarget);
-                }}
-                onKeyDown={(e) => {
-                    if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
-                    e.preventDefault();
-                    openFull(e.currentTarget);
-                }}
+                {...(!linked && {
+                    role: 'button',
+                    tabIndex: 0,
+                    'aria-label': alt ? `${alt}, view full size` : 'View full size',
+                    onPointerDown: (e: PointerEvent<HTMLSpanElement>) => {
+                        pressedAt.current = { x: e.clientX, y: e.clientY };
+                    },
+                    onClick: (e: MouseEvent<HTMLSpanElement>) => {
+                        const at = pressedAt.current;
+                        pressedAt.current = null;
+                        // A drag (a carousel swipe with the mouse) ends in a click too; only a tap opens.
+                        if (at && Math.hypot(e.clientX - at.x, e.clientY - at.y) > TAP_SLOP) return;
+                        openFull(e.currentTarget);
+                    },
+                    onKeyDown: (e: KeyboardEvent<HTMLSpanElement>) => {
+                        if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
+                        e.preventDefault();
+                        openFull(e.currentTarget);
+                    },
+                })}
             >
                 {edited ? (
                     <EditedImage key={src} edits={edits}>

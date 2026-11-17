@@ -2,7 +2,7 @@
 /**
  * #1357: on the share page a tap, click or Enter on an image opens it full size in the
  * editor's lightbox, with the src the page loaded (the public payload's object URL).
- * A drag across a carousel doesn't open it; Esc closes it.
+ * A drag across a carousel doesn't open it, nor does a linked image; Esc closes it.
  */
 import { describe, it, expect, vi, beforeAll, afterEach } from 'vitest';
 import { createElement, act } from 'react';
@@ -77,6 +77,20 @@ describe('share page image lightbox', () => {
 
         await press(slide, 60, 63);
         await vi.waitFor(() => expect(dialogImg()?.getAttribute('src')).toBe('blob:jrnl_img1'));
+    });
+
+    it('leaves a linked image to its link: no button, tab stop or zoom cursor', async () => {
+        await render(`[${img('Kite', 'jrnl_img0')}](https://example.com/kite)`);
+        const link = el.querySelector('a[href="https://example.com/kite"]') as HTMLElement;
+        const box = link.querySelector('.share-img') as HTMLElement;
+        expect(box).not.toBeNull();
+        expect(el.querySelector('[role="button"]')).toBeNull();
+        expect(box.hasAttribute('tabindex')).toBe(false);
+        expect(box.hasAttribute('aria-label')).toBe(false);
+        expect(box.classList.contains('cursor-zoom-in')).toBe(false);
+        await press(box, 40, 40);
+        await act(async () => new Promise((r) => setTimeout(r, 50)));
+        expect(document.body.querySelector('[role="dialog"]')).toBeNull();
     });
 
     it('opens on Enter and closes on Escape', async () => {
