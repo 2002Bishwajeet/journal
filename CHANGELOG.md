@@ -1,3 +1,9 @@
+## [2.73.6](https://github.com/2002Bishwajeet/journal/compare/v2.73.5...v2.73.6) (2026-11-17)
+
+
+### Features
+
+* **gallery:** let the author set images per row, stored on the gallery ([#1367](https://github.com/2002Bishwajeet/journal/issues/1367)) ([c1d3658](https://github.com/2002Bishwajeet/journal/commit/c1d36584eb0967b047e8b0b4c88943d3f01863a2))
 ## [2.73.5](https://github.com/2002Bishwajeet/journal/compare/v2.73.4...v2.73.5) (2026-11-17)
 
 
