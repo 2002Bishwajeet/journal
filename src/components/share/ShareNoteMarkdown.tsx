@@ -1,4 +1,4 @@
-import { createContext, memo, useContext, type ComponentProps, type CSSProperties } from 'react';
+import { createContext, lazy, memo, Suspense, useContext, useRef, useState, type ComponentProps, type CSSProperties, type KeyboardEvent, type MouseEvent, type PointerEvent } from 'react';
 import { Link } from 'react-router-dom';
 import Markdown, { defaultUrlTransform, type Components, type ExtraProps } from 'react-markdown';
 import { PublicNoteImage } from '@/components/share/PublicNoteImage';
@@ -21,14 +21,28 @@ interface SharedNoteRef {
 /** The note an attachment image loads from, for the module-scope `components` below. */
 const SharedNoteContext = createContext<SharedNoteRef>({ identity: '', noteFileId: '', lastModified: 0 });
 
+// Loaded on the first open, so the viewer stays out of the share page's first chunk.
+const ImageLightbox = lazy(() => import('@/components/editor/nodes/ImageLightbox').then((m) => ({ default: m.ImageLightbox })));
+
+/** How far a press may move and still be a tap, not a swipe of a carousel (#1357). */
+const TAP_SLOP = 8;
+
+/** Set inside a link: a linked image follows its link, it doesn't open full size (#1357). */
+const InLinkContext = createContext(false);
+
 // A note link (#616) is an in-app link, same tab.
 function ShareLink({ node, href, ...rest }: ComponentProps<'a'> & ExtraProps) {
     void node;
-    return href?.startsWith('/share/') ? <Link to={href} {...rest} /> : <a href={href} {...rest} />;
+    return (
+        <InLinkContext.Provider value={true}>
+            {href?.startsWith('/share/') ? <Link to={href} {...rest} /> : <a href={href} {...rest} />}
+        </InLinkContext.Provider>
+    );
 }
 
 function ShareImage({ src, alt, node, width, ...rest }: ComponentProps<'img'> & ExtraProps) {
     const { identity, noteFileId, lastModified } = useContext(SharedNoteContext);
+    const linked = useContext(InLinkContext);
     // `node` is react-markdown's own extra prop, not a DOM attribute —
     // exclude it before spreading the rest (title, etc.) onto <img>.
     void node;
@@ -41,34 +55,74 @@ function ShareImage({ src, alt, node, width, ...rest }: ComponentProps<'img'> & 
     const edits = parseEditData((name) => (rest as Record<string, string | undefined>)[name]);
     const edited = hasEdits(edits);
     const imgClass = edited ? 'block h-full w-full' : px ? 'w-full' : undefined;
+    // The lightbox (#1357) shows the image as this page loaded it: the public payload's
+    // object URL, or the plain URL. Kept after closing, so the dialog can fade out.
+    const [fullSrc, setFullSrc] = useState<string | null>(null);
+    const [open, setOpen] = useState(false);
+    const pressedAt = useRef<{ x: number; y: number } | null>(null);
+    const openFull = (box: HTMLElement) => {
+        const img = box.querySelector('img');
+        const loaded = img?.currentSrc || img?.getAttribute('src');
+        if (!loaded) return; // still loading, or failed: nothing to enlarge
+        setFullSrc(loaded);
+        setOpen(true);
+    };
     const picture = src?.startsWith('attachment://') ? (
         <PublicNoteImage key={src} identity={identity} noteFileId={noteFileId} lastModified={lastModified} src={src} alt={alt} className={imgClass} />
     ) : (
         <img src={src} alt={alt} loading="lazy" className={imgClass} {...imgRest} />
     );
     return (
-        // Kept in the column; `block` so the image sits on its own line. A span, not a
-        // figure: the img sits inside a paragraph.
-        <span
-            className="share-wide share-img block"
-            data-align={align}
-            {...Object.fromEntries(editDataAttrs(edits))}
-            style={px ? ({ '--share-img-width': `${px}px` } as CSSProperties) : undefined}
-        >
-            {edited ? (
-                <EditedImage key={src} edits={edits}>
-                    {picture}
-                </EditedImage>
-            ) : (
-                picture
+        <>
+            {/* Kept in the column; `block` so the image sits on its own line. A span, not a
+                figure: the img sits inside a paragraph. A tap, click or Enter opens it full size, unless it sits in a link. */}
+            <span
+                className={linked ? 'share-wide share-img block' : 'share-wide share-img block cursor-zoom-in'}
+                data-align={align}
+                {...Object.fromEntries(editDataAttrs(edits))}
+                style={px ? ({ '--share-img-width': `${px}px` } as CSSProperties) : undefined}
+                {...(!linked && {
+                    role: 'button',
+                    tabIndex: 0,
+                    'aria-label': alt ? `${alt}, view full size` : 'View full size',
+                    onPointerDown: (e: PointerEvent<HTMLSpanElement>) => {
+                        pressedAt.current = { x: e.clientX, y: e.clientY };
+                    },
+                    onClick: (e: MouseEvent<HTMLSpanElement>) => {
+                        const at = pressedAt.current;
+                        pressedAt.current = null;
+                        // A drag (a carousel swipe with the mouse) ends in a click too; only a tap opens.
+                        if (at && Math.hypot(e.clientX - at.x, e.clientY - at.y) > TAP_SLOP) return;
+                        openFull(e.currentTarget);
+                    },
+                    onKeyDown: (e: KeyboardEvent<HTMLSpanElement>) => {
+                        if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
+                        e.preventDefault();
+                        openFull(e.currentTarget);
+                    },
+                })}
+            >
+                {edited ? (
+                    <EditedImage key={src} edits={edits}>
+                        {picture}
+                    </EditedImage>
+                ) : (
+                    picture
+                )}
+                {/* The caption, else the alt text, as in the editor (#583); "" hides it */}
+                {caption && (
+                    <span data-testid="share-image-caption" aria-hidden={caption === alt || undefined} className="mt-1.5 block text-center text-sm text-muted-foreground">
+                        {caption}
+                    </span>
+                )}
+            </span>
+            {/* A sibling, not a child: events in the dialog's portal bubble up the React tree. */}
+            {fullSrc && (
+                <Suspense fallback={null}>
+                    <ImageLightbox open={open} onOpenChange={setOpen} src={fullSrc} alt={alt ?? ''} edits={edits} />
+                </Suspense>
             )}
-            {/* The caption, else the alt text, as in the editor (#583); "" hides it */}
-            {caption && (
-                <span data-testid="share-image-caption" aria-hidden={caption === alt || undefined} className="mt-1.5 block text-center text-sm text-muted-foreground">
-                    {caption}
-                </span>
-            )}
-        </span>
+        </>
     );
 }
 
