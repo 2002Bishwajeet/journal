@@ -483,9 +483,70 @@ async fn update(app: &tauri::AppHandle) -> Result<(), Box<dyn std::error::Error>
     if rx.recv()? {
         // On Windows this starts the installer and exits the app.
         update.install(bytes)?;
+        #[cfg(target_os = "macos")]
+        relaunch_macos_bundle(app);
+        #[cfg(not(target_os = "macos"))]
         app.restart();
     }
     Ok(())
+}
+
+/// Relaunch the updated app the way Sparkle does (#1350). The updater swaps a
+/// new bundle into the same path, and tauri's `restart()` runs `open -n` while
+/// this process is still alive, so the Dock shows the relaunched app as a
+/// second icon next to the pinned one. Instead: re-register the new bundle with
+/// LaunchServices, leave a detached helper that waits for this process to exit
+/// and then opens the bundle, and exit. Outside a .app (a dev build) this is
+/// the plain restart.
+#[cfg(target_os = "macos")]
+fn relaunch_macos_bundle(app: &tauri::AppHandle) {
+    use std::os::unix::process::CommandExt;
+    use std::process::{Command, Stdio};
+
+    const LSREGISTER: &str = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister";
+
+    let Some(bundle) = tauri::process::current_binary(&app.env())
+        .ok()
+        .as_deref()
+        .and_then(app_bundle)
+        .map(std::path::Path::to_path_buf)
+    else {
+        app.restart();
+    };
+    if let Err(e) = Command::new(LSREGISTER).arg("-f").arg(&bundle).status() {
+        eprintln!("lsregister failed: {e}");
+    }
+    // `$0` is our pid and `$1` the bundle, so the path needs no quoting.
+    let helper = Command::new("/bin/sh")
+        .arg("-c")
+        .arg(r#"while kill -0 "$0" 2>/dev/null; do sleep 0.1; done; exec /usr/bin/open "$1""#)
+        .arg(std::process::id().to_string())
+        .arg(&bundle)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .process_group(0)
+        .spawn();
+    match helper {
+        Ok(_) => app.exit(0),
+        Err(e) => {
+            eprintln!("relaunch helper failed: {e}");
+            app.restart();
+        }
+    }
+}
+
+/// The `.app` bundle `exe` runs from (`X.app/Contents/MacOS/<exe>`), or `None`
+/// for a binary outside one.
+#[cfg(any(target_os = "macos", test))]
+fn app_bundle(exe: &std::path::Path) -> Option<&std::path::Path> {
+    let macos = exe.parent()?;
+    let contents = macos.parent()?;
+    let bundle = contents.parent()?;
+    (macos.file_name()? == "MacOS"
+        && contents.file_name()? == "Contents"
+        && bundle.extension()? == "app")
+        .then_some(bundle)
 }
 
 /// Whether latest.json marks the release as a security release (`"security": true`, set by
@@ -764,6 +825,19 @@ mod tests {
         assert!(!manifest(serde_json::json!({})));
         assert!(!manifest(serde_json::json!({ "security": false })));
         assert!(!manifest(serde_json::json!({ "security": "true" })));
+    }
+
+    #[test]
+    fn app_bundle_is_the_app_the_binary_runs_from() {
+        use std::path::Path;
+        assert_eq!(
+            app_bundle(Path::new("/Applications/Journal+.app/Contents/MacOS/journal")),
+            Some(Path::new("/Applications/Journal+.app"))
+        );
+        assert_eq!(app_bundle(Path::new("/repo/src-tauri/target/debug/journal")), None);
+        assert_eq!(app_bundle(Path::new("/Applications/Journal/Contents/MacOS/journal")), None);
+        assert_eq!(app_bundle(Path::new("/Journal.app/Contents/Resources/journal")), None);
+        assert_eq!(app_bundle(Path::new("journal")), None);
     }
 
     #[test]
