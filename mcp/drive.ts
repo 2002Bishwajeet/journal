@@ -106,10 +106,11 @@ export function createFeedDeps(client: DotYouClient, notesProvider: NotesDrivePr
 
     return {
         missingGrantUrl,
-        publish: (note) =>
+        publish: (note, summary) =>
             publishNoteToFeed(client, {
                 ydoc: note.doc,
                 title: note.metadata.title,
+                summary,
                 noteFileId: note.fileId,
                 feedPostId: note.metadata.feedPostId,
                 publicNoteUrl,

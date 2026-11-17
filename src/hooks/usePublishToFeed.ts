@@ -49,7 +49,7 @@ const writePending = (noteId: string | null) => {
  * the grant shows in the security context. Declined, nothing is published and the dialog says so;
  * the next press asks again.
  */
-export function usePublishToFeed(noteId: string) {
+export function usePublishToFeed(noteId: string, summary?: string) {
     const dotYouClient = useDotYouClientContext();
     const { get } = useNotes();
     const { syncNote } = useSyncService();
@@ -90,6 +90,7 @@ export function usePublishToFeed(noteId: string) {
             const postId = await publishNoteToFeed(dotYouClient, {
                 ydoc,
                 title: metadata?.title ?? '',
+                summary,
                 noteFileId: fileId,
                 feedPostId,
                 publicNoteUrl: (id) =>

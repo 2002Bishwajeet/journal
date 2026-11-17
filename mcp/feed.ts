@@ -9,7 +9,7 @@ export interface FeedDeps {
     /** The page that gives this app write access to the feed, or null when it has it. */
     missingGrantUrl(): Promise<string | null>;
     /** Publishes the note (over `note.metadata.feedPostId` when set) and returns the post's id. */
-    publish(note: NoteForEdit): Promise<string>;
+    publish(note: NoteForEdit, summary?: string): Promise<string>;
     /** The post's page on the owner's feed. */
     postUrl(postId: string): Promise<string>;
 }
@@ -25,7 +25,7 @@ export interface PublishToFeedResult {
  * Publishes a note with Read+write access to the owner's feed, or updates the post published
  * before, and keeps the post's id on the note (`feedPostId`) as the app does.
  */
-export async function publishToFeed(deps: WriteDeps, feed: FeedDeps, { id }: { id: string }): Promise<PublishToFeedResult> {
+export async function publishToFeed(deps: WriteDeps, feed: FeedDeps, { id, summary }: { id: string; summary?: string }): Promise<PublishToFeedResult> {
     const [grants, note] = await Promise.all([deps.loadGrants(), deps.fetchNoteForEdit(id)]);
     assertWritable(grants, note, id);
 
@@ -38,7 +38,7 @@ export async function publishToFeed(deps: WriteDeps, feed: FeedDeps, { id }: { i
     }
 
     const before = note.metadata.feedPostId;
-    const postId = await feed.publish(note);
+    const postId = await feed.publish(note, summary);
     if (postId !== before) await editWithRetry(deps, id, () => {}, { metadata: { feedPostId: postId }, fetched: [grants, note] });
     return { id, status: before && postId === before ? 'updated' : 'published', postId, url: await feed.postUrl(postId) };
 }

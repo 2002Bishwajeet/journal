@@ -26,7 +26,7 @@ export const FEED_DRIVE_REQUEST: TargetDriveAccessRequest = {
     driveTypeSlug: 'channel',
 };
 
-export interface PublishNoteToFeedInput extends Pick<FeedArticleInput, 'title' | 'publicNoteUrl' | 'bakeImage'> {
+export interface PublishNoteToFeedInput extends Pick<FeedArticleInput, 'title' | 'summary' | 'publicNoteUrl' | 'bakeImage'> {
     /** The note's Yjs state; null for an empty note. */
     ydoc: Y.Doc | null;
     /** The note's remote fileId: its images are read from the server copy. */
@@ -49,6 +49,7 @@ export async function publishNoteToFeed(client: DotYouClient, input: PublishNote
     const article = await buildFeedArticle({
         doc,
         title: input.title,
+        summary: input.summary,
         coverSrc: cover?.src,
         noteFileId: fileId,
         publicNoteUrl: input.publicNoteUrl,
