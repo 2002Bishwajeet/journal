@@ -379,6 +379,7 @@ export class NotesDriveProvider {
                 shareIndexable: metadata.shareIndexable,
                 shareUnlisted: metadata.shareUnlisted,
                 feedPostId: metadata.feedPostId,
+                feedSummary: metadata.feedSummary,
                 card: nonEmptyCard(card),
             })
             : JSON.stringify(noteContent);
@@ -847,6 +848,7 @@ export class NotesDriveProvider {
                 shareIndexable: existing.shareIndexable,
                 shareUnlisted: existing.shareUnlisted,
                 feedPostId: existing.feedPostId,
+                feedSummary: existing.feedSummary,
                 card: card && nonEmptyCard(card),
             }),
             // Draw the card image from the cover bytes this re-upload already read.

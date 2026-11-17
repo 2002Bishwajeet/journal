@@ -291,6 +291,7 @@ export async function bootstrapCollaborativeNote(
         shareIndexable: content?.shareIndexable,
         shareUnlisted: content?.shareUnlisted,
         feedPostId: content?.feedPostId,
+        feedSummary: content?.feedSummary,
         isCollaborative: true,
         circleIds: content?.circleIds,
         odinIds: content?.odinIds,

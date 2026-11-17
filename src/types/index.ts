@@ -15,6 +15,7 @@ export interface DocumentMetadata {
     shareIndexable?: boolean;  // Owner opt-in: allow search engines to index the public note
     shareUnlisted?: boolean;   // Public by link only: left off the author page, folder page and sitemap
     feedPostId?: string;       // Global transit id of the note's Article post on the owner's feed (#1074)
+    feedSummary?: string;      // Author-written summary, sent as the feed post's abstract (#1360)
     linkedNoteIds?: string[]; // docIds this note links to via [[ internal links (powers backlinks)
     archivalStatus?: number; // Homebase ArchivalStatus: 0 active, 2 trashed (Removed)
     // Collaboration fields
@@ -115,6 +116,7 @@ export interface NoteFileContent {
     shareIndexable?: boolean;
     shareUnlisted?: boolean;
     feedPostId?: string;
+    feedSummary?: string;
     // Collaboration fields
     isCollaborative?: boolean;
     circleIds?: string[];

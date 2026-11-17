@@ -71,6 +71,7 @@ export function noteFileContent(metadata: DocumentMetadata): NoteFileContent {
         shareIndexable: metadata.shareIndexable,
         shareUnlisted: metadata.shareUnlisted,
         feedPostId: metadata.feedPostId,
+        feedSummary: metadata.feedSummary,
     };
 }
 

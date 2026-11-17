@@ -88,3 +88,46 @@ test('the first Publish to feed asks for feed access only, and a refusal leaves 
   await expect(app.getByRole('heading', { name: 'Homebase consent' })).toBeVisible();
   expect(consentUrls).toHaveLength(2);
 });
+
+// #1360: the author's Summary is kept on the note. Written before the first Publish, it is still
+// there when the consent page sends the owner back, so the publish that resumes sends it.
+test('the Summary written before the consent page is kept on the note', async ({ app }) => {
+  await assertTestOrigin(app);
+  await serveSecurityContext(app);
+  const consentUrls: URL[] = [];
+  await app.route(`https://${IDENTITY}/owner/appupdate**`, (route) => {
+    consentUrls.push(new URL(route.request().url()));
+    return route.fulfill({ contentType: 'text/html', body: '<h1>Homebase consent</h1>' });
+  });
+
+  await app.setViewportSize(DESKTOP);
+  const title = `Feed summary ${Date.now()}`;
+  const summary = 'A weekend in Lisbon: three neighbourhoods, two ferries and one very long lunch.';
+  await createNote(app, { title, body: 'A note for the feed.' });
+  await app.getByRole('button').filter({ hasText: title }).first().click({ button: 'right' });
+  await app.getByRole('menuitem', { name: 'Share' }).click();
+
+  const dialog = shareDialog(app);
+  const field = dialog.getByLabel('Summary', { exact: true });
+  await field.fill(summary);
+  // Leaving the field saves it on the note, so the phone layout's sheet shows it too
+  await field.blur();
+  await field.scrollIntoViewIfNeeded();
+  await inBothThemes(app, (theme) => shoot(app, `feed-summary-${theme}-1280`));
+  await app.setViewportSize(PHONE);
+  await dialog.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
+  await expect(field).toHaveValue(summary);
+  await field.scrollIntoViewIfNeeded();
+  await inBothThemes(app, (theme) => shoot(app, `feed-summary-${theme}-390`));
+  await app.setViewportSize(DESKTOP);
+  await expect(field).toHaveValue(summary);
+
+  await dialog.getByRole('button', { name: 'Publish to feed' }).click();
+  await expect(app.getByRole('heading', { name: 'Homebase consent' })).toBeVisible();
+
+  // Back from the consent page, the reopened dialog shows the summary saved on the note
+  await app.goto(consentUrls[0].searchParams.get('return')!);
+  await assertTestOrigin(app);
+  await expect(dialog).toBeVisible({ timeout: 30_000 });
+  await expect(dialog.getByLabel('Summary', { exact: true })).toHaveValue(summary);
+});

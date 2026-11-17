@@ -23,7 +23,8 @@ export interface PublishToFeedResult {
 
 /**
  * Publishes a note with Read+write access to the owner's feed, or updates the post published
- * before, and keeps the post's id on the note (`feedPostId`) as the app does.
+ * before, and keeps the post's id on the note (`feedPostId`) as the app does. A `summary` (#1360)
+ * is kept on the note (`feedSummary`, '' clears it); without one the note's saved summary is sent.
  */
 export async function publishToFeed(deps: WriteDeps, feed: FeedDeps, { id, summary }: { id: string; summary?: string }): Promise<PublishToFeedResult> {
     const [grants, note] = await Promise.all([deps.loadGrants(), deps.fetchNoteForEdit(id)]);
@@ -38,7 +39,10 @@ export async function publishToFeed(deps: WriteDeps, feed: FeedDeps, { id, summa
     }
 
     const before = note.metadata.feedPostId;
-    const postId = await feed.publish(note, summary);
-    if (postId !== before) await editWithRetry(deps, id, () => {}, { metadata: { feedPostId: postId }, fetched: [grants, note] });
+    const feedSummary = summary === undefined ? note.metadata.feedSummary : summary.trim() || undefined;
+    const postId = await feed.publish(note, feedSummary);
+    if (postId !== before || feedSummary !== note.metadata.feedSummary) {
+        await editWithRetry(deps, id, () => {}, { metadata: { feedPostId: postId, feedSummary }, fetched: [grants, note] });
+    }
     return { id, status: before && postId === before ? 'updated' : 'published', postId, url: await feed.postUrl(postId) };
 }

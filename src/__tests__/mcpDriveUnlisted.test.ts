@@ -9,6 +9,7 @@ const content = {
     shareDescription: 'card text',
     shareIndexable: true,
     shareUnlisted: true,
+    feedSummary: 'A trip report.',
 };
 
 vi.mock('../../mcp/client', () => ({ createClient: () => ({}) }));
@@ -41,6 +42,7 @@ describe('fetchNoteForEdit share fields', () => {
             shareDescription: 'card text',
             shareIndexable: true,
             shareUnlisted: true,
+            feedSummary: 'A trip report.',
         });
     });
 });
