@@ -1,7 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import * as Y from 'yjs';
 import { test, expect } from '../fixtures';
-import { inBothThemes } from '../support/actions';
+import { THEMES } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 
 // #1357: on the share page every gallery shows its images whole (a grid tile is no
@@ -102,11 +102,14 @@ const fitsCarousel = (img: Locator) =>
     return getComputedStyle(el).objectFit === 'contain' && r.top >= strip.top - 1 && r.bottom <= strip.bottom + 1 && r.width <= strip.width + 1;
   });
 
-test('share page: galleries show images whole, and a tap opens one full size', async ({ anonPage: page }) => {
+// The share page reads the colour scheme only at load (index.html), so each theme is its own load.
+for (const theme of THEMES) test(`share page: galleries show images whole, and a tap opens one full size, ${theme} theme`, async ({ anonPage: page }) => {
+  await page.emulateMedia({ colorScheme: theme });
   await page.setViewportSize(VIEWPORTS[0][1]);
   await mockPublicNote(page);
   await page.goto(`/share/${AUTHOR}/${NOTE_ID}`);
   await assertTestOrigin(page);
+  await expect(page.locator('html')).toHaveClass(new RegExp(theme));
   const article = page.getByRole('article');
   await expect(article.getByRole('heading', { level: 1, name: NOTE_TITLE })).toBeVisible({ timeout: 15_000 });
 
@@ -116,7 +119,7 @@ test('share page: galleries show images whole, and a tap opens one full size', a
     await expect.poll(() => article.getByRole('img', { name: alt }).evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth)).toBeGreaterThan(0);
   }
   const dialog = page.getByRole('dialog');
-  const shoot = (name: string, width: number) => (theme: string) => page.screenshot({ path: test.info().outputPath(`share-lightbox-${name}-${theme}-${width}.png`) });
+  const shoot = (name: string, width: number) => page.screenshot({ path: test.info().outputPath(`share-lightbox-${name}-${theme}-${width}.png`) });
 
   for (const [width, size] of VIEWPORTS) {
     await page.setViewportSize(size);
@@ -131,25 +134,25 @@ test('share page: galleries show images whole, and a tap opens one full size', a
       }).toBe(true);
     }
     await grid.scrollIntoViewIfNeeded();
-    await inBothThemes(page, shoot('grid', width));
+    await shoot('grid', width);
     // The other choice the issue names, for comparison: cells that follow each image's ratio.
     const ratioCells = await page.addStyleTag({
       content: ".prose [data-gallery='grid'] { align-items: start; } .prose [data-gallery='grid'] img:not(.h-full) { aspect-ratio: auto !important; background: none !important; }",
     });
-    await inBothThemes(page, shoot('grid-ratio-cells', width));
+    await shoot('grid-ratio-cells', width);
     await ratioCells.evaluate((el) => el.remove());
 
     // Carousel: the very wide and very tall slides are letterboxed, never clipped.
     for (const { alt } of IMAGES.slice(3)) expect(await fitsCarousel(carousel.getByRole('img', { name: alt }))).toBe(true);
     await article.locator('.gallery-nav').scrollIntoViewIfNeeded();
-    await inBothThemes(page, shoot('carousel', width));
+    await shoot('carousel', width);
 
     // A grid tile opens whole; Esc closes.
     await grid.getByRole('button', { name: 'Tall, view full size' }).click();
     const tall = dialog.getByRole('img', { name: 'Tall' });
     await expect(tall).toHaveAttribute('src', /^blob:/);
     await expect.poll(() => shownWhole(tall)).toBe(true);
-    await inBothThemes(page, shoot('open-grid', width));
+    await shoot('open-grid', width);
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
 
@@ -169,7 +172,7 @@ test('share page: galleries show images whole, and a tap opens one full size', a
     await slide.click();
     const panorama = dialog.getByRole('img', { name: 'Panorama' });
     await expect.poll(() => shownWhole(panorama)).toBe(true);
-    await inBothThemes(page, shoot('open-carousel', width));
+    await shoot('open-carousel', width);
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
   }
