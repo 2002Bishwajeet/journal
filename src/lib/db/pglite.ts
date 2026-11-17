@@ -15,6 +15,7 @@ import {
   type LegacyDump,
 } from './pglite-migrate';
 import { initializeSchema, TRIGRAM_SEARCH_SQL } from './schema';
+import { reloadPage } from '../reloadReason';
 
 // PGlite 0.5 runs Postgres 18, which can't open the Postgres 17 data dir the
 // older engines left at 'idb://journal-db'. Using a new dir lets the legacy DB
@@ -44,7 +45,7 @@ let currentWorker: Worker | null = null;
 function onPageHide(event: PageTransitionEvent) {
   if (!event.persisted || !currentWorker) return;
   currentWorker.terminate();
-  addEventListener('pageshow', () => location.reload(), { once: true });
+  addEventListener('pageshow', () => reloadPage('pageshow-persisted'), { once: true });
 }
 
 /**
@@ -60,7 +61,7 @@ function onVisibilityChange() {
 function onFreeze() {
   if (!currentWorker) return;
   currentWorker.terminate();
-  document.addEventListener('resume', () => location.reload(), { once: true });
+  document.addEventListener('resume', () => reloadPage('freeze-resume'), { once: true });
 }
 
 // Lazily enabled by the first search that needs a substring match — see ensureTrigramSearch().

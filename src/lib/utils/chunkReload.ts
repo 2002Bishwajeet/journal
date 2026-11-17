@@ -1,3 +1,5 @@
+import { reloadPage } from '@/lib/reloadReason';
+
 /**
  * Detects a stale/missing lazy-chunk load failure (Vite/browser wordings, a
  * MIME error from the SPA HTML fallback, and legacy webpack strings) and
@@ -35,7 +37,7 @@ export function reloadOnceForChunkError(): boolean {
             return false;
         }
         sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
-        window.location.reload();
+        reloadPage('chunk-error');
         return true;
     } catch {
         // sessionStorage can throw in private browsing modes.

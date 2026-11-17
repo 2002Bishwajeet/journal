@@ -12,6 +12,7 @@
 
 import { isChunkLoadError, reloadOnceForChunkError } from './chunkReload';
 import { SW_RELOAD_COUNT_KEY, readString, writeString, removeKey } from '@/lib/storage';
+import { reloadPage } from '@/lib/reloadReason';
 
 const MAX_RELOADS = 3;
 const RELOAD_KEY = SW_RELOAD_COUNT_KEY;
@@ -86,7 +87,7 @@ function handleFatalError(error: Error | string | undefined) {
 
             // 3. Force Hard Reload
             // Use window.location.href to force a full navigation
-            window.location.reload();
+            reloadPage('stale-bundle');
         } else {
             console.error('[SW Safety] Max reloads exceeded. Giving up.');
             // Optional: Show a "Please clear your cache" UI to the user if we had a UI framework here

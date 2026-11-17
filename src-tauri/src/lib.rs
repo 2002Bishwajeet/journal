@@ -1,6 +1,8 @@
 use std::fmt;
 use std::io;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
+#[cfg(desktop)]
+use std::sync::atomic::AtomicBool;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
@@ -36,8 +38,8 @@ mod premium {
 }
 
 mod ios_keyboard;
-#[cfg(target_os = "ios")]
-mod ios_recovery;
+#[cfg(any(target_os = "ios", target_os = "macos", target_os = "linux", test))]
+mod webview_recovery;
 
 /// Fixed port for the local HTTP server that serves the built frontend.
 ///
@@ -244,13 +246,13 @@ fn native_plugins() -> Vec<&'static str> {
 /// The asset server's loopback addresses, and how many of them are being bound
 /// again right now (see `serve_forever`).
 struct AssetServer {
-    // Only ios_recovery.rs checks the addresses.
-    #[cfg_attr(not(target_os = "ios"), allow(dead_code))]
+    // Only webview_recovery.rs checks the addresses.
+    #[cfg_attr(any(windows, target_os = "android"), allow(dead_code))]
     addrs: Vec<SocketAddr>,
     rebinding: AtomicUsize,
 }
 
-#[cfg_attr(not(target_os = "ios"), allow(dead_code))]
+#[cfg_attr(any(windows, target_os = "android"), allow(dead_code))]
 impl AssetServer {
     /// True when every address is held by this app and takes connections. A
     /// connection alone isn't proof: while an address is being bound again,
@@ -272,7 +274,7 @@ impl AssetServer {
     }
 }
 
-#[cfg_attr(not(target_os = "ios"), allow(dead_code))]
+#[cfg_attr(any(windows, target_os = "android"), allow(dead_code))]
 fn accepts(addr: &SocketAddr) -> bool {
     TcpStream::connect_timeout(addr, Duration::from_millis(300)).is_ok()
 }
@@ -359,11 +361,17 @@ fn hide_form_accessory_bar() {
 /// "light" or "dark" overrides it, "system" (anything else) gives it back to the OS,
 /// so the OS appearance still changes the "system" theme. Not on Android, where
 /// MainActivity.kt reads the page's theme-color. The plugin is registered on every
-/// target so the capability resolves everywhere; only iOS acts on it.
+/// target so the capability resolves everywhere.
+///
+/// Desktop: `dark` is the theme the page shows, and the window and web view
+/// background follow it, so a reload shows the app's colour instead of white
+/// (#1368). macOS paints only the window: Tauri doesn't set a WKWebView's
+/// background, so webview_recovery.rs covers a reload there.
 #[tauri::command]
 fn set_style<R: tauri::Runtime>(
     window: tauri::WebviewWindow<R>,
     style: String,
+    dark: bool,
 ) -> tauri::Result<()> {
     #[cfg(target_os = "ios")]
     window.with_webview(move |webview| {
@@ -384,9 +392,33 @@ fn set_style<R: tauri::Runtime>(
             }
         }
     })?;
+    #[cfg(desktop)]
+    {
+        DARK_THEME.store(dark, Ordering::SeqCst);
+        let [r, g, b] = background_rgb();
+        window.set_background_color(Some(tauri::window::Color(r, g, b, 255)))?;
+    }
     #[cfg(not(target_os = "ios"))]
-    let _ = (window, style);
+    let _ = style;
+    #[cfg(mobile)]
+    let _ = dark;
+    #[cfg(target_os = "android")]
+    let _ = window;
     Ok(())
+}
+
+/// The app's `--background` (src/index.css), light and dark.
+#[cfg(desktop)]
+const BACKGROUNDS: [[u8; 3]; 2] = [[0xFD, 0xFC, 0xF8], [0x1C, 0x1B, 0x1A]];
+
+/// Whether the page shows the dark theme (`set_style`).
+#[cfg(desktop)]
+static DARK_THEME: AtomicBool = AtomicBool::new(false);
+
+/// The page's background colour now, which a reload shows.
+#[cfg(desktop)]
+fn background_rgb() -> [u8; 3] {
+    BACKGROUNDS[DARK_THEME.load(Ordering::SeqCst) as usize]
 }
 
 fn system_bars_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
@@ -863,8 +895,8 @@ pub fn run() {
             check_for_updates(app);
         }
     });
-    #[cfg(target_os = "ios")]
-    let builder = ios_recovery::register(builder);
+    #[cfg(any(target_os = "ios", target_os = "macos", target_os = "linux"))]
+    let builder = webview_recovery::register(builder);
     let builder = link_plugins(builder);
 
     premium::register(builder)
@@ -938,13 +970,16 @@ pub fn run() {
                 .resizable(true);
 
             #[cfg_attr(
-                not(any(target_os = "ios", target_os = "macos")),
+                not(any(target_os = "ios", target_os = "macos", target_os = "linux")),
                 allow(unused_variables)
             )]
             let window = builder.build()?;
 
             #[cfg(any(target_os = "ios", target_os = "macos"))]
             window.with_webview(allow_swipe_navigation)?;
+
+            #[cfg(target_os = "linux")]
+            webview_recovery::watch(&window)?;
 
             #[cfg(target_os = "ios")]
             hide_form_accessory_bar();

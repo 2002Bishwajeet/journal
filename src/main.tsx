@@ -6,6 +6,7 @@ import { isPublicSharePath } from './lib/sharePath';
 import { installConsoleCapture } from './lib/diagnostics/logBuffer';
 import { addOriginTrialToken } from './lib/agent/modelContext';
 import { installResumeRestore } from './lib/resumeRestore';
+import { installReloadLog } from './lib/reloadReason';
 import { keepPageInPlace } from './lib/keyboardViewport';
 import { routeExternalLinks } from './lib/native';
 import { registerMacReminderScheduler } from './lib/native/macNotifications';
@@ -43,6 +44,9 @@ registerMacReminderScheduler();
 
 // WebMCP is a Chrome origin trial: the token must be on the page before the browser sets up the API.
 addOriginTrialToken(import.meta.env.VITE_WEBMCP_OT_TOKEN);
+
+// Logs why the page reloaded by itself, after the console capture so Diagnostics keeps it (#1368).
+installReloadLog();
 
 // Puts a page iOS reloaded in the background back where it was (#1187).
 installResumeRestore();

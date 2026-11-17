@@ -2050,6 +2050,7 @@ version = "2.73.3"
 dependencies = [
  "block2",
  "objc2",
+ "objc2-core-foundation",
  "objc2-foundation",
  "objc2-user-notifications",
  "reqwest",
@@ -2070,6 +2071,7 @@ dependencies = [
  "tauri-utils",
  "time",
  "tiny_http",
+ "webkit2gtk",
 ]
 
 [[package]]
