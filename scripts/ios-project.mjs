@@ -21,7 +21,16 @@ const GEN = 'src-tauri/gen/apple';
 const ENTITLEMENTS = 'journal_iOS/journal_iOS.entitlements';
 const run = (cmd, args) => execFileSync(cmd, args, { stdio: 'inherit' });
 
-if (!existsSync(GEN)) run('npx', ['tauri', 'ios', 'init', '--ci']);
+// #1340: the checked-in names are "Journal Dev" so a local build can't pass for the store app.
+// Only the release workflow (JOURNAL_RELEASE_BUILD=1) builds as "Journal" / "Journal+".
+const release = process.env.JOURNAL_RELEASE_BUILD === '1';
+if (release) {
+  const plist = 'src-tauri/Info.ios.plist';
+  writeFileSync(plist, readFileSync(plist, 'utf8').replaceAll('<string>Journal Dev</string>', '<string>Journal+</string>'));
+}
+if (!existsSync(GEN)) {
+  run('npx', ['tauri', 'ios', 'init', '--ci', ...(release ? ['--config', JSON.stringify({ productName: 'Journal' })] : [])]);
+}
 // Replace Tauri's placeholder icon set rather than merge into it.
 rmSync(`${GEN}/Assets.xcassets/AppIcon.appiconset`, { recursive: true, force: true });
 cpSync('src-tauri/ios', GEN, { recursive: true });

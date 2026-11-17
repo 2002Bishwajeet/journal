@@ -99,7 +99,7 @@ jobs:
       AAB: src-tauri/gen/android/app/build/outputs/bundle/universalRelease/app-universal-release.aab
       # License keys (#301): the Rust side compiles the billing Worker's origin in.
       JOURNAL_BILLING_URL: https://journal-billing.cloudx.run
-      # The release port (PROD_PORT in src-tauri/src/lib.rs, #1308).
+      # The release port (PROD_PORT in src-tauri/src/lib.rs, #1308); also opts in to the real app name (#1340).
       JOURNAL_RELEASE_BUILD: '1'
     steps:
       - name: Check inputs and secrets
