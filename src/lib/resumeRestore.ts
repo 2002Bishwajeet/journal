@@ -1,9 +1,9 @@
 import { RESUME_STATE_KEY, readJson, removeKey, writeJson } from '@/lib/storage';
 
 /**
- * Puts a reloaded page back where it was (#1187). iOS kills a backgrounded web view's
- * content process to free memory, and the native app (src-tauri/src/ios_recovery.rs)
- * or iOS Safari then loads the page's URL again, so the route and the open note come
+ * Puts a reloaded page back where it was (#1187). iOS and macOS (#1368) kill a backgrounded
+ * web view's content process to free memory, and the native app
+ * (src-tauri/src/webview_recovery.rs) or iOS Safari then loads the page's URL again, so the route and the open note come
  * back by themselves, and the note's text is already safe (Yjs updates in PGlite, plus
  * the synchronous copy in unsavedEdits.ts). What the new load loses is the note's scroll
  * position, so it is saved whenever the page is hidden and put back when the same URL
@@ -67,10 +67,10 @@ function appRendered(): boolean {
 }
 
 /**
- * Saves the scroll position whenever the page is hidden. After a load of the URL it was
- * saved on, or a launch that session restore takes there, scrolls the note back once it
- * has rendered, then sets `window.__JOURNAL_RESTORED__`. Any other route leaves the
- * scroll alone.
+ * Saves the scroll position whenever the page is hidden or loses the focus. After a load
+ * of the URL it was saved on, or a launch that session restore takes there, scrolls the
+ * note back once it has rendered, then sets `window.__JOURNAL_RESTORED__`. Any other
+ * route leaves the scroll alone.
  */
 export function installResumeRestore(): void {
     // pagehide too: iOS can unload a page without a visibilitychange.
@@ -78,20 +78,25 @@ export function installResumeRestore(): void {
         if (document.visibilityState === 'hidden') saveResumeState();
     });
     window.addEventListener('pagehide', saveResumeState);
+    // blur too: macOS can kill the page of a window that lost the focus but is still shown.
+    window.addEventListener('blur', saveResumeState);
 
     const saved = readJson<Partial<ResumeState>>(RESUME_STATE_KEY);
     const savedTop = typeof saved?.scrollTop === 'number' ? saved.scrollTop : null;
     // Session restore's first move off `/` decides; a later navigation never scrolls.
     const awaitsSessionRestore = isLaunch() && savedTop !== null && saved?.path !== '/';
-    const deadline = Date.now() + RESTORE_TIMEOUT_MS;
+    // macOS loads the page again behind a hidden window, where no frame runs: the time
+    // starts once the page is shown.
+    let deadline: number | null = null;
     const step = () => {
+        if (deadline === null && document.visibilityState === 'visible') deadline = Date.now() + RESTORE_TIMEOUT_MS;
         const path = currentPath();
         const waiting = awaitsSessionRestore && path === '/';
         const target = !waiting && path === saved?.path ? savedTop : null;
         const scroller = target === null ? null : visibleNoteScroller();
         const ready = appRendered() && !waiting
             && (target === null || (!!scroller && scroller.scrollHeight - scroller.clientHeight >= target));
-        if (!ready && Date.now() < deadline) {
+        if (!ready && (deadline === null || Date.now() < deadline)) {
             requestAnimationFrame(step);
             return;
         }

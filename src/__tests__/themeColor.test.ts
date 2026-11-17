@@ -99,7 +99,7 @@ describe('theme-color follows the in-app theme', () => {
     });
 });
 
-describe('iOS system bars', () => {
+describe('native system bars', () => {
     const invoke = vi.fn(() => Promise.resolve());
 
     afterEach(() => {
@@ -111,19 +111,29 @@ describe('iOS system bars', () => {
     it('sends the theme preference to the shell on iOS', () => {
         window.__JOURNAL_NATIVE__ = { platform: 'ios' };
         window.__TAURI_INTERNALS__ = { invoke };
-        setSystemBarsStyle('dark');
-        setSystemBarsStyle('system');
+        setSystemBarsStyle('dark', true);
+        setSystemBarsStyle('system', false);
         expect(invoke.mock.calls).toEqual([
-            ['plugin:system-bars|set_style', { style: 'dark' }],
-            ['plugin:system-bars|set_style', { style: 'system' }],
+            ['plugin:system-bars|set_style', { style: 'dark', dark: true }],
+            ['plugin:system-bars|set_style', { style: 'system', dark: false }],
         ]);
+    });
+
+    it('sends the shown theme to the desktop shell for the window background (#1368)', () => {
+        window.__TAURI_INTERNALS__ = { invoke };
+        for (const platform of ['macos', 'windows', 'linux'] as const) {
+            window.__JOURNAL_NATIVE__ = { platform };
+            setSystemBarsStyle('system', true);
+        }
+        expect(invoke).toHaveBeenCalledTimes(3);
+        expect(invoke).toHaveBeenLastCalledWith('plugin:system-bars|set_style', { style: 'system', dark: true });
     });
 
     it('does nothing on the web or on Android', () => {
         window.__TAURI_INTERNALS__ = { invoke };
-        setSystemBarsStyle('dark');
+        setSystemBarsStyle('dark', true);
         window.__JOURNAL_NATIVE__ = { platform: 'android' };
-        setSystemBarsStyle('dark');
+        setSystemBarsStyle('dark', true);
         expect(invoke).not.toHaveBeenCalled();
     });
 
@@ -139,7 +149,7 @@ describe('iOS system bars', () => {
         await act(async () => root.render(h(C)));
         invoke.mockClear();
         await act(async () => setTheme('light'));
-        expect(invoke).toHaveBeenCalledWith('plugin:system-bars|set_style', { style: 'light' });
+        expect(invoke).toHaveBeenCalledWith('plugin:system-bars|set_style', { style: 'light', dark: false });
         root.unmount();
     });
 });

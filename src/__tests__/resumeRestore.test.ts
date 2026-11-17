@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 /**
- * A page iOS loads again after killing the web view's content process comes back on the
+ * A page iOS or macOS loads again after killing the web view's content process comes back on the
  * same URL; resumeRestore puts the note's scroll position back once the note has rendered, and
  * only then tells the native app (window.__JOURNAL_RESTORED__) to take its snapshot away (#1187).
  */
@@ -163,6 +163,47 @@ describe('installResumeRestore', () => {
         const scroller = addScroller({ clientHeight: 800, scrollHeight: 3000 });
         flushFrames();
         expect(scroller.scrollTop).toBe(0);
+    });
+});
+
+describe('desktop (#1368)', () => {
+    it('saves when the window loses the focus, which macOS can kill the page after', () => {
+        installResumeRestore();
+        addScroller({ clientHeight: 800, scrollHeight: 3000, scrollTop: 420 });
+        window.dispatchEvent(new Event('blur'));
+        expect(JSON.parse(localStorage.getItem(RESUME_STATE_KEY)!)).toEqual({ path: '/folder-1/note-1', scrollTop: 420 });
+    });
+
+    it('comes back on the same note and scrolls the shown tab, not a hidden one', () => {
+        saveState('/folder-1/note-1', 1200);
+        document.querySelector('[data-splash]')!.remove();
+        const hidden = addScroller({ clientHeight: 0, scrollHeight: 0 });
+        const shown = addScroller({ clientHeight: 800, scrollHeight: 3000 });
+        installResumeRestore();
+        expect(location.pathname).toBe('/folder-1/note-1');
+        expect(shown.scrollTop).toBe(1200);
+        expect(hidden.scrollTop).toBe(0);
+        expect(window.__JOURNAL_RESTORED__).toBe(true);
+    });
+
+    it('a page loaded behind a hidden window only starts the timeout once it is shown', () => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+        saveState('/folder-1/note-1', 1200);
+        installResumeRestore();
+        vi.setSystemTime(Date.now() + 60_000);
+        flushFrames();
+        expect(window.__JOURNAL_RESTORED__).toBeUndefined();
+
+        // Shown again: the note still loads, and isn't given up on.
+        visibility.mockReturnValue('visible');
+        flushFrames();
+        expect(window.__JOURNAL_RESTORED__).toBeUndefined();
+        document.querySelector('[data-splash]')!.remove();
+        const scroller = addScroller({ clientHeight: 800, scrollHeight: 3000 });
+        flushFrames();
+        expect(scroller.scrollTop).toBe(1200);
+        expect(window.__JOURNAL_RESTORED__).toBe(true);
     });
 });
 

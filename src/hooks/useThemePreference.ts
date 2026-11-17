@@ -37,7 +37,7 @@ function applyTheme(preference: ThemePreference): void {
 
     // The status bar follows the in-app theme, not only the OS scheme (#893)
     syncThemeColor();
-    setSystemBarsStyle(preference);
+    setSystemBarsStyle(preference, actualTheme === 'dark');
 }
 
 export function useThemePreference() {

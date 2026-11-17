@@ -24,10 +24,15 @@ export function setThemeColor(color: string): void {
     window.JournalSystemBars?.postMessage(color);
 }
 
-/** iOS shell: the status bar text follows the theme preference; "system" hands it back to the OS. */
-export function setSystemBarsStyle(preference: 'light' | 'dark' | 'system'): void {
-    if (nativePlatform() !== 'ios') return;
-    window.__TAURI_INTERNALS__?.invoke('plugin:system-bars|set_style', { style: preference }).catch(() => {});
+/**
+ * The native shell follows the theme. iOS: the status bar text follows the preference;
+ * "system" hands it back to the OS. Desktop: the window and web view background is the
+ * theme's, so a reload shows the app's colour instead of white (#1368).
+ */
+export function setSystemBarsStyle(preference: 'light' | 'dark' | 'system', dark: boolean): void {
+    const platform = nativePlatform();
+    if (!platform || platform === 'android') return;
+    window.__TAURI_INTERNALS__?.invoke('plugin:system-bars|set_style', { style: preference, dark }).catch(() => {});
 }
 
 /** Sets theme-color to the current value of the top surface's CSS token; pass a surface to change it. */

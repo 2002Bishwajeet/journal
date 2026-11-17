@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { isRunningBuild } from '@/lib/swBuild';
 import { isNativeApp } from '@/lib/native';
+import { reloadPage } from '@/lib/reloadReason';
 
 export function UpdatePrompt() {
   const registrationRef = useRef<ServiceWorkerRegistration | undefined>(undefined);
@@ -48,7 +49,7 @@ export function UpdatePrompt() {
     },
     // A worker taking over reloads the page onto its build, unless the page already runs it.
     async onNeedReload() {
-      if (!(await isRunningBuild(navigator.serviceWorker.controller))) window.location.reload();
+      if (!(await isRunningBuild(navigator.serviceWorker.controller))) reloadPage('service-worker-update');
     },
     onRegisterError(error: unknown) {
       console.error('SW registration error', error);

@@ -10,6 +10,8 @@ export const TABS_STORAGE_KEY = 'journal-open-tabs';
 export const SESSION_STORAGE_KEY = 'journal-session-state';
 /** The URL and note scroll offset a page iOS loads again goes back to (#1187, resumeRestore.ts). */
 export const RESUME_STATE_KEY = 'journal-resume-state';
+/** Why the page last reloaded by itself, for the boot after it (#1368, reloadReason.ts). */
+export const LAST_RELOAD_KEY = 'journal-last-reload';
 export const RECENT_EMOJIS_KEY = 'journal-recent-emojis';
 export const RECENT_NOTES_KEY = 'journal-recent-notes';
 export const RECENT_SEARCHES_KEY = 'journal-recent-searches';
