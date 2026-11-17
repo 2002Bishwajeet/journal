@@ -26,6 +26,7 @@ import { ActionSheet } from "@/components/ui/action-sheet";
 import type { ContextMenuItemConfig } from "@/components/ui/context-menu-wrapper";
 import { EditedImage } from "@/components/EditedImage";
 import { editAttrs, editDataAttrs, hasEdits, readEdits, type ImageEdits } from "@/lib/images/imageEdits";
+import type { LightboxGallery } from "@/lib/images/lightboxGallery";
 import {
   ALIGN_STYLE,
   MIN_IMAGE_WIDTH,
@@ -38,6 +39,7 @@ import {
 import { ImageOwnerContext } from "./imageOwnerContext";
 import { ImageLightbox } from "./ImageLightbox";
 import { GALLERY } from "./GalleryNode";
+import { galleryLightbox } from "./galleryLightbox";
 import { dispatchUndoStep, moveGalleryImage } from "./galleryDrag";
 import { ImageEditDialog } from "./ImageEditDialog";
 import { useEditorContext } from "../EditorContext";
@@ -178,6 +180,13 @@ export function ImageNodeView({
   const edits = readEdits(node.attrs);
   const edited = hasEdits(edits);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  // The gallery the viewer steps through, read when it opens: this view doesn't re-render when a neighbour moves.
+  const [lightboxGallery, setLightboxGallery] = useState<LightboxGallery>();
+  const openLightbox = () => {
+    const pos = getPos();
+    setLightboxGallery(pos === undefined ? undefined : galleryLightbox(editor.state, pos));
+    setLightboxOpen(true);
+  };
   const [editOpen, setEditOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   // The viewer owns a history entry: open it once the sheet has closed and popped its own.
@@ -418,7 +427,7 @@ export function ImageNodeView({
           <button
             type="button"
             aria-label="View full size"
-            onClick={() => setLightboxOpen(true)}
+            onClick={openLightbox}
             className="rounded p-1 pointer-coarse:hidden hover:bg-accent hover:text-accent-foreground"
           >
             <Maximize2 className="h-4 w-4" />
@@ -478,7 +487,7 @@ export function ImageNodeView({
         }))),
     ...(canZoom(mode)
       ? [
-          { label: "View full size", icon: Maximize2, action: () => { afterMoreClose.current = () => setLightboxOpen(true); } },
+          { label: "View full size", icon: Maximize2, action: () => { afterMoreClose.current = openLightbox; } },
           { label: "Replace image", icon: ImageUp, action: pickReplacement },
         ]
       : []),
@@ -537,7 +546,7 @@ export function ImageNodeView({
         if ((e.target as HTMLElement).closest("button")) return;
         // React bubbles events out of the dialogs' portals too
         if (!e.currentTarget.contains(e.target as Node)) return;
-        setLightboxOpen(true);
+        openLightbox();
       }}
       // On a phone the first tap selects (for resize, align and Edit); a tap on the selected image opens the viewer, like iOS Notes (#829).
       // On touchend, not click: iOS Safari fires no click for a tap on a selected image in the editor.
@@ -554,7 +563,7 @@ export function ImageNodeView({
         if (!e.currentTarget.contains(e.target as Node)) return;
         // No click after it, so it cannot land on the viewer that opens under the finger
         e.preventDefault();
-        setLightboxOpen(true);
+        openLightbox();
       }}
     >
       {/* The handles sit on the image's corners, not below the caption */}
@@ -591,7 +600,7 @@ export function ImageNodeView({
           afterMoreClose.current = null;
         }}
       />
-      <ImageLightbox open={lightboxOpen} onOpenChange={setLightboxOpen} src={src} alt={alt} edits={edits} />
+      <ImageLightbox open={lightboxOpen} onOpenChange={setLightboxOpen} src={src} alt={alt} edits={edits} gallery={lightboxGallery} />
       {canZoom(mode) && (
         <ImageEditDialog
           open={editOpen}

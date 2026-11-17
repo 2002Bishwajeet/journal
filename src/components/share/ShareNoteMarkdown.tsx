@@ -4,6 +4,7 @@ import Markdown, { defaultUrlTransform, type Components, type ExtraProps } from 
 import { PublicNoteImage } from '@/components/share/PublicNoteImage';
 import { EditedImage } from '@/components/EditedImage';
 import { editDataAttrs, hasEdits, parseEditData } from '@/lib/images/imageEdits';
+import type { LightboxGallery } from '@/lib/images/lightboxGallery';
 import { CalloutAwareBlockquote } from '@/components/share/CalloutAwareBlockquote';
 import { GalleryAwareDiv } from '@/components/share/GalleryAwareDiv';
 import { ReaderTaskCheckbox } from '@/components/share/ReaderTaskCheckbox';
@@ -26,6 +27,27 @@ const ImageLightbox = lazy(() => import('@/components/editor/nodes/ImageLightbox
 
 /** How far a press may move and still be a tap, not a swipe of a carousel (#1357). */
 const TAP_SLOP = 8;
+
+/** The loaded image, alt text and edits of an image box (null while it is still loading). */
+function lightboxItem(box: HTMLElement) {
+    const img = box.querySelector('img');
+    const src = img?.currentSrc || img?.getAttribute('src');
+    if (!img || !src) return null;
+    return { src, alt: img.alt, edits: parseEditData((name) => box.getAttribute(name)) };
+}
+
+/** The loaded images of the gallery `box` is in, in order (#1369), or undefined for an image outside one. */
+function galleryOf(box: HTMLElement): LightboxGallery | undefined {
+    const gallery = box.closest('[data-gallery]');
+    if (!gallery) return undefined;
+    // A linked image follows its link: it has no button and doesn't open
+    const boxes = [...gallery.querySelectorAll<HTMLElement>('.share-img[role="button"]')];
+    const items = boxes.flatMap((b) => {
+        const item = lightboxItem(b);
+        return item ? [{ item, opened: b === box }] : [];
+    });
+    return items.length > 1 ? { items: items.map((i) => i.item), index: items.findIndex((i) => i.opened) } : undefined;
+}
 
 /** Set inside a link: a linked image follows its link, it doesn't open full size (#1357). */
 const InLinkContext = createContext(false);
@@ -58,13 +80,14 @@ function ShareImage({ src, alt, node, width, ...rest }: ComponentProps<'img'> & 
     // The lightbox (#1357) shows the image as this page loaded it: the public payload's
     // object URL, or the plain URL. Kept after closing, so the dialog can fade out.
     const [fullSrc, setFullSrc] = useState<string | null>(null);
+    const [gallery, setGallery] = useState<LightboxGallery>();
     const [open, setOpen] = useState(false);
     const pressedAt = useRef<{ x: number; y: number } | null>(null);
     const openFull = (box: HTMLElement) => {
-        const img = box.querySelector('img');
-        const loaded = img?.currentSrc || img?.getAttribute('src');
+        const loaded = lightboxItem(box);
         if (!loaded) return; // still loading, or failed: nothing to enlarge
-        setFullSrc(loaded);
+        setFullSrc(loaded.src);
+        setGallery(galleryOf(box));
         setOpen(true);
     };
     const picture = src?.startsWith('attachment://') ? (
@@ -119,7 +142,7 @@ function ShareImage({ src, alt, node, width, ...rest }: ComponentProps<'img'> & 
             {/* A sibling, not a child: events in the dialog's portal bubble up the React tree. */}
             {fullSrc && (
                 <Suspense fallback={null}>
-                    <ImageLightbox open={open} onOpenChange={setOpen} src={fullSrc} alt={alt ?? ''} edits={edits} />
+                    <ImageLightbox open={open} onOpenChange={setOpen} src={fullSrc} alt={alt ?? ''} edits={edits} gallery={gallery} />
                 </Suspense>
             )}
         </>

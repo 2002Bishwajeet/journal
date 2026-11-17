@@ -156,6 +156,26 @@ for (const theme of THEMES) test(`share page: galleries show images whole, and a
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
 
+    // #1369: from the first tile, ArrowRight steps through the grid's images; the last has no next. Esc closes.
+    await grid.getByRole('button', { name: 'Wide, view full size' }).click();
+    await expect(dialog.getByRole('img', { name: 'Wide' })).toHaveAttribute('src', /^blob:/);
+    await expect(dialog.getByText('1 / 3')).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Previous image' })).toBeDisabled();
+    await page.keyboard.press('ArrowRight');
+    await expect(dialog.getByRole('img', { name: 'Tall' })).toHaveAttribute('src', /^blob:/);
+    await expect(dialog.getByText('2 / 3')).toBeVisible();
+    await page.keyboard.press('ArrowRight');
+    const square = dialog.getByRole('img', { name: 'Square' });
+    await expect(square).toHaveAttribute('src', /^blob:/);
+    await expect(dialog.getByText('3 / 3')).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Next image' })).toBeDisabled();
+    await expect.poll(() => shownWhole(square)).toBe(true);
+    await shoot('open-grid-last', width);
+    await dialog.getByRole('button', { name: 'Previous image' }).click();
+    await expect(dialog.getByText('2 / 3')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+
     // A drag across the carousel opens nothing; its buttons still work, then a tap opens the slide.
     const block = article.getByRole('group', { name: 'Image gallery' });
     const slide = carousel.getByRole('button', { name: 'Panorama, view full size' });
