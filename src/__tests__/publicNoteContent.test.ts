@@ -83,12 +83,13 @@ describe('NotesDriveProvider.updateNote — public content projection (SEC-02)',
         );
     });
 
-    it('keeps the feed post id in PUBLIC and PRIVATE content (#1074)', async () => {
-        await provider.updateNote(NOTE_ID, 'file-1', 'v1', meta({ isPublic: true, feedPostId: 'post-1' }));
-        await provider.updateNote(NOTE_ID, 'file-1', 'v1', meta({ isPublic: false, feedPostId: 'post-1' }));
+    it('keeps the feed post id and summary in PUBLIC and PRIVATE content (#1074, #1360)', async () => {
+        const feed = { feedPostId: 'post-1', feedSummary: 'A trip report.' };
+        await provider.updateNote(NOTE_ID, 'file-1', 'v1', meta({ isPublic: true, ...feed }));
+        await provider.updateNote(NOTE_ID, 'file-1', 'v1', meta({ isPublic: false, ...feed }));
 
-        expect(JSON.parse(mockPatch.mock.calls[0][3].appData.content).feedPostId).toBe('post-1');
-        expect(JSON.parse(mockPatch.mock.calls[1][3].appData.content).feedPostId).toBe('post-1');
+        expect(JSON.parse(mockPatch.mock.calls[0][3].appData.content)).toMatchObject(feed);
+        expect(JSON.parse(mockPatch.mock.calls[1][3].appData.content)).toMatchObject(feed);
     });
 
     it('keeps the full object for a PRIVATE note (round-trip restore)', async () => {

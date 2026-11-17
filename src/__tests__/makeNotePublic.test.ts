@@ -157,14 +157,15 @@ describe('NotesDriveProvider.makeNotePublic', () => {
         expect(content.shareIndexable).toBe(true);
     });
 
-    it('keeps the feed post id, so the next Publish to feed updates the same post (#1074)', async () => {
+    it('keeps the feed post id and summary, so the next Publish to feed updates the same post (#1074, #1360)', async () => {
         const header = ownerHeader();
-        Object.assign(header.fileMetadata.appData.content, { feedPostId: 'post-1' });
+        const feed = { feedPostId: 'post-1', feedSummary: 'A trip report.' };
+        Object.assign(header.fileMetadata.appData.content, feed);
         mockGetHeader.mockResolvedValue(header);
 
         await provider.makeNotePublic(NOTE_ID, undefined, {});
 
-        expect(JSON.parse(mockReUpload.mock.calls[0][2].appData.content).feedPostId).toBe('post-1');
+        expect(JSON.parse(mockReUpload.mock.calls[0][2].appData.content)).toMatchObject(feed);
     });
 });
 

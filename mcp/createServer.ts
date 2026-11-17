@@ -44,6 +44,8 @@ const RUN_SCRIPT_DESCRIPTION =
 const PUBLISH_TO_FEED_DESCRIPTION =
     "Publish a Journal note with Read+write access to the owner's Homebase feed, as an article on their public channel that anyone can read, " +
     "as Publish to feed in the note's Share dialog does. The note itself does not have to be public. Publishing a note again updates its post. " +
+    "`summary` is the author's own 1-3 sentence summary (about 300 characters), shown with the post on the feed and in its link previews; " +
+    "it is kept on the note, so omit it to keep the one saved there, or pass an empty string to remove it. Only pass one the owner wrote or asked for. " +
     'Images go with the post, without their metadata; a note with a cropped, rotated or flipped image, or one that is not PNG, JPEG, WebP, GIF or SVG, can only be published from the Journal app. ' +
     'Needs the owner to have let Journal MCP write to their feed: until then it publishes nothing and returns the link that asks them. ' +
     "Returns the post's `postId` and `url`, and `status` \"published\" or \"updated\".";
@@ -116,12 +118,12 @@ export function createJournalMcpServer({ feed, ...driveDeps }: McpDriveDeps, upd
         {
             title: 'Publish to feed',
             description: PUBLISH_TO_FEED_DESCRIPTION,
-            inputSchema: { id: z.string() },
+            inputSchema: { id: z.string(), summary: z.string().optional() },
             annotations: { readOnlyHint: false, destructiveHint: true },
         },
-        async ({ id }) => {
+        async ({ id, summary }) => {
             if (!feed) throw new Error('publish_to_feed: no feed to publish to');
-            return json(await publishToFeed(deps, feed, { id }));
+            return json(await publishToFeed(deps, feed, { id, summary }));
         }
     );
 

@@ -51,6 +51,12 @@ describe('computeContentHash', () => {
         expect(after).not.toBe(before);
     });
 
+    it('changes when the feed summary is written (#1360)', async () => {
+        const before = await computeContentHash(meta(), blob);
+        const after = await computeContentHash(meta({ feedSummary: 'A trip report.' }), blob);
+        expect(after).not.toBe(before);
+    });
+
     it('does NOT change when only the timestamps change', async () => {
         const original = await computeContentHash(meta(), blob);
         const laterTimestamps = await computeContentHash(

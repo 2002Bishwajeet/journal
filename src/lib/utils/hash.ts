@@ -39,6 +39,7 @@ export async function computeContentHash(
         ...(metadata.shareRequest && { shareRequest: metadata.shareRequest }),
         // Only when set, so the hash of every note never published to the feed is unchanged (#1074)
         ...(metadata.feedPostId && { feedPostId: metadata.feedPostId }),
+        ...(metadata.feedSummary && { feedSummary: metadata.feedSummary }),
     });
 
     const encoder = new TextEncoder();

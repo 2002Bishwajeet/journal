@@ -183,7 +183,10 @@ attributed to `agent:<client name>` (e.g. `agent:claude-code`).
   Example: *"Make my Trip plan note public and give me the link."*
 - `publish_to_feed` — publish a note (`id`) to your Homebase feed as an article on your
   public channel, as **Publish to feed** in the Share dialog does; the note doesn't have to be
-  public. Publishing it again updates the same post. Returns the post's `postId` and `url`.
+  public. Publishing it again updates the same post. An optional `summary`, one to three
+  sentences, goes with the post on your feed and in its link previews; it is kept on the note,
+  so the app's Publish to feed and later publishes reuse it (an empty `summary` removes it).
+  Returns the post's `postId` and `url`.
   Images lose their metadata; a note with a cropped, rotated or flipped image, or one that is
   not PNG, JPEG, WebP, GIF or SVG, has to be published from the Journal app. Journal MCP needs
   its own permission to write to your feed: until you give it, the tool publishes nothing and returns the link that asks you for it.

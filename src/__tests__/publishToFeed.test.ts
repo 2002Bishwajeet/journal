@@ -2,7 +2,8 @@
 /**
  * #1074: feed write access is asked for on the first Publish to feed, not at sign-in. Granted,
  * the publish goes on after the consent page; declined, nothing is published, the dialog says why,
- * and the next press asks again. A note published before updates its post.
+ * and the next press asks again. A note published before updates its post. The author's summary
+ * (#1360) is kept on the note and sent as the post's abstract.
  */
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
 import { createElement as h } from 'react';
@@ -13,11 +14,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 const state = vi.hoisted(() => ({
     missing: undefined as { url: string } | undefined,
     feedPostId: undefined as string | undefined,
+    feedSummary: undefined as string | undefined,
 }));
 const mocks = vi.hoisted(() => ({
     saveFeedPost: vi.fn(),
     buildFeedArticle: vi.fn(),
-    updateSearchIndexMetadata: vi.fn(),
+    updateSearchIndexMetadata: vi.fn(async (_id: string, _title: string, metadata: { feedSummary?: string }) => {
+        state.feedSummary = metadata.feedSummary;
+    }),
+    flushToIndexedDb: vi.fn(async () => {}),
     toastError: vi.fn(),
     toastSuccess: vi.fn(),
 }));
@@ -30,14 +35,15 @@ vi.mock('@/hooks/securityContext/useSecurityContext', () => ({
     useSecurityContext: () => ({ fetch: { isFetchedAfterMount: true, isFetching: false, data: {} } }),
 }));
 vi.mock('@/hooks/useNotes', () => ({
-    useNotes: () => ({ get: { data: [{ docId: 'note-1', metadata: { title: 'Note', feedPostId: state.feedPostId } }] } }),
+    useNotes: () => ({ get: { data: [{ docId: 'note-1', metadata: { title: 'Note', feedPostId: state.feedPostId, feedSummary: state.feedSummary } }] } }),
 }));
 vi.mock('@/hooks/useSyncService', () => ({ useSyncService: () => ({ syncNote: vi.fn(async () => {}) }) }));
 vi.mock('@/lib/db', () => ({
     getDocumentUpdates: vi.fn(async () => []),
     getSyncRecord: vi.fn(async () => ({ remoteFileId: 'file-1' })),
-    getSearchIndexEntry: vi.fn(async () => ({ title: 'Note', metadata: { title: 'Note' } })),
+    getSearchIndexEntry: vi.fn(async () => ({ title: 'Note', metadata: { title: 'Note', feedSummary: state.feedSummary } })),
     updateSearchIndexMetadata: mocks.updateSearchIndexMetadata,
+    flushToIndexedDb: mocks.flushToIndexedDb,
     updateSyncStatus: vi.fn(),
 }));
 vi.mock('@homebase-id/js-lib/core', async (importOriginal) => ({
@@ -79,6 +85,7 @@ beforeEach(() => {
     sessionStorage.clear();
     state.missing = undefined;
     state.feedPostId = undefined;
+    state.feedSummary = undefined;
     mocks.buildFeedArticle.mockResolvedValue({ content: {}, files: [] });
     mocks.saveFeedPost.mockResolvedValue('post-1');
     vi.spyOn(window.location, 'assign').mockImplementation(assign);
@@ -88,7 +95,7 @@ afterEach(unmount);
 describe('usePublishToFeed', () => {
     it('publishes without asking when the app can already write to the feed', async () => {
         const api = await mount();
-        await act(() => api().publish());
+        await act(() => api().publish(''));
 
         expect(assign).not.toHaveBeenCalled();
         expect(mocks.saveFeedPost).toHaveBeenCalledWith(expect.anything(), expect.anything(), undefined);
@@ -99,7 +106,7 @@ describe('usePublishToFeed', () => {
     it('asks for feed write access on the first Publish and publishes once it is granted', async () => {
         state.missing = { url: CONSENT_URL };
         const api = await mount();
-        await act(() => api().publish());
+        await act(() => api().publish(''));
 
         expect(assign).toHaveBeenCalledWith(CONSENT_URL);
         expect(sessionStorage.getItem(FEED_CONSENT_PENDING_KEY)).toMatch(/^note-1 \d+$/);
@@ -126,7 +133,7 @@ describe('usePublishToFeed', () => {
         expect(api().permissionDeclined).toBe(true);
         expect(api().isPublished).toBe(false);
 
-        await act(() => api().publish());
+        await act(() => api().publish(''));
         expect(assign).toHaveBeenCalledWith(CONSENT_URL);
     });
 
@@ -134,7 +141,7 @@ describe('usePublishToFeed', () => {
         state.feedPostId = 'post-1';
         const api = await mount();
         expect(api().isPublished).toBe(true);
-        await act(() => api().publish());
+        await act(() => api().publish(''));
 
         expect(mocks.saveFeedPost).toHaveBeenCalledWith(expect.anything(), expect.anything(), 'post-1');
         expect(mocks.updateSearchIndexMetadata).not.toHaveBeenCalled();
@@ -158,14 +165,14 @@ describe('usePublishToFeed', () => {
         const first = await mount(client);
         let pending!: Promise<void>;
         await act(async () => {
-            pending = first().publish();
+            pending = first().publish('');
         });
 
         await unmount();
         const api = await mount(client);
         expect(api().isPublishing).toBe(true);
         expect(api().canPublish).toBe(false);
-        await act(() => api().publish());
+        await act(() => api().publish(''));
         expect(mocks.saveFeedPost).toHaveBeenCalledTimes(1);
 
         await act(async () => {
@@ -177,7 +184,7 @@ describe('usePublishToFeed', () => {
     it('publishes nothing while the note is not on the server, as its images would be left out', async () => {
         vi.mocked(getSyncRecord).mockResolvedValueOnce(null);
         const api = await mount();
-        await act(() => api().publish());
+        await act(() => api().publish(''));
 
         expect(mocks.saveFeedPost).not.toHaveBeenCalled();
         expect(mocks.toastError).toHaveBeenCalledWith('Failed to publish to your feed');
@@ -186,10 +193,59 @@ describe('usePublishToFeed', () => {
     it('keeps the note unpublished when the feed refuses the post', async () => {
         mocks.saveFeedPost.mockRejectedValue(new Error('403'));
         const api = await mount();
-        await act(() => api().publish());
+        await act(() => api().publish(''));
 
         expect(mocks.updateSearchIndexMetadata).not.toHaveBeenCalled();
         expect(mocks.toastError).toHaveBeenCalledWith('Failed to publish to your feed');
         expect(api().isPublishing).toBe(false);
+    });
+
+    it('saves the summary on the note and sends it', async () => {
+        const api = await mount();
+        await act(() => api().publish('  A short trip report.  '));
+
+        expect(mocks.updateSearchIndexMetadata).toHaveBeenCalledWith('note-1', 'Note', expect.objectContaining({ feedSummary: 'A short trip report.' }));
+        expect(mocks.buildFeedArticle).toHaveBeenCalledWith(expect.objectContaining({ summary: 'A short trip report.' }));
+
+        // Reopened, the field shows it
+        await unmount();
+        expect((await mount())().summary).toBe('A short trip report.');
+    });
+
+    it('reuses the saved summary on a republish without saving it again', async () => {
+        state.feedPostId = 'post-1';
+        state.feedSummary = 'Saved before.';
+        const api = await mount();
+        expect(api().summary).toBe('Saved before.');
+        await act(() => api().publish('Saved before.'));
+
+        expect(mocks.buildFeedArticle).toHaveBeenCalledWith(expect.objectContaining({ summary: 'Saved before.' }));
+        expect(mocks.updateSearchIndexMetadata).not.toHaveBeenCalled();
+    });
+
+    it('sends no summary when the field is empty, and clears one saved before', async () => {
+        state.feedPostId = 'post-1';
+        state.feedSummary = 'Saved before.';
+        const api = await mount();
+        await act(() => api().publish('   '));
+
+        expect(state.feedSummary).toBeUndefined();
+        expect(mocks.buildFeedArticle).toHaveBeenCalledWith(expect.objectContaining({ summary: undefined }));
+    });
+
+    it('keeps the summary through the consent page and sends it once access is granted', async () => {
+        state.missing = { url: CONSENT_URL };
+        const api = await mount();
+        await act(() => api().publish('Written before asking.'));
+
+        expect(state.feedSummary).toBe('Written before asking.');
+        expect(mocks.flushToIndexedDb.mock.invocationCallOrder[0]).toBeLessThan(assign.mock.invocationCallOrder[0]);
+
+        await unmount();
+        state.missing = undefined;
+        await mount();
+        await act(async () => {});
+
+        expect(mocks.buildFeedArticle).toHaveBeenCalledWith(expect.objectContaining({ summary: 'Written before asking.' }));
     });
 });

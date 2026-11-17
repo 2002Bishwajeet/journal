@@ -1,7 +1,8 @@
 /**
  * publish_to_feed (#1074): the MCP publishes a note to the owner's feed as the app does, keeps
  * the post id on the note so a second publish updates the post, and without the feed grant
- * publishes nothing and returns the link that asks for it.
+ * publishes nothing and returns the link that asks for it. Its `summary` (#1360) is sent and kept
+ * on the note, as the app's Summary field is.
  */
 import { describe, it, expect, vi } from 'vitest';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -18,7 +19,7 @@ import type { DocumentMetadata } from '@/types';
 const SUMMARY: NoteSummary = { id: 'n1', title: 'Note One', folderId: 'F1', tags: [], modified: '2024-01-01T00:00:00.000Z' };
 const GRANT_URL = 'https://owner.dotyou.cloud/owner/appupdate?feed';
 
-function setup({ access = 'write', feedPostId, grantUrl = null }: { access?: 'read' | 'write'; feedPostId?: string; grantUrl?: string | null } = {}) {
+function setup({ access = 'write', feedPostId, feedSummary, grantUrl = null }: { access?: 'read' | 'write'; feedPostId?: string; feedSummary?: string; grantUrl?: string | null } = {}) {
     const grants: AgentGrants = { version: 1, folders: { F1: access }, notes: {} };
     const metadata: DocumentMetadata = {
         title: 'Note One',
@@ -27,6 +28,7 @@ function setup({ access = 'write', feedPostId, grantUrl = null }: { access?: 're
         timestamps: { created: SUMMARY.modified, modified: SUMMARY.modified },
         excludeFromAI: false,
         feedPostId,
+        feedSummary,
     };
     const uploads: DocumentMetadata[] = [];
     const feed: FeedDeps = {
@@ -49,12 +51,12 @@ function setup({ access = 'write', feedPostId, grantUrl = null }: { access?: 're
     return { deps, feed, uploads };
 }
 
-async function callPublish(deps: McpDriveDeps, id = 'n1') {
+async function callPublish(deps: McpDriveDeps, id = 'n1', summary?: string) {
     const server = createJournalMcpServer(deps);
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     const client = new Client({ name: 'test-client', version: '0.0.0' });
     await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
-    const result = await client.callTool({ name: 'publish_to_feed', arguments: { id } });
+    const result = await client.callTool({ name: 'publish_to_feed', arguments: { id, ...(summary !== undefined && { summary }) } });
     return { isError: !!result.isError, text: (result.content as Array<{ text: string }>)[0].text };
 }
 
@@ -77,6 +79,32 @@ describe('publish_to_feed', () => {
         expect(JSON.parse(text)).toMatchObject({ status: 'updated', postId: 'post-1' });
         expect(vi.mocked(feed.publish).mock.calls[0][0].metadata.feedPostId).toBe('post-1');
         expect(uploads).toHaveLength(0);
+    });
+
+    it('sends the summary and keeps it on the note, so a later publish reuses it', async () => {
+        const { deps, feed, uploads } = setup({ feedPostId: 'post-1' });
+        await callPublish(deps, 'n1', '  A short trip report.  ');
+
+        expect(vi.mocked(feed.publish).mock.calls[0][1]).toBe('A short trip report.');
+        expect(uploads).toHaveLength(1);
+        expect(uploads[0]).toMatchObject({ feedPostId: 'post-1', feedSummary: 'A short trip report.' });
+    });
+
+    it('sends the summary saved on the note when none is given, without rewriting the note', async () => {
+        const { deps, feed, uploads } = setup({ feedPostId: 'post-1', feedSummary: 'Saved in the app.' });
+        await callPublish(deps);
+
+        expect(vi.mocked(feed.publish).mock.calls[0][1]).toBe('Saved in the app.');
+        expect(uploads).toHaveLength(0);
+    });
+
+    it('removes the saved summary when given an empty one', async () => {
+        const { deps, feed, uploads } = setup({ feedPostId: 'post-1', feedSummary: 'Saved in the app.' });
+        await callPublish(deps, 'n1', ' ');
+
+        expect(vi.mocked(feed.publish).mock.calls[0][1]).toBeUndefined();
+        expect(uploads).toHaveLength(1);
+        expect(uploads[0].feedSummary).toBeUndefined();
     });
 
     it('publishes nothing without the feed grant and returns the link that asks for it', async () => {
