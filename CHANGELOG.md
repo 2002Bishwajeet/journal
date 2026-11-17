@@ -1,3 +1,14 @@
+## [2.73.2](https://github.com/2002Bishwajeet/journal/compare/v2.73.1...v2.73.2) (2026-11-17)
+
+
+### Bug Fixes
+
+* **desktop:** relaunch the updated macOS app through LaunchServices after exit ([#1350](https://github.com/2002Bishwajeet/journal/issues/1350)) ([edfcd00](https://github.com/2002Bishwajeet/journal/commit/edfcd00d104ebc359aa2b9e0ee22c1e70e8f465b))
+
+
+### Features
+
+* **desktop:** Universal Links for journal.cloudx.run share links on macOS ([#1342](https://github.com/2002Bishwajeet/journal/issues/1342)) ([a298472](https://github.com/2002Bishwajeet/journal/commit/a298472f45c423b09e64ab00e1e508d51993595a)), closes [#1147](https://github.com/2002Bishwajeet/journal/issues/1147)
 ## [2.73.1](https://github.com/2002Bishwajeet/journal/compare/v2.73.0...v2.73.1) (2026-11-17)
 
 
