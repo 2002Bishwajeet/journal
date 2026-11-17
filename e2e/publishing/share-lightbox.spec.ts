@@ -102,7 +102,7 @@ const fitsCarousel = (img: Locator) =>
     return getComputedStyle(el).objectFit === 'contain' && r.top >= strip.top - 1 && r.bottom <= strip.bottom + 1 && r.width <= strip.width + 1;
   });
 
-// The share page reads the colour scheme only at load (index.html), so each theme is its own load.
+// Each theme is its own load here; the live flip is in share-theme-live.spec.ts.
 for (const theme of THEMES) test(`share page: galleries show images whole, and a tap opens one full size, ${theme} theme`, async ({ anonPage: page }) => {
   await page.emulateMedia({ colorScheme: theme });
   await page.setViewportSize(VIEWPORTS[0][1]);

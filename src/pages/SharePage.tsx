@@ -3,6 +3,7 @@ import { Navigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useSharePage } from '@/hooks/useSharePage';
 import { useShareOutline } from '@/hooks/useShareOutline';
+import { useThemePreference } from '@/hooks/useThemePreference';
 import { ShareOutline } from '@/components/share/ShareOutline';
 import { ShareHeader } from '@/components/share/ShareHeader';
 import { ShareFooter } from '@/components/share/ShareFooter';
@@ -22,6 +23,8 @@ import 'katex/dist/katex.min.css';
 export default function SharePage() {
     const { identity, noteId, note, isLoading, error, forbidden, isAuthenticated, openSharedHref, author, readingMinutes, cover } = useSharePage();
     useDocumentTitle(note?.title ?? 'Shared note');
+    // Follows the OS light/dark switch live unless the app's stored theme is Light or Dark.
+    useThemePreference();
     const articleRef = useRef<HTMLElement>(null);
     const mainRef = useRef<HTMLElement>(null);
     const outline = useShareOutline(articleRef, note?.content ?? '');

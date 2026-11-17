@@ -23,14 +23,14 @@ function applyTheme(preference: ThemePreference): void {
     if (typeof window === 'undefined') return;
     const root = window.document.documentElement;
 
-    // Remove existing theme classes
-    root.classList.remove('light', 'dark');
-
     // Determine actual theme to apply
     const actualTheme = preference === 'system' ? getSystemTheme() : preference;
 
-    // Apply the class
-    root.classList.add(actualTheme);
+    // Swap the class only when it differs: touching it again would reload the live blocks' frames
+    if (!root.classList.contains(actualTheme) || root.classList.contains(actualTheme === 'dark' ? 'light' : 'dark')) {
+        root.classList.remove('light', 'dark');
+        root.classList.add(actualTheme);
+    }
 
     // Also set color-scheme for native browser UI (scrollbars, form controls)
     root.style.colorScheme = actualTheme;
