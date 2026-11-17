@@ -36,27 +36,21 @@ function isDesktopBrowser(): boolean {
     return !(/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
 }
 
+/** The `journal://` link for `route` in a desktop browser; null on phones and in the app. */
+function appHref(route: string): string | null {
+    return !isNativeApp() && isDesktopBrowser() ? appDeepLink(route) : null;
+}
+
 /**
  * The "Open in app" action: the `journal://` link for `route`, shown in a desktop
  * browser only (`href` is null elsewhere). `onOpen` starts the wait: if the page loses focus
  * or visibility within `OPEN_IN_APP_TIMEOUT_MS` the app took the link and this browser is
- * remembered; otherwise `missing` turns true. On a remembered browser a share page launches
- * the app once on load and `autoOpened` is true; `stayInBrowser` forgets the browser.
+ * remembered; otherwise `missing` turns true.
  */
 export function useOpenInApp(route: string) {
     const [clicked, setClicked] = useState(false);
     const [missing, setMissing] = useState(false);
-    const href = !isNativeApp() && isDesktopBrowser() ? appDeepLink(route) : null;
-    // Only the share page itself: the save and open screens act on load in the browser too.
-    const [autoOpened, setAutoOpened] = useState(
-        () => href !== null && route.startsWith('/share/') && !autoLaunched && readFlag(),
-    );
-
-    useEffect(() => {
-        if (!autoOpened || !href || autoLaunched) return;
-        autoLaunched = true;
-        Object.assign(document.createElement('a'), { href }).click();
-    }, [autoOpened, href]);
+    const href = appHref(route);
 
     useEffect(() => {
         if (!clicked) return;
@@ -81,11 +75,32 @@ export function useOpenInApp(route: string) {
     return {
         href,
         missing,
-        autoOpened,
         onOpen: () => {
             setMissing(false);
             setClicked(true);
         },
+    };
+}
+
+/**
+ * On a remembered desktop browser a share page launches the app once per page load and
+ * `autoOpened` is true; `stayInBrowser` forgets the browser and turns `autoOpened` off.
+ */
+export function useAutoOpenInApp(route: string) {
+    const href = appHref(route);
+    // Only the share page itself: the save and open screens act on load in the browser too.
+    const [autoOpened, setAutoOpened] = useState(
+        () => href !== null && route.startsWith('/share/') && !autoLaunched && readFlag(),
+    );
+
+    useEffect(() => {
+        if (!autoOpened || !href || autoLaunched) return;
+        autoLaunched = true;
+        Object.assign(document.createElement('a'), { href }).click();
+    }, [autoOpened, href]);
+
+    return {
+        autoOpened,
         stayInBrowser: () => {
             writeFlag(false);
             setAutoOpened(false);

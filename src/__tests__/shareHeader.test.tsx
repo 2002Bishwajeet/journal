@@ -14,9 +14,9 @@ import { ShareFooter } from '@/components/share/ShareFooter';
 let el: HTMLElement;
 let root: Root;
 
-async function mount(node: ReactElement): Promise<void> {
+async function mount(node: ReactElement, initialEntries = ['/']): Promise<void> {
     await act(async () => {
-        root.render(createElement(MemoryRouter, null, node));
+        root.render(createElement(MemoryRouter, { initialEntries }, node));
     });
 }
 
@@ -92,6 +92,21 @@ describe('ShareHeader', () => {
         await scrollTo(0);
         expect(header.dataset.scrolled).toBe('false');
         expect(header.className).toContain('border-transparent');
+    });
+
+    // #1341: after an automatic launch, "Stay in browser" sits in a line below the bar, not in it.
+    it('puts the opened notice below the bar, not in it', async () => {
+        Object.defineProperty(navigator, 'userAgent', { configurable: true, value: 'Mozilla/5.0 (X11; Linux x86_64) Chrome/130' });
+        vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+        localStorage.setItem('journal-opens-in-app', '1');
+        await mount(createElement(ShareHeader), ['/share/a.test/0b9b5e3c-3f1e-4b8a-9a35-1d1f3f6c2a10']);
+        const header = el.querySelector('header')!;
+        const notice = header.nextElementSibling!;
+        expect(notice.textContent).toBe('Opened in the Journal app · Stay in browser');
+        expect(header.textContent).not.toContain('Stay in browser');
+        expect(header.querySelector('a[href^="journal://"]')?.textContent).toContain('Open in app');
+        localStorage.clear();
+        vi.restoreAllMocks();
     });
 });
 

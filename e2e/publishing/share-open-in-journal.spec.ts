@@ -4,7 +4,8 @@ import { assertTestOrigin, TEST_ORIGINS } from '../support/origin-guard';
 
 // #1341: the share page offers "Open in app" in a desktop browser, a link to the matching
 // journal:// URL. A browser where the app opened before (the remembered flag) launches it
-// once on load and offers "Stay in browser". Screenshots: light and dark, 1280px.
+// once on load and shows "Opened in the Journal app · Stay in browser" below the header. A short
+// note keeps the footer at the bottom of the viewport. Screenshots: light and dark, 1280px.
 
 const AUTHOR = 'e2e-author.homebase.test';
 const NOTE_ID = '3f6a2d18-9c4b-4e71-b5a0-8d2e7c1f4b93';
@@ -64,19 +65,25 @@ for (const [theme, remembered] of [['light', false], ['dark', false], ['light', 
     const open = banner.getByRole('link', { name: 'Open in app' });
     await expect(open).toBeVisible();
     await expect(open).toHaveAttribute('href', `journal://share/${AUTHOR}/${NOTE_ID}`);
-    const stay = banner.getByRole('button', { name: 'Stay in browser' });
+    const notice = page.getByText('Opened in the Journal app ·');
+    const stay = page.getByRole('button', { name: 'Stay in browser' });
     const launched = () => page.evaluate(() => (window as unknown as { __launched: string[] }).__launched);
+    await expect(banner.getByRole('button', { name: 'Stay in browser' })).toHaveCount(0);
     if (remembered) {
+      await expect(notice).toBeVisible();
       await expect(stay).toBeVisible();
       expect(await launched()).toEqual([`journal://share/${AUTHOR}/${NOTE_ID}`]);
     } else {
-      await expect(stay).toHaveCount(0);
+      await expect(notice).toHaveCount(0);
       expect(await launched()).toEqual([]);
     }
+    // A short note: the footer sits at the bottom of the viewport, not mid-page.
+    const footer = await page.locator('footer').boundingBox();
+    expect(Math.abs(footer!.y + footer!.height - 800)).toBeLessThanOrEqual(1);
     await page.screenshot({ path: test.info().outputPath(`share-open-in-app-${variant}-${theme}-1280.png`) });
     if (remembered) {
       await stay.click();
-      await expect(stay).toHaveCount(0);
+      await expect(notice).toHaveCount(0);
       expect(await page.evaluate(() => localStorage.getItem('journal-opens-in-app'))).toBeNull();
     }
   });

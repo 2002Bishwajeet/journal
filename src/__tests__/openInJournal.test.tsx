@@ -36,6 +36,7 @@ describe('OpenInJournal', () => {
     // Fresh modules per test: the hook launches the app once per page load (module state).
     let React: typeof import('react');
     let OpenInJournal: typeof import('@/components/share/OpenInJournal').OpenInJournal;
+    let AutoOpenedNotice: typeof import('@/components/share/OpenInJournal').AutoOpenedNotice;
     let launch: ReturnType<typeof vi.spyOn>;
     const route = `/share/alice.dotyou.cloud/${NOTE}`;
     const act = (fn: () => void | Promise<void>) => React.act(fn);
@@ -43,9 +44,12 @@ describe('OpenInJournal', () => {
     function setUa(ua: string) {
         Object.defineProperty(navigator, 'userAgent', { configurable: true, value: ua });
     }
+    // As the share header renders them: the button in the bar, the notice below it.
     async function mount(at = route) {
         await act(async () => {
-            root.render(React.createElement(OpenInJournal, { route: at }));
+            root.render(
+                React.createElement(React.Fragment, null, React.createElement(OpenInJournal, { route: at }), React.createElement(AutoOpenedNotice, { route: at })),
+            );
         });
     }
     async function click() {
@@ -56,12 +60,13 @@ describe('OpenInJournal', () => {
     const open = () => el.querySelector<HTMLAnchorElement>('a[href^="journal://"]');
     const download = () => el.querySelector<HTMLAnchorElement>(`a[href="${DOWNLOAD_URL}"]`);
     const stay = () => [...el.querySelectorAll('button')].find((b) => b.textContent === 'Stay in browser');
+    const notice = () => [...el.querySelectorAll('p')].find((p) => p.textContent?.startsWith('Opened in the Journal app'));
 
     beforeEach(async () => {
         vi.resetModules();
         React = await import('react');
         const { createRoot } = await import('react-dom/client');
-        ({ OpenInJournal } = await import('@/components/share/OpenInJournal'));
+        ({ OpenInJournal, AutoOpenedNotice } = await import('@/components/share/OpenInJournal'));
         launch = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
         localStorage.clear();
         vi.useFakeTimers();
@@ -147,6 +152,7 @@ describe('OpenInJournal', () => {
     it('never launches the app on load without the flag', async () => {
         await mount();
         expect(launch).not.toHaveBeenCalled();
+        expect(notice()).toBeUndefined();
         expect(stay()).toBeUndefined();
     });
 
@@ -168,7 +174,15 @@ describe('OpenInJournal', () => {
         expect(launch).not.toHaveBeenCalled();
     });
 
-    it('Stay in browser forgets the browser and hides itself', async () => {
+    it('shows the opened notice with Stay in browser outside the button group', async () => {
+        localStorage.setItem(OPENS_IN_APP_KEY, '1');
+        await mount();
+        expect(notice()?.textContent).toBe('Opened in the Journal app · Stay in browser');
+        expect(notice()?.contains(stay()!)).toBe(true);
+        expect(el.firstElementChild?.contains(stay()!)).toBe(false);
+    });
+
+    it('Stay in browser forgets the browser and hides the line', async () => {
         localStorage.setItem(OPENS_IN_APP_KEY, '1');
         await mount();
         expect(stay()).toBeDefined();
@@ -176,7 +190,8 @@ describe('OpenInJournal', () => {
             stay()!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
         });
         expect(localStorage.getItem(OPENS_IN_APP_KEY)).toBeNull();
-        expect(stay()).toBeUndefined();
+        expect(notice()).toBeUndefined();
+        expect(open()).not.toBeNull();
     });
 
     it('does not crash or launch when storage throws', async () => {
