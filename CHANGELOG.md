@@ -1,3 +1,15 @@
+## [2.73.4](https://github.com/2002Bishwajeet/journal/compare/v2.73.3...v2.73.4) (2026-11-17)
+
+
+### Bug Fixes
+
+* **share:** a linked image is not a lightbox button ([#1357](https://github.com/2002Bishwajeet/journal/issues/1357)) ([559a96b](https://github.com/2002Bishwajeet/journal/commit/559a96b2983e1769e515547272a5260b732ca36b))
+
+
+### Features
+
+* **feed:** send readingTimeStats and only an author summary as abstract ([#1355](https://github.com/2002Bishwajeet/journal/issues/1355)) ([ff58e27](https://github.com/2002Bishwajeet/journal/commit/ff58e27acb55cd1197cc4769640fffd8d6432f89))
+* **share:** open images full size in a lightbox, show grid tiles whole ([#1357](https://github.com/2002Bishwajeet/journal/issues/1357)) ([3c29b0b](https://github.com/2002Bishwajeet/journal/commit/3c29b0b7f987baea52a563187a957204365042fc))
 ## [2.73.3](https://github.com/2002Bishwajeet/journal/compare/v2.73.2...v2.73.3) (2026-11-17)
 
 

@@ -16,6 +16,16 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.73.4 (2026-11-17)
+
+### New
+
+- On a shared note's public page, you can open an image at full size. Click or tap the image, or select it and push Enter. Push Esc to close it.
+
+### Changed
+
+- A grid gallery shows each image fully. The grid does not cut the sides of an image to make it square.
+
 ## 2.73.3 (2026-11-17)
 
 ### New
