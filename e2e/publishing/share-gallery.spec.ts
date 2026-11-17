@@ -25,27 +25,27 @@ const PICTURES: Record<string, string> = {
 };
 const ALTS = ['Wide', 'Tall', 'Square'];
 
-function element(name: string, children: (Y.XmlElement | Y.XmlText)[], attributes: Record<string, string> = {}): Y.XmlElement {
+function element(name: string, children: (Y.XmlElement | Y.XmlText)[], attributes: Record<string, unknown> = {}): Y.XmlElement {
   const el = new Y.XmlElement(name);
-  for (const [key, value] of Object.entries(attributes)) el.setAttribute(key, value);
+  for (const [key, value] of Object.entries(attributes)) el.setAttribute(key, value as string);
   el.insert(0, children);
   return el;
 }
 
-function noteContent(layout = 'row', edited = false): Buffer {
+function noteContent(layout = 'row', edited = false, columns?: number, count = ALTS.length): Buffer {
   const doc = new Y.Doc();
   doc.getXmlFragment('prosemirror').push([
     element('paragraph', [new Y.XmlText('Three photos from the trip.')]),
     element(
       'gallery',
-      ALTS.map((alt, i) => element('image', [], { src: `attachment://${FILE_ID}/jrnl_img${i}`, alt, ...(i === 1 ? { caption: 'The pier' } : {}), ...(edited && i === 0 ? { crop: { x: 0, y: 0, w: 0.5, h: 1 } } : {}), ...(edited && i === 1 ? { rotate: 90 } : {}) })),
-      { layout },
+      Array.from({ length: count }, (_, i) => ALTS[i] ?? `Picture ${i + 1}`).map((alt, i) => element('image', [], { src: `attachment://${FILE_ID}/jrnl_img${i % ALTS.length}`, alt, ...(i === 1 ? { caption: 'The pier' } : {}), ...(edited && i === 0 ? { crop: { x: 0, y: 0, w: 0.5, h: 1 } } : {}), ...(edited && i === 1 ? { rotate: 90 } : {}) })),
+      columns ? { layout, columns } : { layout },
     ),
   ]);
   return Buffer.from(Y.encodeStateAsUpdate(doc));
 }
 
-async function mockPublicNote(page: Page, layout = 'row', edited = false): Promise<void> {
+async function mockPublicNote(page: Page, layout = 'row', edited = false, columns?: number, count?: number): Promise<void> {
   const header = {
     fileId: FILE_ID,
     fileSystemType: 'Standard',
@@ -69,7 +69,7 @@ async function mockPublicNote(page: Page, layout = 'row', edited = false): Promi
     const svg = PICTURES[url.searchParams.get('key') ?? ''];
     return svg
       ? route.fulfill({ contentType: 'image/svg+xml', headers: { ...headers, decryptedcontenttype: 'image/svg+xml' }, body: svg })
-      : route.fulfill({ contentType: 'application/octet-stream', headers, body: noteContent(layout, edited) });
+      : route.fulfill({ contentType: 'application/octet-stream', headers, body: noteContent(layout, edited, columns, count) });
   });
 }
 
@@ -207,4 +207,45 @@ for (const theme of THEMES) {
       await anonPage.screenshot({ path: test.info().outputPath(`share-${layout}-${theme}-390.png`) });
     });
   }
+}
+
+// #1367: a grid whose author chose 3 per row is 2 rows of 3 with every row one height (the
+// images whole, not square tiles), and 2 per row on a phone.
+for (const theme of THEMES) {
+  test(`share page: a grid with 3 per row is 2 rows of 3, ${theme} theme`, async ({ anonPage }) => {
+    await anonPage.emulateMedia({ colorScheme: theme });
+    await anonPage.setViewportSize(VIEWPORTS.desktop);
+    await mockPublicNote(anonPage, 'grid', false, 3, 6);
+    await anonPage.goto(`/share/${AUTHOR}/${NOTE_ID}`);
+    await assertTestOrigin(anonPage);
+    const article = anonPage.getByRole('article');
+    await expect(article.getByRole('heading', { level: 1, name: NOTE_TITLE })).toBeVisible({ timeout: 15_000 });
+
+    const gallery = article.locator('[data-gallery="grid"][data-columns="3"]');
+    await expect(gallery).toHaveCount(1);
+    const images = gallery.locator('img');
+    await expect(images).toHaveCount(6);
+    for (let i = 0; i < 6; i++) {
+      await expect.poll(() => images.nth(i).evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth)).toBeGreaterThan(0);
+    }
+    await gallery.scrollIntoViewIfNeeded();
+
+    await expect.poll(async () => {
+      const b = await Promise.all([0, 1, 2, 3, 4, 5].map((i) => box(images.nth(i))));
+      const rowOne = near(b[0].y, b[1].y) && near(b[0].y, b[2].y) && near(b[0].height, b[1].height) && near(b[0].height, b[2].height);
+      const rowTwo = near(b[3].y, b[4].y) && near(b[3].y, b[5].y) && near(b[3].height, b[4].height) && near(b[3].height, b[5].height);
+      return rowOne && rowTwo && b[3].y > b[0].y + b[0].height && b[1].x > b[0].x + b[0].width;
+    }).toBe(true);
+    await anonPage.screenshot({ path: test.info().outputPath(`share-gallery-columns-${theme}-1280.png`) });
+
+    // Phone: min(3, 2) per row
+    await anonPage.setViewportSize(VIEWPORTS.mobile);
+    await expect.poll(async () => {
+      const [a, b, c] = await Promise.all([0, 1, 2].map((i) => box(images.nth(i))));
+      return near(a.y, b.y) && b.x > a.x + a.width && c.y > a.y + a.height;
+    }).toBe(true);
+    expect(await anonPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await gallery.scrollIntoViewIfNeeded();
+    await anonPage.screenshot({ path: test.info().outputPath(`share-gallery-columns-${theme}-390.png`) });
+  });
 }

@@ -22,30 +22,59 @@ export function toGalleryLayout(value: unknown): GalleryLayout {
 const WIDE_PER_ROW = 3;
 const NARROW_PER_ROW = 2;
 
+/** Images per row the author can ask for (#1367); unset means automatic. */
+export const GALLERY_MIN_COLUMNS = 1;
+export const GALLERY_MAX_COLUMNS = 6;
+
+/** `value` as the images per row (an integer from 1 to 6, as a number or a string), else null for automatic. */
+export function toGalleryColumns(value: unknown): number | null {
+  const n = typeof value === 'string' && /^\d+$/.test(value.trim()) ? Number(value) : value;
+  return typeof n === 'number' && Number.isInteger(n) && n >= GALLERY_MIN_COLUMNS && n <= GALLERY_MAX_COLUMNS ? n : null;
+}
+
 export type RowBreakMode = 'wide' | 'narrow';
 
 /**
  * Where rows break in a gallery of `count` images: the index of the image a new row
  * starts at, and the widths it applies to. Wide rows are balanced (4 is 2 + 2, 7 is
  * 3 + 2 + 2), so no row holds a lone image; narrow rows are pairs.
+ *
+ * With `columns` (#1367) a wide row holds at most that many images (`exact`: exactly that
+ * many, the last row aside) and a narrow row at most two of them.
  */
-export function galleryRowBreaks(count: number): Array<{ index: number; modes: RowBreakMode[] }> {
+export function galleryRowBreaks(count: number, columns?: number | null, exact = false): Array<{ index: number; modes: RowBreakMode[] }> {
+  const perRow = columns ?? WIDE_PER_ROW;
+  const narrowPerRow = columns ? Math.min(columns, NARROW_PER_ROW) : NARROW_PER_ROW;
   const wide = new Set<number>();
-  const rows = Math.ceil(count / WIDE_PER_ROW);
-  const base = Math.floor(count / rows);
-  let start = 0;
-  for (let row = 0; row < rows - 1; row++) {
-    start += base + (row < count % rows ? 1 : 0);
-    wide.add(start);
+  if (exact) {
+    for (let index = perRow; index < count; index += perRow) wide.add(index);
+  } else {
+    const rows = Math.ceil(count / perRow);
+    const base = Math.floor(count / rows);
+    let start = 0;
+    for (let row = 0; row < rows - 1; row++) {
+      start += base + (row < count % rows ? 1 : 0);
+      wide.add(start);
+    }
   }
   const breaks: Array<{ index: number; modes: RowBreakMode[] }> = [];
   for (let index = 1; index < count; index++) {
     const modes: RowBreakMode[] = [];
     if (wide.has(index)) modes.push('wide');
-    if (index % NARROW_PER_ROW === 0) modes.push('narrow');
+    if (index % narrowPerRow === 0) modes.push('narrow');
     if (modes.length) breaks.push({ index, modes });
   }
   return breaks;
+}
+
+/**
+ * The row breaks of a gallery: a row's own, and a grid's once it has `columns` (it is then
+ * rows of equal height like the row layout, not square tiles). Masonry and carousel have none.
+ */
+export function galleryBreaks(layout: GalleryLayout, columns: number | null, count: number): ReturnType<typeof galleryRowBreaks> {
+  if (layout === 'row') return galleryRowBreaks(count, columns);
+  if (layout === 'grid' && columns) return galleryRowBreaks(count, columns, true);
+  return [];
 }
 
 /**

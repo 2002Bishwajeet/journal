@@ -11,13 +11,13 @@ import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view';
 import type { Node as PMNode } from '@tiptap/pm/model';
 import { ySyncPluginKey } from 'y-prosemirror';
 import { inListItem } from './markdownParse';
-import { GALLERY_LAYOUTS, createCarouselNav, galleryRowBreaks, toGalleryLayout, watchGalleryAspect } from './galleryLayout';
+import { GALLERY_LAYOUTS, GALLERY_MAX_COLUMNS, GALLERY_MIN_COLUMNS, createCarouselNav, galleryBreaks, toGalleryColumns, toGalleryLayout, watchGalleryAspect } from './galleryLayout';
 import { dropTargetAt, galleryDropPlugin } from './galleryDrag';
 
 export const GALLERY = 'gallery';
 
 // What fragmentToMarkdown emits before the images of a gallery.
-const GALLERY_MARKDOWN_OPEN = /^<div data-gallery="([a-z]+)">\n\n/;
+const GALLERY_MARKDOWN_OPEN = /^<div data-gallery="([a-z]+)"(?: data-columns="([^"]*)")?>\n\n/;
 const GALLERY_MARKDOWN_CLOSE = /^<\/div>$/m;
 
 /** Calls `visit` on every gallery in `doc`, without walking into textblocks. */
@@ -54,10 +54,9 @@ function rowBreak(modes: string): HTMLElement {
 function rowBreakDecorations(doc: PMNode): DecorationSet {
   const decorations: Decoration[] = [];
   eachGallery(doc, (gallery, pos) => {
-    if (gallery.attrs.layout !== 'row') return;
     const starts: number[] = [];
     gallery.forEach((_child, offset) => starts.push(pos + 1 + offset));
-    for (const { index, modes } of galleryRowBreaks(gallery.childCount)) {
+    for (const { index, modes } of galleryBreaks(toGalleryLayout(gallery.attrs.layout), toGalleryColumns(gallery.attrs.columns), gallery.childCount)) {
       const key = modes.join(' ');
       decorations.push(Decoration.widget(starts[index], () => rowBreak(key), { key: `gallery-break-${key}`, side: -1 }));
     }
@@ -76,6 +75,12 @@ export const Gallery = Node.create({
         default: 'row',
         parseHTML: (el) => toGalleryLayout(el.getAttribute('data-gallery')),
         renderHTML: (attrs) => ({ 'data-gallery': attrs.layout }),
+      },
+      // Images per row or column (#1367); null is automatic.
+      columns: {
+        default: null,
+        parseHTML: (el) => toGalleryColumns(el.getAttribute('data-columns')),
+        renderHTML: (attrs) => (toGalleryColumns(attrs.columns) ? { 'data-columns': attrs.columns } : {}),
       },
     };
   },
@@ -115,6 +120,7 @@ export const Gallery = Node.create({
         type: GALLERY,
         raw: src.slice(0, open[0].length + close.index + close[0].length),
         layout: toGalleryLayout(open[1]),
+        columns: toGalleryColumns(open[2]),
         tokens: lexer.blockTokens(body.slice(0, -2)),
       };
     },
@@ -123,7 +129,7 @@ export const Gallery = Node.create({
   parseMarkdown: (token, helpers) => {
     const blocks = (helpers.parseBlockChildren ?? helpers.parseChildren)(token.tokens ?? []);
     const inline = blocks.flatMap((block) => (block.type === 'paragraph' ? (block.content ?? []) : [block]));
-    return helpers.createNode(GALLERY, { layout: token.layout }, inline);
+    return helpers.createNode(GALLERY, { layout: token.layout, columns: token.columns }, inline);
   },
 
   // The images sit in the inner element; the layout picker and the carousel's nav
@@ -151,13 +157,34 @@ export const Gallery = Node.create({
         });
         return [layout, el] as const;
       });
-      bar.append(...buttons.map(([, el]) => el));
+      // Images per row or column (#1367): a select, to keep the toolbar short on a phone.
+      const perRow = document.createElement('select');
+      perRow.setAttribute('aria-label', 'Images per row');
+      const option = (label: string, value: string) => {
+        const el = document.createElement('option');
+        el.value = value;
+        el.textContent = label;
+        return el;
+      };
+      perRow.append(option('Per row: Auto', ''));
+      for (let n = GALLERY_MIN_COLUMNS; n <= GALLERY_MAX_COLUMNS; n++) perRow.append(option(`Per row: ${n}`, String(n)));
+      perRow.addEventListener('change', () => {
+        if (!editor.isEditable) return;
+        const pos = getPos();
+        if (pos !== undefined) editor.view.dispatch(editor.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, columns: toGalleryColumns(perRow.value) }));
+      });
+      bar.append(...buttons.map(([, el]) => el), perRow);
       const carousel = createCarouselNav(contentDOM, dom);
       dom.append(bar, contentDOM, carousel.nav);
 
       const sync = () => {
         const layout = toGalleryLayout(node.attrs.layout);
+        const columns = toGalleryColumns(node.attrs.columns);
         contentDOM.dataset.gallery = layout;
+        if (columns) contentDOM.dataset.columns = String(columns);
+        else delete contentDOM.dataset.columns;
+        perRow.value = columns ? String(columns) : '';
+        perRow.hidden = layout === 'carousel';
         carousel.nav.hidden = layout !== 'carousel';
         for (const [name, el] of buttons) el.setAttribute('aria-pressed', String(name === layout));
       };

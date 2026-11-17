@@ -143,6 +143,12 @@ In markdown passed to `create_note`, `append_to_note`, `replace_in_note`'s `new_
   2 on a phone), `masonry` (columns of natural heights, 3 across, 2 on a phone) or
   `carousel` (one image at a time, with arrows, swipe and dots).
 
+  `data-columns` (1 to 6, on the same div: `<div data-gallery="grid" data-columns="3">`)
+  sets the images per row, and leaving it out keeps the automatic layout. In a `grid` it
+  is exactly that many per row, every row one height with each image whole; in `masonry`
+  that many columns; in a `row` at most that many per row. `carousel` ignores it. On a
+  phone a gallery shows two per row at most. Keep it when rewriting the gallery.
+
   Each image is written as above (`![]()` or `<img>`) and keeps its caption. In a row, up to three
   images share a line and more wrap to the next; on a phone, two per line. A gallery with
   only one image becomes a plain image. A gallery holds only images: text or links inside

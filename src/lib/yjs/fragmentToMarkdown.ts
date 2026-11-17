@@ -1,6 +1,7 @@
 import * as Y from 'yjs';
 import { toCalloutVariant } from '@/components/editor/nodes/calloutVariants';
 import { previewToMarkdown } from '@/lib/editor/linkPreview';
+import { toGalleryColumns } from '@/components/editor/nodes/galleryLayout';
 import { editDataAttrs, readEdits } from '@/lib/images/imageEdits';
 
 const escapeHtml = (s: string) =>
@@ -274,7 +275,8 @@ export function fragmentToMarkdown(
         // viewer shows them one after another. Blank lines keep the markdown inside parsed.
         const images = node.toArray().map((c) => (c instanceof Y.XmlElement && c.nodeName === 'image' ? serializeImage(c) : ''));
         const layout = escapeHtml(String(node.getAttribute('layout') || 'row'));
-        return `<div data-gallery="${layout}">\n\n${images.filter(Boolean).join(' ')}\n\n</div>\n\n`;
+        const columns = toGalleryColumns(node.getAttribute('columns'));
+        return `<div data-gallery="${layout}"${columns ? ` data-columns="${columns}"` : ''}>\n\n${images.filter(Boolean).join(' ')}\n\n</div>\n\n`;
       }
       case 'linkPreview': {
         // `[title](url)<!-- preview -->`, which the edit engine parses back into a card (#561).
