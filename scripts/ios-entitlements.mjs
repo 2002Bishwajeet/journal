@@ -5,6 +5,9 @@
 // scripts/ios-project.mjs runs it on the generated project, and ios-release.yml
 // on the built app (`codesign -d --entitlements - --xml`):
 //   node scripts/ios-entitlements.mjs <entitlements.plist>
+// desktop-release.yml checks the signed macOS app the same way for Associated Domains
+// only (#1342; the Mac app has no App Group):
+//   node scripts/ios-entitlements.mjs --macos <entitlements.plist>
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
@@ -24,8 +27,8 @@ export function missingEntitlements(xml, entries) {
 }
 
 /** Exits the process with a message naming each missing entitlement. */
-export function checkEntitlements(file) {
-  const missing = missingEntitlements(readFileSync(file, 'utf8'), required());
+export function checkEntitlements(file, entries = required()) {
+  const missing = missingEntitlements(readFileSync(file, 'utf8'), entries);
   if (missing.length > 0) {
     console.error(`${file} is missing entitlements (#1326):\n  ${missing.join('\n  ')}`);
     process.exit(1);
@@ -33,4 +36,7 @@ export function checkEntitlements(file) {
   console.log(`Entitlements OK: ${file}`);
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) checkEntitlements(process.argv[2]);
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  if (process.argv[2] === '--macos') checkEntitlements(process.argv[3], [ASSOCIATED_DOMAIN]);
+  else checkEntitlements(process.argv[2]);
+}

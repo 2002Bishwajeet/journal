@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // @ts-expect-error -- plain .mjs release script, no types
-import { PROFILE_NAME, profile } from '../../scripts/asc-release.mjs';
+import { MAC_PROFILE_NAME, PROFILE_NAME, profile } from '../../scripts/asc-release.mjs';
 
 type Call = { method: string; path: string; body?: Record<string, unknown> };
 
@@ -43,7 +43,10 @@ function mockAppStoreConnect(profiles: ReturnType<typeof appStoreProfile>[]) {
       calls.push({ method: init.method, path, body: init.body ? JSON.parse(init.body) : undefined });
       const json = (data: unknown) => new Response(JSON.stringify({ data }));
       if (init.method === 'DELETE') return new Response(null, { status: 204 });
-      if (init.method === 'POST') return json(appStoreProfile('NEW', 'ACTIVE', 'C1', 'B1', PROFILE_NAME));
+      if (init.method === 'POST') {
+        const { name } = JSON.parse(init.body!).data.attributes;
+        return json(appStoreProfile('NEW', 'ACTIVE', 'C1', 'B1', name));
+      }
       if (path.startsWith('/v1/certificates')) return json(CERTIFICATES);
       if (path.startsWith('/v1/bundleIds')) {
         return json([{ id: 'B2', attributes: { identifier: 'com.biswa.journal.widgets' } }, BUNDLE]);
@@ -128,6 +131,41 @@ describe('the App Store provisioning profile (#1336)', () => {
   it('stops when the certificate is not the team’s Apple Distribution certificate', async () => {
     mockAppStoreConnect([]);
     await expect(profile({ serial: 'FFFF', home })).rejects.toThrow(/No Apple Distribution certificate .* serial FFFF/);
+    expect(calls.some((c) => c.method !== 'GET')).toBe(false);
+  });
+});
+
+describe('the Developer ID provisioning profile for the Mac app (#1342)', () => {
+  it('reuses an ACTIVE MAC_APP_DIRECT profile with the certificate and writes it to --out', async () => {
+    mockAppStoreConnect([appStoreProfile('P-old-cert', 'ACTIVE', 'C-old'), appStoreProfile('P1', 'ACTIVE', 'C1')]);
+    const out = join(home, 'embedded.provisionprofile');
+    await expect(profile({ mac: true, serial: '6A7B', home, out })).resolves.toEqual({ name: 'Profile P1', uuid: 'uuid-P1' });
+    expect(readFileSync(out, 'utf8')).toBe('profile P1');
+    // Developer ID certificates are DEVELOPER_ID_APPLICATION or _G2: none is filtered out.
+    expect(calls.map((c) => c.path.split('&include')[0])).toEqual([
+      '/v1/certificates?limit=200',
+      '/v1/bundleIds?filter[identifier]=com.biswa.journal&limit=200',
+      '/v1/profiles?filter[profileType]=MAC_APP_DIRECT',
+    ]);
+    // Nothing goes where Xcode looks for iOS profiles.
+    expect(() => installed('uuid-P1')).toThrow();
+  });
+
+  it('replaces INVALID ones with a new "Journal CI Developer ID" profile', async () => {
+    mockAppStoreConnect([appStoreProfile('P-invalid', 'INVALID', 'C1')]);
+    const out = join(home, 'embedded.provisionprofile');
+    await expect(profile({ mac: true, serial: '6A7B', home, out })).resolves.toEqual({ name: MAC_PROFILE_NAME, uuid: 'uuid-NEW' });
+    expect(calls.filter((c) => c.method === 'DELETE').map((c) => c.path)).toEqual(['/v1/profiles/P-invalid']);
+    expect(calls.find((c) => c.method === 'POST')?.body).toMatchObject({
+      data: { attributes: { name: MAC_PROFILE_NAME, profileType: 'MAC_APP_DIRECT' } },
+    });
+    expect(readFileSync(out, 'utf8')).toBe('profile NEW');
+  });
+
+  it('stops when the certificate is not on App Store Connect', async () => {
+    mockAppStoreConnect([]);
+    const out = join(home, 'embedded.provisionprofile');
+    await expect(profile({ mac: true, serial: 'FFFF', home, out })).rejects.toThrow(/serial FFFF: check APPLE_CERTIFICATE/);
     expect(calls.some((c) => c.method !== 'GET')).toBe(false);
   });
 });

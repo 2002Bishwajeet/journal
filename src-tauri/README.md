@@ -104,6 +104,14 @@ yet) and the Linux AppImage and `.deb`, and attaches them to the app's
 the repo variable `DESKTOP_RELEASES` is `true`; run it by hand with a tag to
 rebuild one release.
 
+On macOS, journal.cloudx.run share links open the release app (Universal Links,
+#1342): tao hands the link to the deep-link plugin like a journal:// link. The
+release build signs with `macos-release.entitlements` (Associated Domains) and
+embeds a Developer ID provisioning profile, both through
+`tauri.macos-release.conf.json`; the workflow gets the profile with
+`scripts/asc-release.mjs profile --mac`. Local builds use neither, so they have
+no Associated Domains and share links open the browser.
+
 The app checks `releases/latest/download/latest.json` at launch and daily
 (`update_loop` in `src/lib.rs`), downloads the update, and installs it when
 the user picks "Restart now". Updates are verified against `plugins.updater.pubkey`
