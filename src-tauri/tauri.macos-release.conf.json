@@ -1,0 +1,10 @@
+{
+  "bundle": {
+    "macOS": {
+      "entitlements": "macos-release.entitlements",
+      "files": {
+        "embedded.provisionprofile": "target/embedded.provisionprofile"
+      }
+    }
+  }
+}

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>com.apple.application-identifier</key>
+	<string>N899Y9TW48.com.biswa.journal</string>
+	<key>com.apple.developer.team-identifier</key>
+	<string>N899Y9TW48</string>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:journal.cloudx.run</string>
+	</array>
+</dict>
+</plist>

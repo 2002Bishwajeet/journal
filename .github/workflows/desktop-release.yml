@@ -20,6 +20,15 @@ name: Desktop Release
 # uploads the installers as workflow artifacts: no release, tag or latest.json change,
 # and no draft is needed.
 #
+# Universal Links (#1342): journal.cloudx.run share links open the Mac app. tao's app
+# delegate passes the web-browsing activity to the deep-link plugin like a journal:// link
+# (useDeepLinks routes it); the app needs the Associated Domains entitlement
+# (src-tauri/macos-release.entitlements), which a Developer ID app may only have with an
+# embedded provisioning profile. scripts/asc-release.mjs profile --mac gets the MAC_APP_DIRECT
+# profile for the APPLE_CERTIFICATE certificate through the API key (reusing an ACTIVE one), and
+# src-tauri/tauri.macos-release.conf.json signs with the entitlements and embeds the profile as
+# Contents/embedded.provisionprofile. Local builds don't use that config: no entitlement, no profile.
+#
 # `security` (from manual-release.yml, or by hand) adds `"security": true` to
 # latest.json before the release is published. The desktop updater then installs
 # the release even for a license key whose updates ended (#1316). The field isn't
@@ -60,7 +69,7 @@ jobs:
       matrix:
         include:
           - os: macos-latest
-            args: --target universal-apple-darwin
+            args: --target universal-apple-darwin --config src-tauri/tauri.macos-release.conf.json
             secrets: APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_API_KEY APPLE_API_ISSUER APPLE_API_PRIVATE_KEY
           - os: windows-latest
             args: --bundles nsis,msi
@@ -178,6 +187,30 @@ jobs:
           printf '%s\n' "$APPLE_API_PRIVATE_KEY" > "$RUNNER_TEMP/AuthKey.p8"
           echo "APPLE_API_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
 
+      # The certificate comes out of a keychain of this step's own; the build's keychain is the Tauri CLI's.
+      - name: Developer ID provisioning profile
+        if: runner.os == 'macOS'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          ASC_KEY_ID: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+        run: |
+          keychain="$RUNNER_TEMP/developer-id.keychain-db"
+          password=$(openssl rand -base64 24)
+          security create-keychain -p "$password" "$keychain"
+          printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/developer-id.p12"
+          security import "$RUNNER_TEMP/developer-id.p12" -k "$keychain" -f pkcs12 -P "$APPLE_CERTIFICATE_PASSWORD"
+          rm "$RUNNER_TEMP/developer-id.p12"
+          if ! security find-certificate -c 'Developer ID Application' -p "$keychain" > "$RUNNER_TEMP/developer-id.pem"; then
+            echo "::error::APPLE_CERTIFICATE has no Developer ID Application certificate"
+            exit 1
+          fi
+          security delete-keychain "$keychain"
+          mkdir -p src-tauri/target
+          node scripts/asc-release.mjs profile --mac --certificate "$RUNNER_TEMP/developer-id.pem" \
+            --out src-tauri/target/embedded.provisionprofile
+
       # The Tauri CLI imports APPLE_CERTIFICATE into a temporary keychain, signs
       # with the hardened runtime, notarises with the API key and staples.
       # tauri.release.conf.json turns on the updater bundles, signed with
@@ -210,6 +243,18 @@ jobs:
           releaseAssetNamePattern: 'Journal-[platform]-[arch][setup][ext]'
           updaterJsonPreferNsis: true
           retryAttempts: 1
+
+      # #1342: without Associated Domains (or the profile that allows it) share links open the browser.
+      - name: Check the Mac app's entitlements
+        if: runner.os == 'macOS'
+        run: |
+          app=src-tauri/target/universal-apple-darwin/release/bundle/macos/Journal.app
+          if [ ! -f "$app/Contents/embedded.provisionprofile" ]; then
+            echo "::error::$app has no Contents/embedded.provisionprofile"
+            exit 1
+          fi
+          codesign -d --entitlements - --xml "$app" > "$RUNNER_TEMP/entitlements.plist"
+          node scripts/ios-entitlements.mjs --macos "$RUNNER_TEMP/entitlements.plist"
 
       # Tauri notarises and staples the .app, not the dmg around it, so Gatekeeper
       # rejects the download ("Unnotarized Developer ID"). The build step has already

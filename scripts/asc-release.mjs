@@ -25,6 +25,10 @@
 //     INVALID ones (a capability added to the App ID since, or a revoked certificate) and an
 //     older "Journal CI App Store" are deleted, and a new "Journal CI App Store" is made. The
 //     profile goes where Xcode looks for one, before Xcode 16 and since.
+//   profile --mac --certificate <file.pem> --out <file>
+//     The same for the macOS app's Developer ID (MAC_APP_DIRECT) profile, "Journal CI Developer ID",
+//     which desktop-release.yml embeds for Associated Domains (#1342): <file.pem> is the Developer ID
+//     Application certificate the app signs with, and the profile is written to <file>.
 import { createSign, X509Certificate } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -37,6 +41,28 @@ const APP_ID = '6833436628';
 const BASE = 'https://api.appstoreconnect.apple.com';
 const BUNDLE_ID = 'com.biswa.journal';
 export const PROFILE_NAME = 'Journal CI App Store';
+export const MAC_PROFILE_NAME = 'Journal CI Developer ID';
+
+/** The profile each `profile` run makes, and the certificate it's for. */
+const PROFILES = {
+  ios: {
+    profileType: 'IOS_APP_STORE',
+    name: PROFILE_NAME,
+    label: 'App Store',
+    certificates: '/v1/certificates?filter[certificateType]=DISTRIBUTION&limit=200',
+    certificate: 'Apple Distribution certificate',
+    secret: 'IOS_DISTRIBUTION_P12',
+  },
+  // Developer ID certificates are DEVELOPER_ID_APPLICATION or _G2: the serial picks the one.
+  mac: {
+    profileType: 'MAC_APP_DIRECT',
+    name: MAC_PROFILE_NAME,
+    label: 'Developer ID',
+    certificates: '/v1/certificates?limit=200',
+    certificate: 'certificate',
+    secret: 'APPLE_CERTIFICATE',
+  },
+};
 
 /** Version states after approval: the version's build train is closed. */
 const RELEASED = new Set([
@@ -345,12 +371,11 @@ async function submit({ version, build, notesFile }) {
 /** Serial numbers are hex: tools differ in case and leading zeros. */
 const sameSerial = (a, b) => a.replace(/^0+/, '').toUpperCase() === b.replace(/^0+/, '').toUpperCase();
 
-export async function profile({ serial, home = homedir() }) {
-  const certificate = (await all('/v1/certificates?filter[certificateType]=DISTRIBUTION&limit=200')).data.find((c) =>
-    sameSerial(c.attributes.serialNumber, serial),
-  );
+export async function profile({ mac = false, serial, home = homedir(), out }) {
+  const kind = PROFILES[mac ? 'mac' : 'ios'];
+  const certificate = (await all(kind.certificates)).data.find((c) => sameSerial(c.attributes.serialNumber, serial));
   if (!certificate) {
-    throw new Error(`No Apple Distribution certificate on App Store Connect has serial ${serial}: check IOS_DISTRIBUTION_P12`);
+    throw new Error(`No ${kind.certificate} on App Store Connect has serial ${serial}: check ${kind.secret}`);
   }
   const bundle = (await all(`/v1/bundleIds?filter[identifier]=${BUNDLE_ID}&limit=200`)).data.find(
     (b) => b.attributes.identifier === BUNDLE_ID,
@@ -358,25 +383,25 @@ export async function profile({ serial, home = homedir() }) {
   if (!bundle) throw new Error(`No bundle ID ${BUNDLE_ID} on App Store Connect`);
 
   const profiles = (
-    await all('/v1/profiles?filter[profileType]=IOS_APP_STORE&include=bundleId,certificates&limit=200')
+    await all(`/v1/profiles?filter[profileType]=${kind.profileType}&include=bundleId,certificates&limit=200`)
   ).data.filter((p) => p.relationships?.bundleId?.data?.id === bundle.id);
   let found = profiles.find(
     (p) =>
       p.attributes.profileState === 'ACTIVE' && p.relationships.certificates?.data?.some((c) => c.id === certificate.id),
   );
-  if (found) log(`Reusing App Store profile ${found.attributes.name}`);
+  if (found) log(`Reusing ${kind.label} profile ${found.attributes.name}`);
   else {
     // Profile names are unique, so an older one of ours goes too.
-    for (const p of profiles.filter((p) => p.attributes.profileState === 'INVALID' || p.attributes.name === PROFILE_NAME)) {
-      log(`Deleting App Store profile ${p.attributes.name} (${p.attributes.profileState})`);
+    for (const p of profiles.filter((p) => p.attributes.profileState === 'INVALID' || p.attributes.name === kind.name)) {
+      log(`Deleting ${kind.label} profile ${p.attributes.name} (${p.attributes.profileState})`);
       await api('DELETE', `/v1/profiles/${p.id}`);
     }
-    log(`Creating App Store profile ${PROFILE_NAME}`);
+    log(`Creating ${kind.label} profile ${kind.name}`);
     found = (
       await api('POST', '/v1/profiles', {
         data: {
           type: 'profiles',
-          attributes: { name: PROFILE_NAME, profileType: 'IOS_APP_STORE' },
+          attributes: { name: kind.name, profileType: kind.profileType },
           relationships: {
             bundleId: { data: { type: 'bundleIds', id: bundle.id } },
             certificates: { data: [{ type: 'certificates', id: certificate.id }] },
@@ -387,9 +412,13 @@ export async function profile({ serial, home = homedir() }) {
   }
 
   const { name, uuid, profileContent } = found.attributes;
-  for (const dir of ['Library/MobileDevice/Provisioning Profiles', 'Library/Developer/Xcode/UserData/Provisioning Profiles']) {
-    mkdirSync(join(home, dir), { recursive: true });
-    writeFileSync(join(home, dir, `${uuid}.mobileprovision`), Buffer.from(profileContent, 'base64'));
+  const content = Buffer.from(profileContent, 'base64');
+  if (mac) writeFileSync(out, content);
+  else {
+    for (const dir of ['Library/MobileDevice/Provisioning Profiles', 'Library/Developer/Xcode/UserData/Provisioning Profiles']) {
+      mkdirSync(join(home, dir), { recursive: true });
+      writeFileSync(join(home, dir, `${uuid}.mobileprovision`), content);
+    }
   }
   return { name, uuid };
 }
@@ -406,6 +435,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       build: { type: 'string' },
       'notes-file': { type: 'string' },
       certificate: { type: 'string' },
+      mac: { type: 'boolean', default: false },
+      out: { type: 'string' },
     },
   });
   try {
@@ -419,7 +450,9 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     } else if (positionals[0] === 'submit') {
       await submit({ version: values.version, build: values.build, notesFile: values['notes-file'] });
     } else if (positionals[0] === 'profile') {
-      const { name, uuid } = await profile({ serial: new X509Certificate(readFileSync(values.certificate)).serialNumber });
+      if (values.mac && !values.out) throw new Error('profile --mac needs --out <file>');
+      const serial = new X509Certificate(readFileSync(values.certificate)).serialNumber;
+      const { name, uuid } = await profile({ mac: values.mac, serial, out: values.out });
       console.log(`profile_name=${name}`);
       console.log(`profile_uuid=${uuid}`);
     } else {

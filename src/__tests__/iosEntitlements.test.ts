@@ -54,6 +54,44 @@ describe('iOS entitlements check', () => {
   });
 });
 
+describe('macOS Universal Links (#1342)', () => {
+  const entitlements = read('src-tauri/macos-release.entitlements');
+  const string = (key: string) => entitlements.match(new RegExp(`<key>${key.replaceAll('.', '\\.')}</key>\\s*<string>([^<]*)</string>`))?.[1];
+
+  it('signs the release app with Associated Domains for the AASA app ID', () => {
+    expect(missingEntitlements(entitlements, [ASSOCIATED_DOMAIN])).toEqual([]);
+    const aasa = JSON.parse(read('public/.well-known/apple-app-site-association'));
+    expect(aasa.applinks.details[0].appIDs).toContain(string('com.apple.application-identifier'));
+    expect(string('com.apple.application-identifier')).toBe(`${string('com.apple.developer.team-identifier')}.com.biswa.journal`);
+  });
+
+  it('uses the entitlements and embeds the profile only through the release config', () => {
+    const config = JSON.parse(read('src-tauri/tauri.macos-release.conf.json')).bundle.macOS;
+    expect(config).toEqual({
+      entitlements: 'macos-release.entitlements',
+      files: { 'embedded.provisionprofile': 'target/embedded.provisionprofile' },
+    });
+    // Local and dev builds: no entitlement, which a build without the profile can't have.
+    expect(JSON.parse(read('src-tauri/tauri.macos.conf.json')).bundle.macOS.entitlements).toBeUndefined();
+    expect(JSON.parse(read('src-tauri/tauri.conf.json')).bundle.macOS?.entitlements).toBeUndefined();
+  });
+
+  it('fetches the profile before the macOS release build and checks the signed app after it', () => {
+    const workflow = read('.github/workflows/desktop-release.yml');
+    expect(workflow).toContain('args: --target universal-apple-darwin --config src-tauri/tauri.macos-release.conf.json');
+    const order = [
+      'node scripts/asc-release.mjs profile --mac',
+      '--out src-tauri/target/embedded.provisionprofile',
+      'uses: tauri-apps/tauri-action',
+      '"$app/Contents/embedded.provisionprofile"',
+      'codesign -d --entitlements - --xml "$app"',
+      'node scripts/ios-entitlements.mjs --macos',
+    ].map((s) => workflow.indexOf(s));
+    expect(order.every((i) => i >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+  });
+});
+
 describe('Android app links', () => {
   it('verifies journal.cloudx.run share, save and open links', () => {
     const manifest = read('src-tauri/gen/android/app/src/main/AndroidManifest.xml');
