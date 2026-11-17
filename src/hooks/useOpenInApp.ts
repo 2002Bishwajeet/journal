@@ -3,7 +3,7 @@ import { appDeepLink } from '@/lib/deepLink';
 import { isNativeApp } from '@/lib/native';
 
 /** How long the page may stay in view after the click before the app is assumed missing. */
-export const OPEN_IN_APP_TIMEOUT_MS = 1500;
+const OPEN_IN_APP_TIMEOUT_MS = 1500;
 
 /** A desktop browser: not a phone or tablet UA (iPadOS reports as a Mac with a touch screen). */
 function isDesktopBrowser(): boolean {
@@ -14,13 +14,12 @@ function isDesktopBrowser(): boolean {
 
 /**
  * The "Open in Journal" action: the `journal://` link for `route`, shown in a desktop
- * browser only. `onOpen` starts the wait; `missing` turns true when the page is still in
+ * browser only (`href` is null elsewhere). `onOpen` starts the wait; `missing` turns true when the page is still in
  * view after `OPEN_IN_APP_TIMEOUT_MS`, which means no app took the link.
  */
 export function useOpenInApp(route: string) {
     const [clicked, setClicked] = useState(false);
     const [missing, setMissing] = useState(false);
-    const href = appDeepLink(route);
 
     useEffect(() => {
         if (!clicked) return;
@@ -41,9 +40,8 @@ export function useOpenInApp(route: string) {
         };
     }, [clicked]);
 
-    const show = href !== null && !isNativeApp() && isDesktopBrowser();
+    const href = !isNativeApp() && isDesktopBrowser() ? appDeepLink(route) : null;
     return {
-        show,
         href,
         missing,
         onOpen: () => {

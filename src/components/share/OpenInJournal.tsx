@@ -9,8 +9,8 @@ import { DOWNLOAD_URL } from '@/lib/billing';
  * app. If the page stays in view afterwards, a quiet download link appears under the button.
  */
 export function OpenInJournal({ route }: { route: string }) {
-    const { show, href, missing, onOpen } = useOpenInApp(route);
-    if (!show || !href) return null;
+    const { href, missing, onOpen } = useOpenInApp(route);
+    if (!href) return null;
 
     return (
         <span className="relative">
