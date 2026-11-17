@@ -53,7 +53,7 @@ describe('the app name', () => {
     });
 
     it.each(['ios-release.yml', 'android-release.yml'])('is the real name only where %s sets JOURNAL_RELEASE_BUILD', (file) => {
-        expect(read(`.github/workflows/${file}`)).toMatch(/^\s+JOURNAL_RELEASE_BUILD: '1'$/m);
+        expect(read(`.github/workflows/${file}`).match(/^\s+JOURNAL_RELEASE_BUILD: '1'$/gm)).toHaveLength(1);
     });
 
     it('is swapped to Journal+ on iOS and Android only under JOURNAL_RELEASE_BUILD', () => {

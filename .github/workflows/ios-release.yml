@@ -107,11 +107,9 @@ jobs:
       MODE: ${{ inputs.mode || 'internal' }}
       TAG: ${{ inputs.tag }}
       DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
-      # #1340: only release builds carry the real app name; every other build is "Journal Dev".
-      JOURNAL_RELEASE_BUILD: '1'
       # License keys (#301): the Rust side compiles the billing Worker's origin in.
       JOURNAL_BILLING_URL: https://journal-billing.cloudx.run
-      # The release port (PROD_PORT in src-tauri/src/lib.rs, #1308).
+      # The release port (PROD_PORT in src-tauri/src/lib.rs, #1308); also opts in to the real app name (#1340).
       JOURNAL_RELEASE_BUILD: '1'
     steps:
       - name: Check inputs and secrets
