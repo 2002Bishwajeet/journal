@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.73.1 (2026-11-17)
+
+### Changed
+
+- On a Mac, the menu bar icon is a quill with no background. It changes color with the menu bar in light and dark mode.
+
 ## 2.73.0 (2026-11-16)
 
 ### Changed
