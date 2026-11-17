@@ -13,6 +13,11 @@ export const MIN_OUTLINE_HEADINGS = 3;
 const HIDDEN_KEY = 'share.outlineHidden';
 /** A heading above this many px from the viewport top counts as passed (the sticky header is 56px). */
 const READING_LINE = 96;
+/**
+ * The heading being read stays active until it is this many px below the reading line, so a
+ * small layout shift (an image loading near the bottom) can't flip it back and forth (#1356).
+ */
+const HYSTERESIS = 32;
 
 function readHidden(): boolean {
     try {
@@ -55,13 +60,16 @@ export function useShareOutline(articleRef: RefObject<HTMLElement | null>, conte
         if (hash) document.getElementById(hash)?.scrollIntoView({ block: 'start' });
 
         if (els.length < MIN_OUTLINE_HEADINGS) return;
+        let active = -1;
         const update = () => {
             // In the last screen the line slides down to the viewport bottom, so short last
             // sections that can never reach READING_LINE still get their turn.
             const left = document.documentElement.scrollHeight - window.scrollY - window.innerHeight;
             const line = Math.max(READING_LINE, window.innerHeight - left);
-            const passed = els.filter((el) => el.getBoundingClientRect().top <= line);
-            setActiveId((passed.at(-1) ?? els[0]).id);
+            const tops = els.map((el) => el.getBoundingClientRect().top);
+            const passed = Math.max(0, tops.findLastIndex((top) => top <= line));
+            active = passed < active && tops[active] <= line + HYSTERESIS ? active : passed;
+            setActiveId(els[active].id);
         };
         update();
         // A thin band at the reading line: a heading crossing it re-runs the check.
