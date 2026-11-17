@@ -11,12 +11,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # The hermetic suite split three ways; `e2e` below is the required check.
-  # Step caps are about 1.5x the measured p90 (#868); they sum to 40 min, plus
-  # 2 min for the uncapped steps that take a second each.
+  # The hermetic suite split four ways, and the mobile suite two ways on the two
+  # lightest hermetic shards; `e2e` below is the required check. Playwright splits
+  # by test count, not time, and three shards put 15+ min of slow specs on one
+  # (#1347). Step caps are about 1.5x the measured p90 (#868); they sum to 44 min,
+  # plus 2 min for the uncapped steps that take a second each.
   e2e-shard:
     runs-on: ubuntu-latest
-    timeout-minutes: 42
+    timeout-minutes: 46
     permissions:
       contents: read
       packages: read
@@ -27,7 +29,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: [1, 2, 3, 4]
+        include:
+          - shard: 1
+            mobile: 1
+          - shard: 3
+            mobile: 2
     steps:
       - name: Checkout
         timeout-minutes: 1
@@ -85,18 +92,19 @@ jobs:
 
       - name: Run E2E (hermetic)
         timeout-minutes: 16
-        run: npm run e2e -- --shard=${{ matrix.shard }}/3
+        run: npm run e2e -- --shard=${{ matrix.shard }}/4
         env:
           CI: true
 
-      # On shard 3, the shortest hermetic shard.
+      # Half on shard 1 and half on shard 3, the shortest hermetic shards.
       - name: Run mobile E2E (chromium)
-        if: matrix.shard == 3
+        if: matrix.mobile
         # Hit 8 minutes on PRs #955 and #956 on 2026-11-02, with every test passing so far.
         # Hit 14.1 minutes on PR #996 on 2026-11-04 on slow runners, with all 107 passing.
-        timeout-minutes: 20
+        # Hit 18.1 of its 20 minutes unsplit on 2026-11-16 (#1347), so it runs in two halves.
+        timeout-minutes: 14
         # Its own output folder: a run empties its folder first, and the hermetic run's screenshots stay.
-        run: npm run e2e:mobile -- --output=test-results/mobile
+        run: npm run e2e:mobile -- --shard=${{ matrix.mobile }}/2 --output=test-results/mobile
         env:
           CI: true
 
