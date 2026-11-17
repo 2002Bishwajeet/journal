@@ -10,12 +10,23 @@ import { assertTestOrigin } from '../support/origin-guard';
 const AUTHOR = 'e2e-author.homebase.test';
 const PUBLISHED = Date.UTC(2026, 9, 12, 9, 0);
 
-type Block = ['h2' | 'h3' | 'h4', string] | ['p'];
+type Block = ['h2' | 'h3' | 'h4', string] | ['p'] | ['img', string];
+
+const IMAGES_FILE_ID = '7b2e8d31-6c4f-4097-8b23-d1f9e4c8a656';
+const PICTURE = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400"><rect width="800" height="400" fill="#8fa3ad"/></svg>`;
 
 function content(blocks: Block[]): Buffer {
   const doc = new Y.Doc();
   doc.getXmlFragment('prosemirror').push(
     blocks.map((b, i) => {
+      if (b[0] === 'img') {
+        const p = new Y.XmlElement('paragraph');
+        const img = new Y.XmlElement('image');
+        img.setAttribute('src', `attachment://${IMAGES_FILE_ID}/jrnl_img0`);
+        img.setAttribute('alt', b[1]);
+        p.insert(0, [img]);
+        return p;
+      }
       const el = new Y.XmlElement(b[0] === 'p' ? 'paragraph' : 'heading');
       if (b[0] !== 'p') el.setAttribute('level', b[0][1] as never);
       const text = b[0] === 'p' ? `Paragraph ${i}. A shared note is read by people who may never have heard of Journal, so the page around it should be quiet and finished.` : b[1];
@@ -46,6 +57,12 @@ const NOTES = {
     fileId: '6b2e8d31-6c4f-4097-8b23-d1f9e4c8a655',
     title: 'Short last sections',
     body: content([['h2', 'Long'], ...fill(30), ['h2', 'Limits'], ...fill(2), ['h2', 'Next'], ...fill(2)]),
+  },
+  images: {
+    noteId: '7a1d7c20-5b3e-4f86-9a12-c0e8d3b7f545',
+    fileId: IMAGES_FILE_ID,
+    title: 'Sections with images',
+    body: content([['h2', 'Long'], ...fill(20), ['img', 'One'], ['h2', 'Speed'], ['img', 'Two'], ...fill(2), ['h2', 'Limits'], ['img', 'Three'], ['p'], ['h2', 'Next'], ['img', 'Four'], ['p']]),
   },
   odd: {
     noteId: '3a1d7c20-5b3e-4f86-9a12-c0e8d3b7f543',
@@ -82,6 +99,9 @@ test.beforeEach(async ({ anonPage: page }) => {
     };
     const note = Object.values(NOTES).find((n) => url.includes(n.noteId) || url.includes(n.fileId));
     if (!note) return route.fulfill({ status: 403, headers, contentType: 'application/json', body: '{}' });
+    if (new URL(url).searchParams.get('key') === 'jrnl_img0') {
+      return route.fulfill({ contentType: 'image/svg+xml', headers: { ...headers, decryptedcontenttype: 'image/svg+xml' }, body: PICTURE });
+    }
     if (new URL(url).pathname.endsWith('/payload')) return route.fulfill({ contentType: 'application/octet-stream', headers, body: note.body });
     return route.fulfill({
       contentType: 'application/json',
@@ -172,6 +192,38 @@ test('short last sections still get highlighted at the end of the page', async (
   await expect(links).toHaveText(['Long', 'Limits', 'Next']);
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
   await expect(links.nth(2)).toHaveAttribute('aria-current', 'location');
+});
+
+// #1356: at the bottom of a note with images the highlight used to flip between the last two
+// headings, and every image remounted (reloaded) on each flip.
+test('at the bottom of a note with images the highlight holds still and images stay mounted', async ({ anonPage: page }) => {
+  await page.setViewportSize(DESKTOP);
+  await open(page, NOTES.images);
+  const links = panel(page).getByRole('link');
+  await expect(links).toHaveText(['Long', 'Speed', 'Limits', 'Next']);
+  const images = page.getByRole('article').getByRole('img', { name: /One|Two|Three|Four/ });
+  await expect(images).toHaveCount(4);
+  for (const img of await images.all()) {
+    await img.scrollIntoViewIfNeeded();
+    await expect.poll(() => img.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth)).toBe(800);
+  }
+  // Tag each image element: a remount replaces it with an untagged one.
+  await images.evaluateAll((els) => els.forEach((el) => el.setAttribute('data-e2e-mounted', '')));
+
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await expect(links.nth(3)).toHaveAttribute('aria-current', 'location');
+  // Sample the highlighted entry every 50ms for a second: it never changes.
+  const seen = await page.evaluate(async () => {
+    const out: string[] = [];
+    for (let i = 0; i < 20; i++) {
+      out.push(document.querySelector('aside[aria-label="On this page"] [aria-current="location"]')?.textContent ?? '');
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    return out;
+  });
+  expect(new Set(seen)).toEqual(new Set(['Next']));
+  await expect(page.locator('article img[data-e2e-mounted]')).toHaveCount(4);
+  await shots(page, (theme) => `share-outline-images-bottom-${theme}-1440.png`);
 });
 
 test('outline panel fits at the xl edge, 1280px', async ({ anonPage: page }) => {

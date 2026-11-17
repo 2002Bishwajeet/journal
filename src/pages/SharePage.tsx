@@ -1,5 +1,5 @@
-import { useRef, type CSSProperties } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { useRef } from 'react';
+import { Navigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useSharePage } from '@/hooks/useSharePage';
 import { useShareOutline } from '@/hooks/useShareOutline';
@@ -9,16 +9,8 @@ import { ShareFooter } from '@/components/share/ShareFooter';
 import { ShareUnavailable } from '@/components/share/ShareUnavailable';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import Markdown, { defaultUrlTransform } from 'react-markdown';
 import { PublicNoteImage } from '@/components/share/PublicNoteImage';
-import { EditedImage } from '@/components/EditedImage';
-import { editDataAttrs, hasEdits, parseEditData } from '@/lib/images/imageEdits';
-import { CalloutAwareBlockquote } from '@/components/share/CalloutAwareBlockquote';
-import { GalleryAwareDiv } from '@/components/share/GalleryAwareDiv';
-import { ReaderTaskCheckbox } from '@/components/share/ReaderTaskCheckbox';
-import { LiveBlockAwarePre } from '@/components/share/LiveBlockAwarePre';
-import { LiveBlockStatesContext } from '@/components/share/liveBlockStatesContext';
-import { shareNoteLinkHref, shareRehypePlugins, shareRemarkPlugins } from '@/lib/share/markdownPipeline';
+import { ShareNoteMarkdown } from '@/components/share/ShareNoteMarkdown';
 import { formatShareDate, showUpdated } from '@/lib/share/articleMeta';
 import 'katex/dist/katex.min.css';
 
@@ -111,89 +103,13 @@ export default function SharePage() {
 
                     <ShareOutline headings={outline.headings} activeId={outline.activeId} hidden={outline.hidden} onToggleHidden={outline.toggleHidden} />
 
-                    <LiveBlockStatesContext.Provider value={note.blockStates ?? {}}>
-                        <Markdown
-                            remarkPlugins={shareRemarkPlugins}
-                            rehypePlugins={shareRehypePlugins}
-                            urlTransform={(url) => {
-                                const href = shareNoteLinkHref(url, decodeURIComponent(identity));
-                                return href.startsWith('attachment://') || href.startsWith('/share/') ? href : defaultUrlTransform(href);
-                            }}
-                            components={{
-                                // A note link (#616) is an in-app link, same tab.
-                                a: ({ node, href, ...rest }) => {
-                                    void node;
-                                    return href?.startsWith('/share/') ? <Link to={href} {...rest} /> : <a href={href} {...rest} />;
-                                },
-                                blockquote: CalloutAwareBlockquote,
-                                div: GalleryAwareDiv,
-                                pre: LiveBlockAwarePre,
-                                input: ReaderTaskCheckbox,
-                                img: ({ src, alt, node, width, ...rest }) => {
-                                    // `node` is react-markdown's own extra prop, not a DOM attribute —
-                                    // exclude it before spreading the rest (title, etc.) onto <img>.
-                                    void node;
-                                    // The editor's width and float (#581); the box carries both, the image fills it.
-                                    const align = (rest as { 'data-align'?: string })['data-align'];
-                                    const { 'data-caption': captionAttr, ...imgRest } = rest as { 'data-caption'?: string };
-                                    const caption = captionAttr ?? alt;
-                                    const px = Number(width) > 0 ? Number(width) : undefined;
-                                    // Crop, rotate and flip (#584), drawn as in the editor
-                                    const edits = parseEditData((name) => (rest as Record<string, string | undefined>)[name]);
-                                    const edited = hasEdits(edits);
-                                    const imgClass = edited ? 'block h-full w-full' : px ? 'w-full' : undefined;
-                                    const picture = src?.startsWith('attachment://') ? (
-                                        <PublicNoteImage
-                                            key={src}
-                                            identity={decodeURIComponent(identity)}
-                                            noteFileId={note.fileId}
-                                            lastModified={note.lastModified}
-                                            src={src}
-                                            alt={alt}
-                                            className={imgClass}
-                                        />
-                                    ) : (
-                                        <img src={src} alt={alt} loading="lazy" className={imgClass} {...imgRest} />
-                                    );
-                                    return (
-                                        // Kept in the column; `block` so the image sits on its own line. A span, not a
-                                        // figure: the img sits inside a paragraph.
-                                        <span
-                                            className="share-wide share-img block"
-                                            data-align={align}
-                                            {...Object.fromEntries(editDataAttrs(edits))}
-                                            style={px ? ({ '--share-img-width': `${px}px` } as CSSProperties) : undefined}
-                                        >
-                                            {edited ? (
-                                                <EditedImage key={src} edits={edits}>
-                                                    {picture}
-                                                </EditedImage>
-                                            ) : (
-                                                picture
-                                            )}
-                                            {/* The caption, else the alt text, as in the editor (#583); "" hides it */}
-                                            {caption && (
-                                                <span data-testid="share-image-caption" aria-hidden={caption === alt || undefined} className="mt-1.5 block text-center text-sm text-muted-foreground">
-                                                    {caption}
-                                                </span>
-                                            )}
-                                        </span>
-                                    );
-                                },
-                                // Same wrapper as the editor's (`.tableWrapper`): a table wider than the column scrolls inside it.
-                                table: ({ node, ...rest }) => {
-                                    void node;
-                                    return (
-                                        <div className="tableWrapper">
-                                            <table {...rest} />
-                                        </div>
-                                    );
-                                },
-                            }}
-                        >
-                            {note.content}
-                        </Markdown>
-                    </LiveBlockStatesContext.Provider>
+                    <ShareNoteMarkdown
+                        content={note.content}
+                        identity={decodeURIComponent(identity)}
+                        noteFileId={note.fileId}
+                        lastModified={note.lastModified}
+                        blockStates={note.blockStates}
+                    />
                 </article>
             </main>
 
