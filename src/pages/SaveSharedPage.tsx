@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import { OpenInJournal } from '@/components/share/OpenInJournal';
 import { ArrowLeft, FileText, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
@@ -8,6 +9,7 @@ import { useSaveSharedNote } from '@/hooks/useSaveSharedNote';
 export default function SaveSharedPage() {
     useDocumentTitle('Save a copy');
     const { error } = useSaveSharedNote();
+    const { pathname, search } = useLocation();
 
     return (
         <div className="min-h-svh bg-background flex items-center justify-center px-4">
@@ -22,11 +24,13 @@ export default function SaveSharedPage() {
                             Go to Journal
                         </Link>
                     </Button>
+                    <OpenInJournal route={`${pathname}${search}`} />
                 </div>
             ) : (
                 <div role="status" className="flex flex-col items-center gap-4">
                     <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                     <p className="text-sm text-muted-foreground">Saving a copy to your Journal...</p>
+                    <OpenInJournal route={`${pathname}${search}`} />
                 </div>
             )}
         </div>

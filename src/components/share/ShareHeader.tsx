@@ -1,8 +1,9 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ArrowUpRight, CopyPlus, FileDown, Library } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useHasScrolled } from '@/hooks/useHasScrolled';
 import { cn } from '@/lib/utils';
+import { OpenInJournal } from '@/components/share/OpenInJournal';
 
 interface ShareHeaderProps {
     /** The in-app route that saves a copy of the note; the action is left out without one. */
@@ -16,6 +17,7 @@ interface ShareHeaderProps {
 /** The share page's sticky bar: the logo and wordmark, then the actions. */
 export function ShareHeader({ saveHref, authorIndexHref, onDownloadPdf }: ShareHeaderProps) {
     const scrolled = useHasScrolled();
+    const { pathname, search, hash } = useLocation();
 
     return (
         <header
@@ -52,6 +54,7 @@ export function ShareHeader({ saveHref, authorIndexHref, onDownloadPdf }: ShareH
                             <span className="sr-only sm:not-sr-only">Download PDF</span>
                         </Button>
                     )}
+                    <OpenInJournal route={`${pathname}${search}${hash}`} />
                     {saveHref && (
                         // Signed out, the app's guard sends the visitor through sign-in and back here.
                         <Button asChild size="sm">

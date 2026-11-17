@@ -1,4 +1,6 @@
+import { useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
+import { OpenInJournal } from '@/components/share/OpenInJournal';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useOpenSharedNote } from '@/hooks/useOpenSharedNote';
 import { ShareUnavailable } from '@/components/share/ShareUnavailable';
@@ -7,6 +9,7 @@ import { ShareUnavailable } from '@/components/share/ShareUnavailable';
 export default function OpenSharedPage() {
     useDocumentTitle('Shared note');
     const { invalid, noAccess } = useOpenSharedNote();
+    const { pathname, search } = useLocation();
 
     if (invalid) return <ShareUnavailable reason="notFound" />;
     if (noAccess) return <ShareUnavailable reason="noAccess" />;
@@ -14,6 +17,7 @@ export default function OpenSharedPage() {
         <div role="status" className="min-h-svh bg-background flex flex-col items-center justify-center gap-4">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             <p className="text-sm text-muted-foreground">Opening the note...</p>
+            <OpenInJournal route={`${pathname}${search}`} />
         </div>
     );
 }
