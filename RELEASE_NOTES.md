@@ -16,6 +16,17 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.73.3 (2026-11-17)
+
+### New
+
+- In the desktop app, you can look for updates when you want. Select **Check for Updates…** in the tray menu. On a Mac, this item is also in the Journal menu.
+
+### Changed
+
+- The desktop app looks for updates every 4 hours, and when the computer wakes from sleep.
+- When you select **Later** for an update, the desktop app installs the update when you quit it. The next time you open the app, it is the new version.
+
 ## 2.73.2 (2026-11-17)
 
 ### New

@@ -1,3 +1,19 @@
+## [2.73.3](https://github.com/2002Bishwajeet/journal/compare/v2.73.2...v2.73.3) (2026-11-17)
+
+
+### Bug Fixes
+
+* **share:** hide Open in Journal below sm so the 390px share layout is unchanged ([#1341](https://github.com/2002Bishwajeet/journal/issues/1341)) ([900bd45](https://github.com/2002Bishwajeet/journal/commit/900bd45040c7930d0d46cd0c07016005cce84701))
+* **share:** move Stay in browser below header, pin footer on short notes ([#1341](https://github.com/2002Bishwajeet/journal/issues/1341)) ([bedc285](https://github.com/2002Bishwajeet/journal/commit/bedc285447cd83a645698636662c27bb4b134464))
+* **share:** stop outline highlight oscillating and images remounting at the bottom ([#1356](https://github.com/2002Bishwajeet/journal/issues/1356)) ([d09ae4f](https://github.com/2002Bishwajeet/journal/commit/d09ae4f0874f63012d90ec0de18223d14541e61c))
+
+
+### Features
+
+* **desktop:** check for updates every 4 hours and on wake; Later installs on quit ([#1349](https://github.com/2002Bishwajeet/journal/issues/1349)) ([386b189](https://github.com/2002Bishwajeet/journal/commit/386b189f3660d1eb279c2abf6c690cbed87884d3))
+* **desktop:** manual Check for Updates… in the tray and macOS app menu ([#1353](https://github.com/2002Bishwajeet/journal/issues/1353)) ([613875b](https://github.com/2002Bishwajeet/journal/commit/613875b5473136788e1e00ccb2a6cee13d70556a))
+* **share:** Open in Journal button hands share links to the desktop app ([#1341](https://github.com/2002Bishwajeet/journal/issues/1341)) ([f5454b0](https://github.com/2002Bishwajeet/journal/commit/f5454b0dacece75522f4d8087d2d79a6e8d39d24))
+* **share:** remember app opens and relabel to Open in app ([#1341](https://github.com/2002Bishwajeet/journal/issues/1341)) ([5bfeb01](https://github.com/2002Bishwajeet/journal/commit/5bfeb017677f04350cbf7b036857f5daced9d25b))
 ## [2.73.2](https://github.com/2002Bishwajeet/journal/compare/v2.73.1...v2.73.2) (2026-11-17)
 
 
