@@ -37,8 +37,9 @@ describe('android app config', () => {
     expect(activity).toContain('webView.setBackgroundColor(last ?: getColor(R.color.splash_background))');
   });
 
-  it('is labelled Journal+', () => {
-    expect(read(`${RES}/values/strings.xml`)).toContain('<string name="app_name">"Journal+"</string>');
+  it("is labelled Journal Dev in the repo, Journal+ only in the release build", () => {
+    expect(read(`${RES}/values/strings.xml`)).toContain('<string name="app_name">"Journal Dev"</string>');
+    expect(read('scripts/android-release.mjs')).toContain("replaceAll('Journal Dev', 'Journal+')");
   });
 
   it('signs release builds with an upload key read from outside the repo', () => {

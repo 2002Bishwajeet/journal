@@ -86,8 +86,8 @@ npm run tauri:build   # the installers for this OS, in src-tauri/target/release/
 ```
 
 It needs Rust and, on Linux, WebKitGTK (`libwebkit2gtk-4.1-dev`; see
-`.github/workflows/tauri.yml`). The app is named "Journal" on desktop and inside the iOS and Android apps; only their
-home-screen names (`Info.ios.plist`, Android `strings.xml`) are "Journal+", because "Journal" is
+`.github/workflows/tauri.yml`). Local builds are named "Journal Dev" so they cannot pass for the real app (#1340); release workflows build as "Journal" on desktop and inside the iOS and Android apps; only their
+release home-screen names (`Info.ios.plist`, Android `strings.xml`, swapped in under `JOURNAL_RELEASE_BUILD=1`) are "Journal+", because "Journal" is
 taken on the App Store (ITMS-90129). A local build is unsigned and has no
 updater bundles; it still checks for updates when it runs.
 

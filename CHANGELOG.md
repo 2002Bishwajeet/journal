@@ -1,3 +1,17 @@
+## [2.73.1](https://github.com/2002Bishwajeet/journal/compare/v2.73.0...v2.73.1) (2026-11-17)
+
+
+### Bug Fixes
+
+* **#1340:** drop duplicate JOURNAL_RELEASE_BUILD key in store workflows ([7b97081](https://github.com/2002Bishwajeet/journal/commit/7b970819661a4f71bc246de737c445d792a35b93)), closes [#1340](https://github.com/2002Bishwajeet/journal/issues/1340)
+* **desktop:** menu bar icon is the brand quill from brand/logo/mark-dark.svg ([#1331](https://github.com/2002Bishwajeet/journal/issues/1331)) ([e016c3b](https://github.com/2002Bishwajeet/journal/commit/e016c3b696f88aa0bf4df67eda985c80b52c1f07))
+* **native:** make the time crate a general dependency, license.rs builds on every platform ([#1338](https://github.com/2002Bishwajeet/journal/issues/1338)) ([5a81813](https://github.com/2002Bishwajeet/journal/commit/5a818137b958bd75ba0dae4f66afd6b87a8b4110))
+
+
+### Features
+
+* **desktop:** backgroundless template quill for the macOS menu bar ([#1331](https://github.com/2002Bishwajeet/journal/issues/1331)) ([95f2c95](https://github.com/2002Bishwajeet/journal/commit/95f2c95517d928c301c121306325f0efedf24b9a))
+* **native:** local and debug builds are named Journal Dev ([#1340](https://github.com/2002Bishwajeet/journal/issues/1340)) ([9c09957](https://github.com/2002Bishwajeet/journal/commit/9c099573383a8227bbf42155e068d882ce79acea))
 # [2.73.0](https://github.com/2002Bishwajeet/journal/compare/v2.72.0...v2.73.0) (2026-11-16)
 
 

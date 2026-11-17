@@ -1,5 +1,5 @@
 {
-  "productName": "Journal",
+  "productName": "Journal Dev",
   "bundle": {
     "macOS": {
       "infoPlist": "Info.macos.plist"
