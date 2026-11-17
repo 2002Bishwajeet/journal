@@ -6,18 +6,19 @@ import { DOWNLOAD_URL } from '@/lib/billing';
 /**
  * "Open in Journal": hands `route` to the desktop app through `journal://`, on a click only.
  * Desktop browsers never pass https links to an app. Renders nothing on phones or in the
- * app. If the page stays in view afterwards, a quiet download link appears under the button.
+ * app, and is hidden below `sm` so a narrow window keeps the phone layout. If the page
+ * stays in view afterwards, a quiet download link appears under the button.
  */
 export function OpenInJournal({ route }: { route: string }) {
     const { href, missing, onOpen } = useOpenInApp(route);
     if (!href) return null;
 
     return (
-        <span className="relative">
+        <span className="relative max-sm:hidden">
             <Button asChild variant="outline" size="sm">
-                <a href={href} onClick={onOpen} className="max-sm:px-2">
+                <a href={href} onClick={onOpen}>
                     <ExternalLink aria-hidden />
-                    <span className="max-sm:sr-only">Open in Journal</span>
+                    Open in Journal
                 </a>
             </Button>
             {missing && (

@@ -77,6 +77,12 @@ describe('OpenInJournal', () => {
         expect(open()).toBeNull();
     });
 
+    // A desktop UA in a phone-width window (and the e2e runs at 390px) keeps the phone layout.
+    it('is hidden below the sm breakpoint', async () => {
+        await mount();
+        expect(el.firstElementChild?.classList).toContain('max-sm:hidden');
+    });
+
     it('is hidden inside the native app', async () => {
         window.__JOURNAL_NATIVE__ = { platform: 'macos' };
         await mount();
