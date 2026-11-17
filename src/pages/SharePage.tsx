@@ -56,7 +56,7 @@ export default function SharePage() {
 
     return (
         // The container a `wide` live block takes its width from (src/index.css, "Live blocks").
-        <div className="@container/live-blocks min-h-svh bg-background">
+        <div className="@container/live-blocks min-h-dvh bg-background flex flex-col">
             <ShareHeader
                 saveHref={`/save-shared?${new URLSearchParams({ identity: decodeURIComponent(identity), file: noteId })}`}
                 authorIndexHref={`/share/${identity}`}
@@ -67,7 +67,7 @@ export default function SharePage() {
             />
 
             {/* Content */}
-            <main ref={mainRef} className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+            <main ref={mainRef} className="flex-1 w-full max-w-4xl mx-auto px-4 sm:px-6 py-8">
                 {/* Outside the article so the global `.prose img` margin doesn't apply. */}
                 {cover && (
                     <div className="mb-8 h-40 sm:h-56 w-full rounded-lg overflow-hidden">

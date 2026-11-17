@@ -34,3 +34,12 @@ export function deepLinkRoute(link: string): string | null {
     if (!isNotePage && !isSharedScreen && !isAuthCallback && !isToday) return null;
     return `/${parts.join('/')}${url.search}${url.hash}`;
 }
+
+/**
+ * The `journal://` form of an in-app route, for a desktop browser to hand to the app, or
+ * null when the app has no screen for it. The inverse of `deepLinkRoute`.
+ */
+export function appDeepLink(route: string): string | null {
+    const link = `${SCHEME}//${route.replace(/^\/+/, '')}`;
+    return deepLinkRoute(link) === null ? null : link;
+}
