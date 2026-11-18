@@ -1,7 +1,7 @@
 import { request, type Page } from '@playwright/test';
 import { BlogConfig } from '@homebase-id/js-lib/public';
 import { test, expect, liveIdentityOrigin } from '../fixtures';
-import { activeEditor, createNote, waitForNoteSaved } from '../support/actions';
+import { activeEditor, activeTitleInput, createNote, typeInEditor, waitForNoteSaved } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 import { openShareDialog, shareDialog } from '../support/shareDialog';
 
@@ -9,6 +9,7 @@ import { openShareDialog, shareDialog } from '../support/shareDialog';
 // Publish goes through the owner console's consent for the public channel, then publishes; the
 // post's image payload, read logged out, holds only the edited pixels: the 16:9 crop, turned
 // a quarter and mirrored, as the editor shows it. The post stays on the throwaway identity.
+// #1414: after a title and body edit, Update on feed changes that post; it publishes no second one.
 
 // 800x400, four quadrants: an asymmetric picture, so a wrong crop, turn or mirror shows.
 const PICTURE = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="400" viewBox="0 0 800 400"><rect width="400" height="200" fill="rgb(220,40,40)"/><rect x="400" width="400" height="200" fill="rgb(40,160,40)"/><rect y="200" width="400" height="200" fill="rgb(40,40,220)"/><rect x="400" y="200" width="400" height="200" fill="rgb(220,200,40)"/></svg>`;
@@ -42,7 +43,7 @@ function inspect(page: Page, bytes: Buffer, type: string) {
   );
 }
 
-test('publishes a note with an edited image to the feed, with only the edited pixels in the post', async ({ liveRun }) => {
+test('publishes a note with an edited image to the feed, with only the edited pixels in the post, and updates that post after an edit', async ({ liveRun }) => {
   test.setTimeout(300_000);
   const { page } = liveRun;
   const origin = liveIdentityOrigin();
@@ -117,6 +118,28 @@ test('publishes a note with an edited image to the feed, with only the edited pi
     const image = await inspect(page, await payload.body(), 'image/jpeg');
     expect(image.width / image.height).toBeCloseTo(9 / 16, 1);
     expect(image.quadrants).toEqual(EXPECTED);
+
+    // Edit the title and the body, then Update on feed: still one post for the note, now renamed
+    await page.keyboard.press('Escape');
+    await expect(shareDialog(page)).toBeHidden();
+    const renamed = `${title} renamed`;
+    await activeTitleInput(page).fill(renamed);
+    await expect(page.getByTestId('note-row').filter({ hasText: renamed })).toBeVisible();
+    await typeInEditor(page, ' Edited after publishing.');
+    await openShareDialog(page, renamed);
+    await shareDialog(page).getByRole('button', { name: 'Update on feed' }).click();
+    await expect(page.getByText('Updated on your feed')).toBeVisible({ timeout: 120_000 });
+    await expect.poll(async () => {
+      const res = await anon.post(`${origin}/api/guest/v1/drive/query/batch`, {
+        data: {
+          queryParams: { targetDrive: drive, fileType: [BlogConfig.PostFileType] },
+          resultOptionsRequest: { maxRecords: 50, includeMetadataHeader: true },
+        },
+      });
+      const results = ((await res.json()) as { searchResults?: Result[] }).searchResults ?? [];
+      const posts = results.filter((r) => r.fileMetadata.appData.content.includes(title));
+      return { posts: posts.length, renamed: posts.every((r) => r.fileMetadata.appData.content.includes(renamed)) };
+    }, { timeout: 60_000, message: 'one post for the note, with the new title' }).toEqual({ posts: 1, renamed: true });
   } finally {
     await anon.dispose();
   }

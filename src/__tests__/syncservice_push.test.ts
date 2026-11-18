@@ -30,6 +30,7 @@ vi.mock('@/lib/homebase/NotesDriveProvider', () => ({
         getNote = mockGetNote;
         getNotePayload = mockGetNotePayload;
         updateNote = mockUpdateNote;
+        dsrToContent = async () => null;
         createNote = mockCreateNote;
         constructor() {}
     },

@@ -174,6 +174,8 @@ export async function updateSearchIndexMetadata(
     //  - `isPublic` mirrors the remote ACL. Dropping it silently re-encrypts the note
     //    and revokes the public share on the next push (#79), so it survives only when
     //    the writer omitted the key entirely — an explicit value (incl. false) wins.
+    //  - `feedPostId` is never cleared on purpose: written from a snapshot read before
+    //    Publish saved it, the next Update on feed published a second post (#1414).
     await db.query(
         `UPDATE search_index
          SET title = $2,
@@ -183,6 +185,9 @@ export async function updateSearchIndexMetadata(
                         ELSE '{}'::jsonb END)
                || (CASE WHEN metadata ? 'isPublic' AND NOT ($3::jsonb ? 'isPublic')
                         THEN jsonb_build_object('isPublic', metadata->'isPublic')
+                        ELSE '{}'::jsonb END)
+               || (CASE WHEN metadata ? 'feedPostId' AND NOT ($3::jsonb ? 'feedPostId')
+                        THEN jsonb_build_object('feedPostId', metadata->'feedPostId')
                         ELSE '{}'::jsonb END),
              search_vector = journal_search_vector($2, plain_text_content, $3::jsonb->'tags'),
              vector_version = 2,
@@ -288,6 +293,18 @@ export async function setNoteFolderLocal(docId: string, folderId: string, expect
              updated_at = CURRENT_TIMESTAMP
          WHERE doc_id = $1 AND metadata->>'folderId' = $3`,
         [docId, folderId, expectedFolderId]
+    );
+}
+
+/** Puts the server's feed post id on a note that has none here (#1414), so the next push keeps it. */
+export async function setFeedPostIdLocal(docId: string, feedPostId: string): Promise<void> {
+    const db = await getDatabase();
+    await db.query(
+        `UPDATE search_index
+         SET metadata = metadata || jsonb_build_object('feedPostId', $2::text),
+             updated_at = CURRENT_TIMESTAMP
+         WHERE doc_id = $1 AND NOT metadata ? 'feedPostId'`,
+        [docId, feedPostId]
     );
 }
 
