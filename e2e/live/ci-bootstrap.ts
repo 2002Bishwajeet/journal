@@ -10,8 +10,9 @@
 // otherwise abort. Everything else in e2e/ keeps using '../fixtures'.
 import { test as setup, expect, type Browser, type Page } from '@playwright/test';
 import crypto from 'node:crypto';
+import { writeFileSync } from 'node:fs';
 import { assertTestOrigin } from '../support/origin-guard';
-import { LIVE_STORAGE_STATE, LIVE_SHARING_IDENTITIES, LIVE_CIRCLE_NAME, waitForAppReady } from '../fixtures';
+import { LIVE_STORAGE_STATE, LIVE_OWNER_PASSWORD_FILE, LIVE_SHARING_IDENTITIES, LIVE_CIRCLE_NAME, waitForAppReady } from '../fixtures';
 import { createNote } from '../support/actions';
 
 const IDENTITY = process.env.E2E_LIVE_IDENTITY;
@@ -59,7 +60,7 @@ const hasAuthTokens = (page: Page) => () =>
     page.evaluate(() => !!localStorage.getItem('BX0900') && !!localStorage.getItem('APSS'));
 
 /** First-run, setup and YouAuth consent for one dev identity, in its own context; saves its storage state. */
-async function bootstrapIdentity(browser: Browser, identity: string, storageState: string): Promise<void> {
+async function bootstrapIdentity(browser: Browser, identity: string, storageState: string): Promise<string> {
     const context = await browser.newContext();
     const page = await context.newPage();
     try {
@@ -109,6 +110,7 @@ async function bootstrapIdentity(browser: Browser, identity: string, storageStat
         // Also carries the owner-console session cookie for `identity`, which
         // the sharing setup below reuses.
         await context.storageState({ path: storageState });
+        return password;
     } finally {
         await context.close();
     }
@@ -120,7 +122,9 @@ setup('bootstrap a fresh dev identity non-interactively and save storage state',
             'E2E_LIVE_IDENTITY is not set (e.g. frodo.dotyou.cloud — a preconfigured odin-core dev identity).',
         );
     }
-    await bootstrapIdentity(browser, IDENTITY, LIVE_STORAGE_STATE);
+    const password = await bootstrapIdentity(browser, IDENTITY, LIVE_STORAGE_STATE);
+    // The throwaway identity's owner console can ask for it again (its session lapses), see publish-to-feed.live.spec.ts
+    writeFileSync(LIVE_OWNER_PASSWORD_FILE, password);
 });
 
 // The peer and the outsider for e2e/sharing (#676): same steps, other dev

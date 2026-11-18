@@ -12,6 +12,7 @@ import {
   ArrowUpDown,
   ChevronLeft,
   Bot,
+  Rss,
 } from "lucide-react";
 import { useDotYouClientContext } from "@/components/auth";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ import {
 import { ConfirmDialog } from "@/components/modals";
 import { ContextMenuWrapper, RowOptionsMenu } from "@/components/ui/context-menu-wrapper";
 import { buildNoteMenuItems } from "@/helpers/noteMenuItems";
+import { noteSharingLabel } from "@/helpers/noteSharingLabel";
 import { cn } from "@/lib/utils";
 import { agentDisplayName } from "@/lib/agent/attribution";
 import type { NoteListEntry } from "@/types";
@@ -432,6 +434,7 @@ const NoteItem = memo(function NoteItem({
   const { rowRef, contentRef, actionRef, touchHandlers } = useSwipeRow(note.docId, isSwiped, onSwipeChange);
 
   const agentName = agentDisplayName(note.metadata.lastEditedBy);
+  const sharingLabel = noteSharingLabel(note.metadata);
   const isPeerNote =
     !!note.metadata.authorOdinId &&
     note.metadata.authorOdinId !== dotYouClient.getHostIdentity();
@@ -532,8 +535,10 @@ const NoteItem = memo(function NoteItem({
               {note.metadata.isPinned && (
                 <Pin className="h-3 w-3 text-muted-foreground/70 shrink-0" />
               )}
-              {note.metadata.isPublic && (
-                <Globe className="h-3 w-3 text-muted-foreground/70 shrink-0" />
+              {sharingLabel === "On your feed" ? (
+                <Rss className="h-3 w-3 text-muted-foreground/70 shrink-0" />
+              ) : (
+                note.metadata.isPublic && <Globe className="h-3 w-3 text-muted-foreground/70 shrink-0" />
               )}
               {note.metadata.isCollaborative && (
                 <Users className="h-3 w-3 text-collaborative/70 shrink-0" />
@@ -564,8 +569,14 @@ const NoteItem = memo(function NoteItem({
                 )}
               </div>
             )}
-            <span className="text-xs text-muted-foreground/70 mt-1 tabular-nums pointer-coarse:col-start-1 pointer-coarse:row-start-2 pointer-coarse:mt-0.5 pointer-coarse:text-[13px] pointer-coarse:leading-[18px] pointer-coarse:font-medium pointer-coarse:text-foreground/70">
+            <span className="text-xs text-muted-foreground/70 mt-1 tabular-nums truncate pointer-coarse:col-start-1 pointer-coarse:row-start-2 pointer-coarse:mt-0.5 pointer-coarse:text-[13px] pointer-coarse:leading-[18px] pointer-coarse:font-medium pointer-coarse:text-foreground/70">
               {formatRelativeTime(note.metadata.timestamps.modified)}
+              {sharingLabel && (
+                <>
+                  {" · "}
+                  {sharingLabel}
+                </>
+              )}
               {agentName && (
                 <>
                   {" · "}

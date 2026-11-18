@@ -16,6 +16,17 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.73.10 (2026-11-18)
+
+### New
+
+- The note list shows "On your feed" or "Public link" next to the time of a note that you shared.
+
+### Fixed
+
+- When you publish a note to the feed, each link preview in the note is now a link in the post. Before, it was lost.
+- Update on feed changes the post that you published before. It does not publish a second post after you edit the note or its title, or after a sync from a different device.
+
 ## 2.73.9 (2026-11-18)
 
 ### Changed

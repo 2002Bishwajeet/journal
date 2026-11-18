@@ -91,6 +91,30 @@ describe('buildFeedArticle', () => {
         expect((await buildFeedArticle(input({ coverSrc: undefined }))).content.primaryMediaFile).toBeUndefined();
     });
 
+    it('turns link previews into linked paragraphs, titled when known, in document order', async () => {
+        const preview = (url: string, title = ''): TiptapJSONContent => ({ type: 'linkPreview', attrs: { url, title, description: 'd', image: null } });
+        const doc: TiptapJSONContent = {
+            type: 'doc',
+            content: [
+                { type: 'paragraph', content: [text('Intro')] },
+                preview('https://example.org/a/b', 'a/b: a repo'),
+                { type: 'paragraph', content: [text('Middle')] },
+                preview('https://example.com/x'),
+                preview(''),
+            ],
+        };
+        const { content } = await buildFeedArticle(input({ doc, coverSrc: undefined }));
+        const link = (t: string, href: string): TiptapJSONContent => ({ type: 'paragraph', content: [{ type: 'text', text: t, marks: [{ type: 'link', attrs: { href } }] }] });
+
+        expect(find(content.bodyDoc.doc, 'linkPreview')).toEqual([]);
+        expect(content.bodyDoc.doc.content).toEqual([
+            { type: 'paragraph', content: [text('Intro')] },
+            link('a/b: a repo', 'https://example.org/a/b'),
+            { type: 'paragraph', content: [text('Middle')] },
+            link('https://example.com/x', 'https://example.com/x'),
+        ]);
+    });
+
     it('links a note link to a public note and writes a private one as plain text', async () => {
         const { content } = await buildFeedArticle(input());
         const para = content.bodyDoc.doc.content?.[1];

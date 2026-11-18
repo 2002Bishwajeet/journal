@@ -1,3 +1,22 @@
+## [2.73.10](https://github.com/2002Bishwajeet/journal/compare/v2.73.9...v2.73.10) (2026-11-18)
+
+
+### Bug Fixes
+
+* **editor:** selection bubble no longer glides in from the top-left ([#1410](https://github.com/2002Bishwajeet/journal/issues/1410)) ([e802a4c](https://github.com/2002Bishwajeet/journal/commit/e802a4cf5280085d25072de9909c1c37820cf364))
+* **feed:** keep the note's feedPostId so Update on feed never publishes a second post ([#1414](https://github.com/2002Bishwajeet/journal/issues/1414)) ([ed7ea4c](https://github.com/2002Bishwajeet/journal/commit/ed7ea4ce00e653029fb4e615b4b65c694c5f1275))
+* **feed:** publish a note's link previews as linked paragraphs ([#1412](https://github.com/2002Bishwajeet/journal/issues/1412)) ([756ebe7](https://github.com/2002Bishwajeet/journal/commit/756ebe758dd3f77b59d5d82c3c816b2226968d80))
+* **notes:** one sharing indicator per note list row ([#1413](https://github.com/2002Bishwajeet/journal/issues/1413)) ([e444caa](https://github.com/2002Bishwajeet/journal/commit/e444caa257f0981f5fb069a017979028d0f800ce))
+
+
+### Features
+
+* **notes:** show On your feed / Public link in the note list row ([#1413](https://github.com/2002Bishwajeet/journal/issues/1413)) ([9d739b3](https://github.com/2002Bishwajeet/journal/commit/9d739b388b569243025afaf8ab92e48f53e1284e))
+
+
+### Reverts
+
+* Revert "test(e2e): retry select-all in narrow-toolbar spec until the selection holds (#1404)" ([4b49113](https://github.com/2002Bishwajeet/journal/commit/4b4911330f5a6fe8f515d9de966e5f7ba34f36b1)), closes [#1404](https://github.com/2002Bishwajeet/journal/issues/1404)
 ## [2.73.9](https://github.com/2002Bishwajeet/journal/compare/v2.73.8...v2.73.9) (2026-11-18)
 
 
