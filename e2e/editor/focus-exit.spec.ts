@@ -110,3 +110,21 @@ test('narrow window: the pill shows on entering, then only at the top edge', asy
     await expect(toolbar(app)).toBeVisible();
   });
 });
+
+test('narrow window: formatting right after entering, while the pill peeks, keeps focus and selection', async ({ app }) => {
+  await openNote(app, 700);
+  await activeEditor(app).click();
+  await enter(app);
+  await expect(pill(app)).toBeVisible();
+
+  await app.keyboard.press('ControlOrMeta+a');
+  await app.keyboard.press('ControlOrMeta+b');
+  await expect(activeEditor(app).locator('strong')).toHaveText('Quiet body text');
+  await expect(activeEditor(app)).toBeFocused();
+
+  // The peek ending moves neither the note nor the selection: typing still replaces the bold text.
+  await expect(pill(app)).toBeHidden({ timeout: 8000 });
+  await expect(activeEditor(app)).toBeFocused();
+  await app.keyboard.type('Typed');
+  await expect(activeEditor(app)).toContainText('Typed');
+});
