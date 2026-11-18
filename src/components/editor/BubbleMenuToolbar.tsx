@@ -89,7 +89,8 @@ export function BubbleMenuToolbar({ editor }: BubbleMenuToolbarProps) {
     if (!el) return;
     el.style.left = '0px';
     el.style.top = '0px';
-    const { width, height } = el.getBoundingClientRect();
+    // offset* ignore the entry animation's scale transform, which getBoundingClientRect would include.
+    const { offsetWidth: width, offsetHeight: height } = el;
     const { left, top } = placeBubble({
       centerX: anchor.centerX,
       selectionTop: anchor.top,
