@@ -74,7 +74,7 @@ test('in landscape, a left inset moves the sidebar content clear of the notch', 
   });
 });
 
-test('under a status bar, the focus-mode exit pill sits below the note header', async ({ browser, browserName }) => {
+test("under a status bar, the focus-mode exit pill sits below it, in the hidden note header's band", async ({ browser, browserName }) => {
   test.skip(browserName !== 'chromium', 'Emulation.setSafeAreaInsetsOverride is Chromium only');
   await withMobilePage(browser, async (page) => {
     const cdp = await page.context().newCDPSession(page);
@@ -86,8 +86,10 @@ test('under a status bar, the focus-mode exit pill sits below the note header', 
     const pill = page.getByRole('button', { name: /Exit Focus/ });
     await expect(pill).toBeVisible();
 
-    // Below the 59px status bar and the 48px note header (back button and title).
-    await expect.poll(async () => (await pill.boundingBox())!.y).toBeGreaterThanOrEqual(59 + 48);
+    // Below the 59px status bar, within the 44px band the note header had (#1391).
+    const box = (await pill.boundingBox())!;
+    expect(box.y).toBeGreaterThanOrEqual(59);
+    expect(box.y + box.height).toBeLessThanOrEqual(59 + 44);
 
     await page.screenshot({ path: test.info().outputPath('focus-pill-light-393x852.png') });
   });
