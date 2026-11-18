@@ -2,7 +2,7 @@ import type { Locator } from '@playwright/test';
 import * as Y from 'yjs';
 import { test, expect } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
-import { lineCount } from '../support/tableLines';
+import { expectRowsHugContent, lineCount } from '../support/tableLines';
 
 // #1384: on the share page a table whose cells hold long bare URLs fits the note
 // column the same way it does in the editor (e2e/editor/table-long-urls.spec.ts).
@@ -114,10 +114,7 @@ for (const theme of THEMES) {
       }
       if (viewport === 'mobile') {
         // A narrow screen scrolls the table sideways rather than crushing the URL column into a tall, one-character-wide stack.
-        for (const url of URLS) {
-          const lines = await lineCount(table.getByRole('cell', { name: url, exact: true }), table.getByRole('columnheader', { name: 'City', exact: true }));
-          expect(lines).toBeLessThan(8);
-        }
+        await expectRowsHugContent(table, URLS[0].slice(0, 8));
       }
       expect(await anonPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 

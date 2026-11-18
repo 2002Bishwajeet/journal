@@ -1,7 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
 import { activeEditor, createNote, screenshotInBothThemes } from '../support/actions';
-import { lineCount } from '../support/tableLines';
+import { expectRowsHugContent, lineCount } from '../support/tableLines';
 
 // #1384: a table whose cells hold long bare URLs fits the note column, every column
 // stays visible, the URLs wrap inside their cells, and a multi-word cell does not wrap one word per line.
@@ -76,10 +76,7 @@ test('editor: a table with long URLs fits the note column and the URLs wrap in t
     }
     if (viewport === 'mobile') {
       // A narrow screen scrolls the table sideways rather than crushing the URL column into a tall, one-character-wide stack.
-      for (const url of URLS) {
-        const lines = await lineCount(table.getByRole('cell', { name: url, exact: true }), table.getByRole('columnheader', { name: 'City', exact: true }));
-        expect(lines).toBeLessThan(8);
-      }
+      await expectRowsHugContent(table, URLS[0].slice(0, 8));
     }
     await expect(table.locator('th')).toHaveCount(HEADER.length);
     expect(await app.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

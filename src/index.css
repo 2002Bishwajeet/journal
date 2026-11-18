@@ -1058,6 +1058,16 @@ img.ProseMirror-separator {
   min-width: 7rem;
 }
 
+/* On a phone the table scrolls anyway, so let it be as wide as its columns want (up to the
+   cap) instead of auto layout squeezing every prose column to its minimum beside a wide one:
+   that stacked a long cell into a tall row with empty space under the short cells (#1402).
+   A resized table is fixed layout at 100% (rule above, more specific) and is not affected. */
+@media (max-width: 640px) {
+  .prose table {
+    width: max-content;
+  }
+}
+
 /* A resized table keeps the exact widths the user dragged. */
 .prose table:has(> colgroup > col[style*="width"]:not([style*="min-width"])) :is(th, td) {
   max-width: none;
