@@ -980,6 +980,16 @@ img.ProseMirror-separator {
   vertical-align: top;
 }
 
+/* A link in a cell may break anywhere: a bare URL has no space to wrap at, and its
+   whole length would be the column's minimum width, pushing the table past the note
+   column and starving the other columns (#1384). Only links: ordinary words keep
+   their minimum width, so a table that fits is not changed, and a long word that is
+   not a link still makes a wide table scroll inside `.tableWrapper`. */
+.prose th a,
+.prose td a {
+  overflow-wrap: anywhere;
+}
+
 /* Header cells: a shaded band in a slightly softer ink than the body text, so the
    header reads as a label row without shouting. About 8:1 on the shading in both
    themes (muted-foreground on muted was under WCAG AA, #221). */
