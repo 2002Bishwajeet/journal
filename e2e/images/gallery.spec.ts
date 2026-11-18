@@ -76,16 +76,26 @@ test('gallery: dropping 3 images makes one row that survives a reload', async ({
   await expect(reloaded.first()).toBeVisible();
   await expectRowOf(reloaded, 2);
   await expect.poll(async () => (await box(reloaded.nth(2))).y - (await box(reloaded.nth(0))).y).toBeGreaterThan(10);
-  await reloaded.first().scrollIntoViewIfNeeded();
-  // A not-yet-uploaded image's status pill stays inside its (narrow) image
+  // A not-yet-uploaded image's status pill stays inside its (narrow) image. Resizing to a phone
+  // remounts the editor in its narrow layout, so the old nodes can vanish under a step: scroll
+  // and measure pill and image in one page call, retried until the new layout has settled.
   const items = activeEditor(app).locator('[data-gallery="row"] .image-node');
-  for (let i = 0; i < 3; i++) {
-    const label = items.nth(i).getByTestId('pending-image-label');
-    if (!(await label.count())) continue;
-    const [l, img] = [await box(label), await box(items.nth(i).locator('img').first())];
-    expect(l.x).toBeGreaterThanOrEqual(img.x - 0.5);
-    expect(l.x + l.width).toBeLessThanOrEqual(img.x + img.width + 0.5);
-  }
+  await expect(async () => {
+    await reloaded.first().scrollIntoViewIfNeeded();
+    const pills = await items.evaluateAll((nodes) =>
+      nodes.flatMap((node) => {
+        const label = node.querySelector('[data-testid="pending-image-label"]');
+        const img = node.querySelector('img');
+        if (!label || !img) return [];
+        const [l, i] = [label.getBoundingClientRect(), img.getBoundingClientRect()];
+        return [{ labelLeft: l.left, labelRight: l.right, imgLeft: i.left, imgRight: i.right }];
+      }),
+    );
+    for (const p of pills) {
+      expect(p.labelLeft).toBeGreaterThanOrEqual(p.imgLeft - 0.5);
+      expect(p.labelRight).toBeLessThanOrEqual(p.imgRight + 0.5);
+    }
+  }).toPass();
   await screenshotInBothThemes(app, (colorScheme) => `gallery-editor-${colorScheme}-390.png`);
 });
 
