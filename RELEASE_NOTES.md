@@ -16,6 +16,18 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.73.8 (2026-11-18)
+
+### Changed
+
+- In a table, one cell with a lot of text no longer makes its column very wide and squeezes the other columns. A column that you did not resize is now at most 22rem wide. A column that you resized keeps its width.
+- When a table is wider than the note, the edge that has hidden columns now fades. The fade shows on the right, on both sides, or on the left, and it goes away when the table fits. It works in the editor and on shared notes.
+
+### Fixed
+
+- Focus mode now leaves only the note on screen in a narrow window and on phones and tablets. The Exit Focus button shows for a moment on entering, then hides; scrolling and typing do not bring it back. Move the mouse to the top edge of the window, or tap the top of the screen, to show it again. Esc now leaves focus mode while you are typing, after closing any open menu first.
+- On a phone, a table row with a lot of text in one column is no longer much taller than it needs to be. Long text columns now keep their natural width, up to 22rem, and the table scrolls sideways, instead of squeezing into narrow columns that leave empty space under the short cells.
+
 ## 2.73.7 (2026-11-18)
 
 ### Changed

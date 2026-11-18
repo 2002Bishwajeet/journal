@@ -977,6 +977,52 @@ img.ProseMirror-separator {
   mask-image: linear-gradient(to right, rgb(0 0 0 / 0.2), #000 2.5rem, #000 calc(100% - 2.5rem), rgb(0 0 0 / 0.2));
 }
 
+/* A table wider than the column keeps its first column in view while the rest scrolls
+   (#1390). `trackScrollShade` sets `data-pin` only while the table overflows and that
+   column takes at most 40% of the wrapper; a wider one is not pinned, because it would
+   leave no room for what scrolls past it. A table that fits is not touched.
+   The pinned cells are opaque (the header band keeps its own shading) and sit above the
+   cells that scroll under them, above the selected-cell wash too (z-index 2).
+   A collapsed border belongs to the table, not to a cell, so it would scroll away from
+   a pinned cell: the pinned table draws separate borders, a line at the right and the
+   bottom of each cell, at the left of the first column, and at the top of the table. */
+.prose .tableWrapper[data-pin] table {
+  border-collapse: separate;
+  border-spacing: 0;
+  border-top: 1px solid var(--border);
+}
+
+.prose .tableWrapper[data-pin] :is(th, td) {
+  border-width: 0 1px 1px 0;
+}
+
+.prose .tableWrapper[data-pin] :is(th, td):first-child {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  border-left-width: 1px;
+}
+
+.prose .tableWrapper[data-pin] td:first-child {
+  background: var(--background);
+}
+
+/* Scrolled: a soft edge shows that content passes under the pinned column. */
+.prose .tableWrapper[data-pin][data-shade-start] :is(th, td):first-child {
+  box-shadow: 4px 0 6px -3px color-mix(in srgb, var(--foreground) 22%, transparent);
+}
+
+/* The pinned column is the cue at the start edge, and it must stay readable: no left fade. */
+.prose .tableWrapper[data-pin][data-shade-start] {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+.prose .tableWrapper[data-pin][data-shade-start][data-shade-end] {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), rgb(0 0 0 / 0.2));
+  mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), rgb(0 0 0 / 0.2));
+}
+
 /* No saved column widths: size the columns to their content, up to the column. */
 .prose table {
   width: auto;

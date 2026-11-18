@@ -1,3 +1,21 @@
+## [2.73.8](https://github.com/2002Bishwajeet/journal/compare/v2.73.7...v2.73.8) (2026-11-18)
+
+
+### Bug Fixes
+
+* **focus:** hide the Exit Focus pill until asked for, and let Esc exit from the editor ([#1391](https://github.com/2002Bishwajeet/journal/issues/1391)) ([8dc99aa](https://github.com/2002Bishwajeet/journal/commit/8dc99aaef0735e9803f2fc9eb3086556ddd577ac))
+* **tables:** give every auto-layout cell a 10rem minimum so many-column tables scroll instead of squeezing prose ([#1389](https://github.com/2002Bishwajeet/journal/issues/1389)) ([0009da3](https://github.com/2002Bishwajeet/journal/commit/0009da32b13f128fe3cbf2fc5c220a2b0ce33d39))
+
+
+### Features
+
+* **tables:** cap auto column width and fade the edge of a table that scrolls ([#1389](https://github.com/2002Bishwajeet/journal/issues/1389)) ([be9de49](https://github.com/2002Bishwajeet/journal/commit/be9de491168b8bdee1f5411cfe797de3a61fbaa4))
+
+
+### Reverts
+
+* Revert "TEMP: diagnostics for narrow-toolbar focus bold" ([72a3347](https://github.com/2002Bishwajeet/journal/commit/72a33476cadccd6df80205976bf6f3784a44a719))
+* Revert "TEMP: more diagnostics" ([53dc2a9](https://github.com/2002Bishwajeet/journal/commit/53dc2a99eb21865b5196eba3883c056b484d8abd))
 ## [2.73.7](https://github.com/2002Bishwajeet/journal/compare/v2.73.6...v2.73.7) (2026-11-18)
 
 

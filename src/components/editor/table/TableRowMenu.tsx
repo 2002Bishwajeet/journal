@@ -66,21 +66,23 @@ export function TableRowMenu({ editor }: TableRowMenuProps) {
     
     // Find table left
     const table = node.closest('table');
-    const tableRect = table?.getBoundingClientRect();
+    if (!table) return null;
 
-    if (!tableRect) return null;
-
-    // The table's left edge along this row; the handle sits just outside it, centred on the row.
+    // The table's left edge along this row, or the scroll wrapper's when the table is scrolled
+    // sideways (its own edge is then out of view, and so is the handle). The handle sits just
+    // outside it, centred on the row.
+    const edge = () => Math.max(table.getBoundingClientRect().left, table.parentElement?.getBoundingClientRect().left ?? 0);
     return {
       getBoundingClientRect: () => {
+        const left = edge();
         return {
             width: 0,
             height: rect.height,
-            x: tableRect.left,
+            x: left,
             y: rect.y,
             top: rect.top,
-            left: tableRect.left,
-            right: tableRect.left,
+            left,
+            right: left,
             bottom: rect.bottom,
         };
       },
