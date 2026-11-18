@@ -98,8 +98,10 @@ test('editor: no column is wider than the cap, and long prose is not a word per 
 });
 
 test('editor: a table that overflows fades the hidden edge, and one that fits fades none', async ({ app }) => {
-  await app.setViewportSize(VIEWPORTS.mobile);
+  // Build the note at desktop width: the note list is hidden on a phone, and createNote waits for its row.
+  await app.setViewportSize(VIEWPORTS.desktop);
   const { cfp, short } = await buildNote(app);
+  await app.setViewportSize(VIEWPORTS.mobile);
   const wrapper = wrapperOf(cfp);
 
   expect(await wrapper.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
@@ -152,5 +154,8 @@ test('editor: a resized column keeps its dragged width, past the cap', async ({ 
   await app.reload();
   await waitForAppReady(app);
   const reloaded = activeEditor(app).getByRole('table').nth(1);
-  expect((await box(reloaded.locator('th').first())).width).toBeCloseTo(resized, 0);
+  // Within 3px: the reloaded column is laid out from the saved width in fixed layout with collapsed
+  // 1px cell borders, which measure about 2px wider than the width read straight after the drag.
+  // The width is what matters here: it is far from both the cap (352px) and the content width.
+  expect(Math.abs((await box(reloaded.locator('th').first())).width - resized)).toBeLessThanOrEqual(3);
 });
