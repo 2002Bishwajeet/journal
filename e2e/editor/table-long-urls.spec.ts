@@ -17,7 +17,7 @@ const ROWS = [
 ];
 // Prose cells of several words: with the URLs broken, they must not sit one word per line.
 const PROSE = ROWS.map((row) => row[0]);
-const URLS = ROWS.map((row) => row[4]);
+const URLS = ROWS.map((row) => row[3]);
 
 const box = async (locator: Locator) => {
   await expect(locator).toBeVisible();

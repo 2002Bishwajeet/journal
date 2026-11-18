@@ -19,7 +19,7 @@ const ROWS = [
 ];
 // Prose cells of several words: with the URLs broken, they must not sit one word per line.
 const PROSE = ROWS.map((row) => row[0]);
-const URLS = ROWS.map((row) => row[4]);
+const URLS = ROWS.map((row) => row[3]);
 
 // The share page reads a public note from its author's identity: canned GETs on a
 // *.homebase.test identity (same approach as share-wide-blocks.spec.ts).
