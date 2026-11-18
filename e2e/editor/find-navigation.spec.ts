@@ -16,9 +16,9 @@ test('typing in Find and Enter on "1 of 1" bring a far match into view', async (
   await expect(app.getByRole('search').getByText('1 of 1')).toBeVisible();
   await expect(app.locator('.search-highlight-current:visible')).toBeInViewport();
 
-  // Scroll away, then Enter brings the only match back.
+  // Scroll the note back to the top, then Enter brings the only match back.
   await app.locator('.search-highlight-current:visible').evaluate((el) => {
-    for (let p = el.parentElement; p; p = p.parentElement) p.scrollTop = 0;
+    el.closest('[data-note-scroller]')!.scrollTop = 0;
   });
   await expect(app.locator('.search-highlight-current:visible')).not.toBeInViewport();
   await find.press('Enter');

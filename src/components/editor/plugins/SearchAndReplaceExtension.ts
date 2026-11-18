@@ -75,26 +75,31 @@ export function findMatchesInDoc(
  * Brings the match at `from` into view (the caller selects it in its own transaction): opens any
  * closed toggle around it, then centres it, sideways too inside a horizontally scrolling code
  * block or table. ProseMirror's own scrollIntoView does neither, and skips a selection that is not
- * in the page's DOM selection, which is the case while the find input has focus. The scroll waits
- * a frame so the transaction has applied the current-match decoration and an opened toggle has
- * rendered.
+ * in the page's DOM selection, which is the case while the find input has focus.
+ *
+ * Nothing here runs inside the command: opening a toggle may dispatch, and a dispatch before the
+ * command's own transaction makes ProseMirror throw "Applying a mismatched transaction". The
+ * toggle opens in a microtask, after that transaction has applied; the scroll waits a frame so the
+ * opened toggle has rendered.
  */
 function revealMatch(editor: Editor, from: number) {
-    const { node } = editor.view.domAtPos(from);
-    const start = node instanceof Element ? node : node.parentElement;
-    if (!start) return;
-
-    for (let el = start.closest('[data-type="toggle"]'); el; el = el.parentElement?.closest('[data-type="toggle"]') ?? null) {
-        el.querySelector<HTMLButtonElement>(':scope > div > button[aria-expanded="false"]')?.click();
-    }
-
-    const scroll = () => {
+    queueMicrotask(() => {
         if (editor.isDestroyed) return;
-        // The current-match decoration is the exact text; the position's element is the fallback.
-        const target = editor.view.dom.querySelector('.search-highlight-current') ?? start;
-        target.scrollIntoView?.({ block: 'center', inline: 'center' });
-    };
-    requestAnimationFrame(scroll);
+        const { node } = editor.view.domAtPos(from);
+        const start = node instanceof Element ? node : node.parentElement;
+        if (!start) return;
+
+        for (let el = start.closest('[data-type="toggle"]'); el; el = el.parentElement?.closest('[data-type="toggle"]') ?? null) {
+            el.querySelector<HTMLButtonElement>(':scope > div > button[aria-expanded="false"]')?.click();
+        }
+
+        requestAnimationFrame(() => {
+            if (editor.isDestroyed) return;
+            // The current-match decoration is the exact text; the position's element is the fallback.
+            const target = editor.view.dom.querySelector('.search-highlight-current') ?? start;
+            target.scrollIntoView?.({ block: 'center', inline: 'center' });
+        });
+    });
 }
 
 function createDecorations(
@@ -294,15 +299,17 @@ export const SearchAndReplace = Extension.create({
 
             updateSearch:
                 (opts) =>
-                ({ editor }) => {
-                    editor.view.dispatch(
-                        editor.state.tr.setMeta(searchPluginKey, {
+                ({ tr, dispatch }) => {
+                    // The command's own tr: a nested dispatch throws when an appended transaction
+                    // (e.g. the trailing paragraph) changes the doc before the command's tr applies.
+                    if (dispatch) {
+                        tr.setMeta(searchPluginKey, {
                             type: 'setSearch',
                             searchTerm: opts.searchTerm,
                             caseSensitive: opts.caseSensitive,
                             wholeWord: opts.wholeWord,
-                        } as SearchMeta),
-                    );
+                        } as SearchMeta);
+                    }
                     return true;
                 },
 
