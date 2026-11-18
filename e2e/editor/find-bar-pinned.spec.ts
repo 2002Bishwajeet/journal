@@ -37,10 +37,13 @@ test('Find opens pinned in view at the bottom of a long note, and stays there', 
   await app.keyboard.press('Enter');
   await app.keyboard.press('Enter');
   await expectBarInView(app);
-  // The current match is not under the bar.
-  const match = (await app.locator('.search-highlight-current:visible').boundingBox())!;
-  const bar = (await app.getByRole('search').boundingBox())!;
-  expect(match.y >= bar.y + bar.height || match.y + match.height <= bar.y || match.x + match.width <= bar.x).toBe(true);
+  // The current match is not under the bar (the match scrolls in a frame after the keypress).
+  await expect.poll(async () => {
+    const match = await app.locator('.search-highlight-current:visible').boundingBox();
+    const bar = await app.getByRole('search').boundingBox();
+    if (!match || !bar) return false;
+    return match.y >= bar.y + bar.height || match.y + match.height <= bar.y || match.x + match.width <= bar.x;
+  }).toBe(true);
 
   await scroller(app).evaluate((el) => el.scrollBy(0, -400));
   await expectBarInView(app);

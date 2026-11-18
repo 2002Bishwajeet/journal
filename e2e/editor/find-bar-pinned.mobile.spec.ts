@@ -29,6 +29,13 @@ test('Find stays in view at the bottom of a long note', async ({ browser }) => {
     await find.fill('zorbleflux');
     await page.keyboard.press('Enter');
     await check();
+    // The centred match is not under the bar.
+    await expect.poll(async () => {
+      const match = await page.locator('.search-highlight-current:visible').boundingBox();
+      const bar = await page.getByRole('search').boundingBox();
+      if (!match || !bar) return false;
+      return match.y >= bar.y + bar.height || match.y + match.height <= bar.y;
+    }).toBe(true);
 
     await screenshotInBothThemes(page, (theme) => `find-bar-pinned-${theme}-390.png`);
   });
