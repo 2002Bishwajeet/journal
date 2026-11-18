@@ -97,7 +97,9 @@ test('editor: images below the fold hold their box and nothing shifts while scro
   const editor = activeEditor(app);
   await expect(editor.locator('.image-node')).toHaveCount(PICTURES.length);
   await app.evaluate(() => ((window as unknown as { __cls: number }).__cls = 0));
-  const tops = () => editor.locator('.image-node').evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top + window.scrollY)));
+  // Relative to the editor, which scrolls with its content (the page itself may not scroll)
+  const tops = () =>
+    editor.evaluate((root) => [...root.querySelectorAll('.image-node')].map((el) => Math.round(el.getBoundingClientRect().top - root.getBoundingClientRect().top)));
   await scrollThrough(editor);
   for (const [i, picture] of PICTURES.entries()) {
     const image = editor.locator('.image-node').nth(i);

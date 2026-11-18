@@ -66,9 +66,9 @@ test('body images sit fully inside their boxes, spacing unchanged', async ({ app
     const host = document.createElement('div');
     host.className = 'prose';
     host.innerHTML =
-      '<div class="image-node"><div class="group relative inline-block max-w-full" style="width:200px">' +
+      '<div class="image-node"><div class="group relative inline-block max-w-full" style="width:200px"><div class="relative">' +
       '<div id="clip" class="relative overflow-hidden h-auto w-full"><img id="clipped" class="w-full h-auto" src="/pwa-512x512.png" style="aspect-ratio:1"></div>' +
-      '</div></div>';
+      '</div></div></div>';
     document.body.appendChild(host);
     const img = document.getElementById('clipped')!;
     const wrap = document.getElementById('clip')!;
