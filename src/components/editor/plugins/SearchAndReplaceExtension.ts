@@ -1,4 +1,5 @@
 import { Extension } from '@tiptap/core';
+import type { Editor } from '@tiptap/core';
 import { Plugin, PluginKey } from '@tiptap/pm/state';
 import type { Transaction } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
@@ -122,6 +123,17 @@ function recalculate(
     };
 }
 
+/**
+ * Selects the match and scrolls it to the centre of the note, clear of the find bar that floats at
+ * the top. ProseMirror's own scroll skips a selection that is not in the page's DOM selection,
+ * which is the case while the find input has focus.
+ */
+function revealMatch(editor: Editor, from: number) {
+    editor.commands.setTextSelection(from);
+    const { node } = editor.view.domAtPos(from);
+    (node instanceof Element ? node : node.parentElement)?.scrollIntoView?.({ block: 'center' });
+}
+
 declare module '@tiptap/core' {
     interface Commands<ReturnType> {
         searchAndReplace: {
@@ -234,35 +246,41 @@ export const SearchAndReplace = Extension.create({
 
     addCommands() {
         return {
+            // These set meta on the command's own `tr`: a dispatch of their own inside a chain
+            // makes the chain's final dispatch throw "Applying a mismatched transaction".
             openFind:
                 (term) =>
-                ({ editor }) => {
-                    editor.storage.searchAndReplace.isOpen = true;
-                    editor.storage.searchAndReplace.isReplaceOpen = false;
-                    if (term) editor.storage.searchAndReplace.pendingTerm = term;
-                    editor.view.dispatch(editor.state.tr);
+                ({ editor, tr, dispatch }) => {
+                    if (dispatch) {
+                        editor.storage.searchAndReplace.isOpen = true;
+                        editor.storage.searchAndReplace.isReplaceOpen = false;
+                        if (term) editor.storage.searchAndReplace.pendingTerm = term;
+                        tr.setMeta('searchBar', 'open');
+                    }
                     return true;
                 },
 
             openReplace:
                 () =>
-                ({ editor }) => {
-                    editor.storage.searchAndReplace.isOpen = true;
-                    // A read-only note can be searched but not replaced in.
-                    editor.storage.searchAndReplace.isReplaceOpen = editor.isEditable;
-                    editor.view.dispatch(editor.state.tr);
+                ({ editor, tr, dispatch }) => {
+                    if (dispatch) {
+                        editor.storage.searchAndReplace.isOpen = true;
+                        // A read-only note can be searched but not replaced in.
+                        editor.storage.searchAndReplace.isReplaceOpen = editor.isEditable;
+                        tr.setMeta('searchBar', 'open');
+                    }
                     return true;
                 },
 
             closeSearch:
                 () =>
-                ({ editor }) => {
-                    editor.storage.searchAndReplace.isOpen = false;
-                    editor.storage.searchAndReplace.isReplaceOpen = false;
-                    editor.storage.searchAndReplace.pendingTerm = null;
-                    editor.view.dispatch(
-                        editor.state.tr.setMeta(searchPluginKey, { type: 'clear' } as SearchMeta),
-                    );
+                ({ editor, tr, dispatch }) => {
+                    if (dispatch) {
+                        editor.storage.searchAndReplace.isOpen = false;
+                        editor.storage.searchAndReplace.isReplaceOpen = false;
+                        editor.storage.searchAndReplace.pendingTerm = null;
+                        tr.setMeta(searchPluginKey, { type: 'clear' } as SearchMeta);
+                    }
                     return true;
                 },
 
@@ -282,15 +300,11 @@ export const SearchAndReplace = Extension.create({
 
             goToCurrentMatch:
                 () =>
-                ({ editor, state, commands }) => {
+                ({ editor, state }) => {
                     const pluginState = searchPluginKey.getState(state) as SearchPluginState | undefined;
                     const match = pluginState?.results[pluginState.currentIndex];
                     if (!match) return false;
-                    commands.setTextSelection(match.from);
-                    // ProseMirror's own scroll skips a selection that is not in the page's DOM
-                    // selection, which is the case while the find input has focus.
-                    const { node } = editor.view.domAtPos(match.from);
-                    (node instanceof Element ? node : node.parentElement)?.scrollIntoView?.({ block: 'center' });
+                    revealMatch(editor, match.from);
                     return true;
                 },
 
@@ -306,7 +320,7 @@ export const SearchAndReplace = Extension.create({
 
                     const newState = searchPluginKey.getState(editor.state) as SearchPluginState | undefined;
                     if (newState && newState.currentIndex >= 0 && newState.results[newState.currentIndex]) {
-                        editor.chain().setTextSelection(newState.results[newState.currentIndex].from).scrollIntoView().run();
+                        revealMatch(editor, newState.results[newState.currentIndex].from);
                     }
 
                     return true;
@@ -324,7 +338,7 @@ export const SearchAndReplace = Extension.create({
 
                     const newState = searchPluginKey.getState(editor.state) as SearchPluginState | undefined;
                     if (newState && newState.currentIndex >= 0 && newState.results[newState.currentIndex]) {
-                        editor.chain().setTextSelection(newState.results[newState.currentIndex].from).scrollIntoView().run();
+                        revealMatch(editor, newState.results[newState.currentIndex].from);
                     }
 
                     return true;
