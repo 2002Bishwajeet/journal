@@ -26,8 +26,14 @@ async function openNarrow(page: Page, width: number): Promise<void> {
   await expect(activeEditor(page)).toBeVisible();
 }
 
+// A click moves the browser's selection at once, but the editor only learns of it on the async
+// selectionchange event. Ctrl+A sent in that gap meets a stale editor state: after a select-all (a bold
+// toggle leaves one), the editor still thinks everything is selected, so its select-all is a no-op
+// and the collapsed click selection stays (#1404). The selection bubble follows the editor's state, so
+// wait for it to hide before pressing the keys.
 async function selectAll(page: Page): Promise<void> {
   await activeEditor(page).click();
+  await expect(bubbleBold(page)).toBeHidden();
   await page.keyboard.press('ControlOrMeta+a');
 }
 
