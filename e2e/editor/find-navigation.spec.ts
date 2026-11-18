@@ -1,5 +1,5 @@
 import { test, expect } from '../fixtures';
-import { createNote, pasteHtml } from '../support/actions';
+import { activeEditor, createNote, pasteHtml } from '../support/actions';
 
 // Find brings the current match into view when typing and on next/previous, also with one result (#1417).
 
@@ -26,16 +26,18 @@ test('typing in Find and Enter on "1 of 1" bring a far match into view', async (
 });
 
 test('a match inside a closed toggle opens it', async ({ app }) => {
-  await createNote(app, { title: 'Toggle note', body: 'start' });
-  await pasteHtml(app, '<div data-type="toggle" data-summary="Hidden"><p>The quuxplorg is inside.</p></div>');
+  await createNote(app, { title: 'Toggle note', body: '/toggle' });
+  await app.keyboard.press('Enter');
+  const toggle = activeEditor(app).locator('[data-type="toggle"]');
+  await toggle.locator('p').click();
+  await app.keyboard.type('The quuxplorg is inside.');
 
-  const toggle = app.locator('[data-type="toggle"]').first();
-  await toggle.getByRole('button', { name: 'Collapse' }).click();
-  await expect(toggle.getByRole('button', { name: 'Expand' })).toBeVisible();
+  await toggle.getByRole('button', { name: 'Collapse', exact: true }).click();
+  await expect(toggle.getByText('quuxplorg')).toBeHidden();
 
   await app.keyboard.press('ControlOrMeta+f');
   await app.getByRole('textbox', { name: 'Find in note' }).fill('quuxplorg');
-  await expect(toggle.getByRole('button', { name: 'Collapse' })).toBeVisible();
+  await expect(toggle.getByRole('button', { name: 'Collapse', exact: true })).toBeVisible();
   await expect(app.locator('.search-highlight-current:visible')).toBeInViewport();
 });
 
