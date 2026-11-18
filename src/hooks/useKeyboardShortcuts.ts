@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { activeEditor } from '@/lib/agent/activeEditor';
+import { EDITOR_ESCAPE_EVENT } from '@/lib/editorEscape';
 
 interface KeyboardShortcutsConfig {
     onSearch?: () => void;
@@ -32,7 +33,8 @@ function openInActiveNote(e: KeyboardEvent, command: 'openFind' | 'openReplace')
  * - Cmd/Ctrl+/: Keyboard shortcuts help
  * - Cmd/Ctrl+Shift+T: Open today's daily note
  * - Cmd/Ctrl+F, Cmd/Ctrl+H (findInNote): Find, Find and replace in the open note
- * - Esc: onEscape, unless something else (a dialog, menu or popup) already handled it
+ * - Esc: onEscape, unless something else (a dialog, menu or popup) already handled it. An Esc pressed in
+ *   the note body counts when the editor itself used none of it (ProseMirror prevents every one, #1391).
  */
 export function useKeyboardShortcuts({
     onSearch,
@@ -104,6 +106,10 @@ export function useKeyboardShortcuts({
         };
 
         window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
+        if (onEscape) window.addEventListener(EDITOR_ESCAPE_EVENT, onEscape);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+            if (onEscape) window.removeEventListener(EDITOR_ESCAPE_EVENT, onEscape);
+        };
     }, [onSearch, onNewNote, onSave, onKeyboardHelp, onFocusMode, onDailyNote, onEscape, findInNote]);
 }

@@ -6,13 +6,14 @@ import { createRoot } from 'react-dom/client';
 import type { Editor } from '@tiptap/react';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
 import { registerActiveEditor } from '@/lib/agent/activeEditor';
+import { EDITOR_ESCAPE_EVENT } from '@/lib/editorEscape';
 
 beforeAll(() => {
     (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 });
 
-function Probe({ onFocusMode }: { onFocusMode: () => void }) {
-    useKeyboardShortcuts({ findInNote: true, onFocusMode });
+function Probe({ onFocusMode, onEscape }: { onFocusMode: () => void; onEscape?: () => void }) {
+    useKeyboardShortcuts({ findInNote: true, onFocusMode, onEscape });
     return null;
 }
 
@@ -37,9 +38,9 @@ afterEach(() => {
     unregister = undefined;
 });
 
-async function mount(onFocusMode = vi.fn()) {
+async function mount(onFocusMode = vi.fn(), onEscape?: () => void) {
     const root = createRoot(document.createElement('div'));
-    await act(async () => root.render(h(Probe, { onFocusMode })));
+    await act(async () => root.render(h(Probe, { onFocusMode, onEscape })));
     return { onFocusMode, unmount: () => act(async () => root.unmount()) };
 }
 
@@ -94,5 +95,35 @@ describe('useKeyboardShortcuts findInNote', () => {
         window.dispatchEvent(handled);
         expect(calls).toEqual([]);
         await unmount();
+    });
+});
+
+describe('useKeyboardShortcuts Escape', () => {
+    it('runs onEscape for an Escape nothing else handled', async () => {
+        const onEscape = vi.fn();
+        const { unmount } = await mount(vi.fn(), onEscape);
+        press({ key: 'Escape' });
+        expect(onEscape).toHaveBeenCalledTimes(1);
+        await unmount();
+    });
+
+    it('skips an Escape a dialog or menu consumed', async () => {
+        const onEscape = vi.fn();
+        const { unmount } = await mount(vi.fn(), onEscape);
+        const consumed = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true });
+        consumed.preventDefault();
+        window.dispatchEvent(consumed);
+        expect(onEscape).not.toHaveBeenCalled();
+        await unmount();
+    });
+
+    it("runs onEscape for the editor's unused Escape, which ProseMirror prevented", async () => {
+        const onEscape = vi.fn();
+        const { unmount } = await mount(vi.fn(), onEscape);
+        window.dispatchEvent(new Event(EDITOR_ESCAPE_EVENT));
+        expect(onEscape).toHaveBeenCalledTimes(1);
+        await unmount();
+        window.dispatchEvent(new Event(EDITOR_ESCAPE_EVENT));
+        expect(onEscape).toHaveBeenCalledTimes(1);
     });
 });

@@ -19,6 +19,8 @@ interface EditorPaneProps {
   isManagementView: boolean;
   isEditorVisibleOnMobile: boolean;
   focusMode: boolean;
+  /** Touch layouts and narrow windows: the exit pill and toolbar are showing in focus mode (#1391). */
+  focusChromeShown?: boolean;
   onEnterFocusMode: () => void;
   onExitFocusMode: () => void;
   folderId?: string;
@@ -42,6 +44,7 @@ export function EditorPane({
   isManagementView,
   isEditorVisibleOnMobile,
   focusMode,
+  focusChromeShown,
   onEnterFocusMode,
   onExitFocusMode,
   folderId,
@@ -167,7 +170,7 @@ export function EditorPane({
           ))
         ) : (
           /* Mobile keeps the simple Router Outlet behavior */
-          <Outlet context={{ ...noteScreenActions, focusMode }} />
+          <Outlet context={{ ...noteScreenActions, focusMode, focusChromeShown }} />
         )}
         </Suspense>
         </ErrorBoundary>
