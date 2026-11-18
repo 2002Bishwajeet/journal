@@ -9,12 +9,13 @@
  * which doesn't export a React component in v3.
  */
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useLayoutEffect, useState, useRef } from 'react';
 import type { Editor } from '@tiptap/react';
 import { Bold, Italic, Underline, Code, Link as LinkIcon, Strikethrough, RemoveFormatting } from 'lucide-react';
 import { ToolbarButton, safeEditorCommand } from './shared';
 import { LinkSheet } from './LinkSheet';
 import { useDesktopControls } from '@/hooks';
+import { BUBBLE_MARGIN, placeBubble } from '@/lib/editor/bubblePosition';
 
 interface BubbleMenuToolbarProps {
   editor: Editor;
@@ -26,7 +27,7 @@ export function BubbleMenuToolbar({ editor }: BubbleMenuToolbarProps) {
   const iconSize = 16;
   const [isVisible, setIsVisible] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
-  const [position, setPosition] = useState({ top: 0, left: 0 });
+  const [anchor, setAnchor] = useState({ centerX: 0, top: 0, bottom: 0 });
   const toolbarRef = useRef<HTMLDivElement>(null);
   
   // Only with a mouse or trackpad: a touch device uses the bottom toolbar (#1392)
@@ -66,11 +67,8 @@ export function BubbleMenuToolbar({ editor }: BubbleMenuToolbarProps) {
       const start = view.coordsAtPos(from);
       const end = view.coordsAtPos(to);
       
-      // Calculate center of selection
-      const left = (start.left + end.left) / 2;
-      const top = start.top - 50; // Position above the selection
-      
-      setPosition({ top, left });
+      // The bubble is placed (and clamped to the viewport) once it is measured
+      setAnchor({ centerX: (start.left + end.left) / 2, top: start.top, bottom: end.bottom });
       setIsVisible(true);
     };
 
@@ -83,6 +81,27 @@ export function BubbleMenuToolbar({ editor }: BubbleMenuToolbarProps) {
       editor.off('blur', () => setIsVisible(false));
     };
   }, [editor]);
+
+  // Measure the rendered bubble and keep it inside the viewport (#1398). Written to the
+  // element directly: it runs before paint, so there is no flash at the unclamped spot.
+  useLayoutEffect(() => {
+    const el = toolbarRef.current;
+    if (!el) return;
+    el.style.left = '0px';
+    el.style.top = '0px';
+    const { width, height } = el.getBoundingClientRect();
+    const { left, top } = placeBubble({
+      centerX: anchor.centerX,
+      selectionTop: anchor.top,
+      selectionBottom: anchor.bottom,
+      width,
+      height,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+    });
+    el.style.left = `${left}px`;
+    el.style.top = `${top}px`;
+  }, [anchor, isVisible, isDesktop]);
 
   const toggleBold = () => {
     safeEditorCommand(editor, () => editor.chain().focus().toggleBold().run());
@@ -115,12 +134,10 @@ export function BubbleMenuToolbar({ editor }: BubbleMenuToolbarProps) {
       {isVisible && isDesktop && (
       <div
         ref={toolbarRef}
-        className="fixed z-50 flex items-center gap-0.5 px-2 py-1.5 bg-popover text-popover-foreground backdrop-blur-sm rounded-lg shadow-lg border border-border animate-in fade-in zoom-in-95 duration-150"
-        style={{
-          top: `${position.top}px`,
-          left: `${position.left}px`,
-          transform: 'translateX(-50%)',
-        }}
+        className="fixed z-50 flex flex-wrap items-center gap-0.5 px-2 py-1.5 bg-popover text-popover-foreground backdrop-blur-sm rounded-lg shadow-lg border border-border animate-in fade-in zoom-in-95 duration-150"
+        // Wraps rather than collapsing into a More menu: it is only 7 buttons, so it
+        // overflows only in windows under ~280px, not worth a second menu.
+        style={{ maxWidth: `calc(100vw - ${BUBBLE_MARGIN * 2}px)` }}
         onMouseDown={(e) => e.preventDefault()} // Prevent losing selection
       >
         <ToolbarButton variant={V}
