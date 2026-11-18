@@ -5,6 +5,7 @@ import { PublicNoteImage } from '@/components/share/PublicNoteImage';
 import { EditedImage } from '@/components/EditedImage';
 import { editDataAttrs, editedSize, hasEdits, parseEditData } from '@/lib/images/imageEdits';
 import { readNaturalSize, type PayloadPreview } from '@/lib/images/imageSize';
+import { trackScrollShade } from '@/lib/editor/scrollShade';
 import { parseAttachmentSrc } from '@/lib/utils/attachmentSrc';
 import type { LightboxGallery } from '@/lib/images/lightboxGallery';
 import { CalloutAwareBlockquote } from '@/components/share/CalloutAwareBlockquote';
@@ -171,7 +172,7 @@ function ShareImage({ src, alt, node, width, ...rest }: ComponentProps<'img'> & 
 function ShareTable({ node, ...rest }: ComponentProps<'table'> & ExtraProps) {
     void node;
     return (
-        <div className="tableWrapper">
+        <div className="tableWrapper" ref={trackScrollShade}>
             <table {...rest} />
         </div>
     );

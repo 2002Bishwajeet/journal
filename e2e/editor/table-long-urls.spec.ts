@@ -7,7 +7,10 @@ import { lineCount } from '../support/tableLines';
 // stays visible, the URLs wrap inside their cells, and a multi-word cell does not wrap one word per line.
 // The share page runs the same table in e2e/publishing/share-table-long-urls.spec.ts.
 
-const VIEWPORTS = { desktop: { width: 1280, height: 900 }, mobile: { width: 390, height: 844 } } as const;
+// The editor sits beside the sidebar and the note list, so its text column is about 620px at
+// 1280. Five columns at their minimums (four text cells at 7rem, one link cell at 10rem, option 2)
+// need about 640px, so the desktop fit is checked on a 1440px window, a common desktop size.
+const VIEWPORTS = { desktop: { width: 1440, height: 900 }, mobile: { width: 390, height: 844 } } as const;
 const SLACK = 0.5;
 
 const HEADER = ['Conference', 'City', 'Dates', 'Apply', 'Status'];

@@ -20,7 +20,7 @@ import Superscript from '@tiptap/extension-superscript';
 import TextAlign from '@tiptap/extension-text-align';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 
-import { Table } from '@tiptap/extension-table';
+import { Table, TableView } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
 import { TableCell } from '@tiptap/extension-table-cell';
 import { TableHeader } from '@tiptap/extension-table-header';
@@ -35,12 +35,21 @@ import { Callout } from '../nodes/CalloutNode';
 import { Gallery } from '../nodes/GalleryNode';
 import { Footnote, FootnoteReference, Footnotes } from '../nodes/FootnoteNodes';
 import { parseCodeInfo } from '@2002bishwajeet/live-blocks/core';
+import { trackScrollShade } from '@/lib/editor/scrollShade';
 
 // Re-export FileHandler for use in EditorProvider
 export { FileHandler } from './FileHandler';
 
 // Lowlight for code syntax highlighting. Its grammars load with the first code block (#673).
 const lowlight = createLowlight();
+
+// The table's scroll wrapper shades the edge that has hidden content (#1389).
+class ShadedTableView extends TableView {
+    private stopTracking = trackScrollShade(this.dom);
+    destroy() {
+        this.stopTracking?.();
+    }
+}
 
 // GFM has no headerless table, so an all-empty header line means "no header row" (#446).
 const HeaderlessAwareTable = Table.extend({
@@ -438,6 +447,7 @@ export function createBaseExtensions(options?: ExtensionOptions) {
         HeaderlessAwareTable.configure({
             resizable: true,
             lastColumnResizable: true,
+            View: ShadedTableView,
         }),
 
         TableRow,
