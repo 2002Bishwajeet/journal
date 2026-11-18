@@ -167,7 +167,7 @@ export function EditorPane({
           ))
         ) : (
           /* Mobile keeps the simple Router Outlet behavior */
-          <Outlet context={noteScreenActions} />
+          <Outlet context={{ ...noteScreenActions, focusMode }} />
         )}
         </Suspense>
         </ErrorBoundary>
