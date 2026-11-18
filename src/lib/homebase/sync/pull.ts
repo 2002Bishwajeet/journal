@@ -407,7 +407,9 @@ export async function handleRemoteNote(ctx: SyncContext, remoteFile: HomebaseFil
             shareDescription: content?.shareDescription,
             shareIndexable: content?.shareIndexable,
             shareUnlisted: content?.shareUnlisted,
-            feedPostId: content?.feedPostId,
+            // A copy without it (from before the publish here was pushed) must not drop it:
+            // the next Update on feed would publish a second post (#1414)
+            feedPostId: content?.feedPostId ?? existingDoc?.metadata.feedPostId,
             feedSummary: content?.feedSummary,
             isPublic: content?.isPublic,
             archivalStatus: remoteFile.fileMetadata.appData.archivalStatus ?? 0,
@@ -423,11 +425,14 @@ export async function handleRemoteNote(ctx: SyncContext, remoteFile: HomebaseFil
 
         // Hash what the server holds, not the merged state: a merge that kept unpushed
         // local edits must not match the push's hash early-exit (#442).
-        // A kept folder differs from the server's, so the next push puts it back there.
-        const contentHash = remoteBlob ? await computeContentHash({ ...updatedMetadata, folderId: remoteFolderId }, remoteBlob) : undefined;
+        // A kept folder or feed post id differs from the server's, so the next push puts it back there.
+        const contentHash = remoteBlob
+            ? await computeContentHash({ ...updatedMetadata, folderId: remoteFolderId, feedPostId: content?.feedPostId }, remoteBlob)
+            : undefined;
         // Local edits the server lacks keep the note pending so the next push uploads them.
         const localAhead = existingRecord.syncStatus !== 'synced'
             || folderId !== remoteFolderId
+            || updatedMetadata.feedPostId !== content?.feedPostId
             || (!!mergedBlob && !!remoteBlob && hasChangesMissingFrom(mergedBlob, remoteBlob));
 
         // This header predates a header rewrite made here since it was fetched (a revoke

@@ -19,6 +19,7 @@ import {
     deleteLocalImagesByKeys,
     removePendingImageDeletion,
     setNoteFolderLocal,
+    setFeedPostIdLocal,
 } from '@/lib/db';
 import { computeContentHash } from '@/lib/utils/hash';
 import { serializeKeyHeader, tryJsonParse, validateKeyHeader } from '@/lib/utils';
@@ -361,7 +362,11 @@ async function pushNoteNow(ctx: SyncContext, record: SyncRecord): Promise<void> 
                 const isOwnNote = !record.authorOdinId || record.authorOdinId === ctx.hostIdentity;
                 const serverFolderId = ownersFolderId(
                     await resolveNoteFolderId(freshFile.fileMetadata.appData?.groupId), doc.metadata.folderId, isOwnNote);
-                const mergedMetadata = { ...doc.metadata, folderId: serverFolderId };
+                // A copy from before the note was published elsewhere must not erase the server's
+                // feed post id: the next Update on feed would publish a second post (#1414).
+                const feedPostId = doc.metadata.feedPostId
+                    ?? (await ctx.notesProvider.dsrToContent(freshFile, true))?.feedPostId;
+                const mergedMetadata = { ...doc.metadata, folderId: serverFolderId, feedPostId };
                 const result = await ctx.notesProvider.updateNote(
                     record.localId,
                     freshFile.fileId,
@@ -378,6 +383,7 @@ async function pushNoteNow(ctx: SyncContext, record: SyncRecord): Promise<void> 
                 if (serverFolderId !== doc.metadata.folderId) {
                     await setNoteFolderLocal(record.localId, serverFolderId, doc.metadata.folderId);
                 }
+                if (feedPostId && !doc.metadata.feedPostId) await setFeedPostIdLocal(record.localId, feedPostId);
 
                 // Compute hash for the merged blob
                 const mergedHash = mergedBlob
