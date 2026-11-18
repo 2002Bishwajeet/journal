@@ -70,14 +70,14 @@ function EditorLayout({
   } = useNotes();
   const deviceType = useDeviceType();
   const isDesktop = deviceType === "desktop";
-  // The top toolbar follows the input device, not the width (#1392). Focus mode hides it with the
-  // rest of the chrome in a narrow window; a read-only note has none (its Contents toggle needs the side panel).
-  const topToolbar = useDesktopControls() && (isDesktop || (!focusMode && !readOnly));
   const [tocOpen, setTocOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   // Touch layouts: the header's small title appears once the big one has scrolled out (#825)
   const [titleInView, setTitleInView] = useState(true);
   const screen = useNoteScreenActions();
+  // The top toolbar follows the input device, not the width (#1392). Focus mode hides it with the
+  // rest of the chrome in a narrow window; a read-only note has none (its Contents toggle needs the side panel).
+  const topToolbar = useDesktopControls() && (isDesktop || (!(focusMode || screen?.focusMode) && !readOnly));
   useFindOnOpen(editor, isLoading, isActive);
 
   // Find the selected note metadata from the notes list
