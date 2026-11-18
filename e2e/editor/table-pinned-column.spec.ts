@@ -7,10 +7,12 @@ import { activeEditor, createNote, screenshotInBothThemes } from '../support/act
 
 const VIEWPORTS = { desktop: { width: 1280, height: 900 }, mobile: { width: 390, height: 844 } } as const;
 
+// The first column is short on purpose: a pinned column takes at most 40% of a phone-width wrapper,
+// and auto layout sizes a prose first column up to the 22rem cap, which is wider than that.
 const HEADER = ['Conference', 'City', 'Dates', 'Format', 'Topics', 'Apply', 'Status'];
 const ROWS = [
   [
-    'Open source and cloud native infrastructure conference',
+    'Rootconf',
     'Pune',
     'May',
     'In person talks and workshops for maintainers and platform teams who run production clusters',
@@ -19,7 +21,7 @@ const ROWS = [
     'Open',
   ],
   [
-    'Open source summit for infrastructure engineers',
+    'FOSSASIA',
     'Bangkok',
     'March',
     'Hybrid talks with a recorded track and a live hallway track for everyone who cannot travel',
