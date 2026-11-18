@@ -110,8 +110,12 @@ test('the Summary written before the consent page is kept on the note', async ({
   const dialog = shareDialog(app);
   const field = dialog.getByLabel('Summary', { exact: true });
   await field.fill(summary);
-  // Leaving the field saves it on the note, so the phone layout's sheet shows it too
+  // Leaving the field saves it on the note, so the phone layout's sheet shows it too. The save
+  // remounts the textarea (keyed on the summary), so wait for the replacement before going on.
+  await field.evaluate((el) => el.setAttribute('data-replaced-on-save', ''));
   await field.blur();
+  await expect(field).not.toHaveAttribute('data-replaced-on-save', '');
+  await expect(field).toHaveValue(summary);
   await field.scrollIntoViewIfNeeded();
   await inBothThemes(app, (theme) => shoot(app, `feed-summary-${theme}-1280`));
   await app.setViewportSize(PHONE);
