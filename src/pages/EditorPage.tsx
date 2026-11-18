@@ -78,10 +78,12 @@ function EditorLayout({
   // The top toolbar follows the input device, not the width (#1392). Focus mode hides it with the
   // rest of the chrome in a narrow window; a read-only note has none (its Contents toggle needs the side panel).
   const inFocusMode = focusMode || !!screen?.focusMode;
-  // Focus mode in a narrow window hides the toolbar visually only: it keeps its place, so the note never
-  // jumps and nothing remounts or loses focus or selection when it peeks in and out (#1391).
-  const topToolbar = useDesktopControls() && (isDesktop || !readOnly);
-  const focusHidden = !isDesktop && inFocusMode && !screen?.focusChromeShown;
+  const desktopControls = useDesktopControls();
+  const topToolbar = desktopControls && (isDesktop || (!inFocusMode && !readOnly));
+  // In a narrow window's focus mode the toolbar leaves the flow and overlays the note, so peeking in
+  // and out moves nothing and keeps focus and selection (#1391). It is below the find bar and bubble.
+  const focusToolbar = desktopControls && !isDesktop && inFocusMode && !readOnly;
+  const focusHidden = focusToolbar && !screen?.focusChromeShown;
   useFindOnOpen(editor, isLoading, isActive);
 
   // Find the selected note metadata from the notes list
@@ -183,13 +185,14 @@ function EditorLayout({
       {/* Top Toolbar: below the floating header in the touch layouts */}
       <div
         className={
-          topToolbar
+          focusToolbar
             ? cn(
-                "flex items-center border-b shrink-0 bg-background z-10 w-full",
-                !isDesktop && "pt-(--note-header-h) transition-opacity duration-(--duration-fade) ease-(--ease-standard) motion-reduce:transition-none",
-                focusHidden && "invisible opacity-0",
+                "absolute inset-x-0 top-0 z-10 flex items-center border-b bg-background pt-(--note-header-h) transition-[opacity,visibility] duration-(--duration-fade) ease-(--ease-standard) motion-reduce:transition-none",
+                focusHidden && "invisible opacity-0 pointer-events-none",
               )
-            : "hidden"
+            : topToolbar
+              ? cn("flex items-center border-b shrink-0 bg-background z-10 w-full", !isDesktop && "pt-(--note-header-h)")
+              : "hidden"
         }
       >
         {editor && !readOnly && (

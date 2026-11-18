@@ -87,15 +87,16 @@ test('narrow window: the pill shows on entering, then only at the top edge', asy
   });
 
   await test.step('the mouse at the top edge shows the pill and the toolbar, and they hide again', async () => {
+    const titleBefore = (await activeTitleInput(app).boundingBox())!;
     await reveal(app);
     await expect(pill(app)).toBeVisible();
     await expect(toolbar(app)).toBeVisible();
 
-    // Neither covers the title or the note's text.
+    // The pill covers nothing; the toolbar overlays the note's top with its own background and moves nothing.
     const title = (await activeTitleInput(app).boundingBox())!;
-    const bar = (await toolbar(app).boundingBox())!;
     const exit = (await pill(app).boundingBox())!;
-    for (const box of [bar, exit]) expect(box.y + box.height).toBeLessThanOrEqual(title.y + 1);
+    expect(exit.y + exit.height).toBeLessThanOrEqual(title.y + 1);
+    expect(title.y).toBe(titleBefore.y);
     await screenshotInBothThemes(app, (theme) => `narrow-700-focus-chrome-revealed-${theme}.png`, () => reveal(app));
 
     await app.mouse.move(350, 400);
