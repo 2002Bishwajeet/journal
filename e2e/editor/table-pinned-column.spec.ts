@@ -153,8 +153,10 @@ test('editor: typing, the row menu and the column menu work on a pinned first co
 
   // Typing in a pinned cell: the click lands in it, not in a cell that scrolled under it.
   await cell.click();
-  await app.keyboard.type('PINNED');
-  await expect(cell).toContainText('PINNED');
+  // Two characters: a longer word widens the cell past the 40% limit and the column rightly unpins.
+  await app.keyboard.type('XY');
+  await expect(cell).toContainText('XY');
+  await expect.poll(() => pinned(cfp)).toBe(true);
 
   // Row options on the pinned row.
   await cell.hover();
