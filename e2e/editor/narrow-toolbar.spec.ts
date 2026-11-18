@@ -75,6 +75,8 @@ test('narrow window: focus mode hides the toolbar but keeps the selection bubble
 
     await app.keyboard.press('ControlOrMeta+Shift+KeyF');
     await expect(app.getByRole('button', { name: /Exit Focus/ })).toBeVisible();
+    // The pill and toolbar peek for a moment on entering (#1391); select and format only once they are gone.
+    await expect(app.getByRole('button', { name: /Exit Focus/ })).toBeHidden({ timeout: 8000 });
     await expect(toolbar(app)).toBeHidden();
 
     // The bubble still shows on a selection, and a shortcut still formats it.
