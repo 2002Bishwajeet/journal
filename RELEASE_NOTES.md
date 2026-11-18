@@ -16,6 +16,23 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.73.7 (2026-11-18)
+
+### Changed
+
+- Images in a note keep their size while they load, so the text below them does not jump when you scroll. A small blurred copy of the image shows in its place until the full image arrives. This works in the editor and on the share page.
+- Journal MCP: `get_note` can return `data-width` and `data-height` on an `<img>` tag. They hold the size of the image in pixels. Keep them when you edit the note.
+
+### Fixed
+
+- A table with long links in its cells now fits the note column, and the long links break onto more lines. Before, the last columns were cut off.
+- With a mouse or trackpad, a narrow window now shows the editing toolbar and the format bar on selected text. Tools that do not fit go into a More menu. In focus mode the toolbar hides and the format bar stays.
+- The format bar on selected text now stays fully inside the window, even in narrow windows or when the selection is at the edge of a line. If there is no room above the selection, it appears below it.
+
+### Improved
+
+- In the iOS, Android and Mac apps, approving more access for Journal (publishing to your feed, fixing the journal drive from Diagnostics) now opens your owner console outside the app, in the system browser sheet, and brings you back to where you were when you approve.
+
 ## 2.73.6 (2026-11-17)
 
 ### New
