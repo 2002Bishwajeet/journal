@@ -1,12 +1,15 @@
 import { test, expect } from '../fixtures';
-import { createNote, pasteHtml, screenshotInBothThemes, waitForNoteSaved } from '../support/actions';
+import { activeEditor, pasteHtml, screenshotInBothThemes, waitForNoteSaved } from '../support/actions';
 import { withMobilePage } from '../support/mobile';
 
 // On a phone the Find bar sits under the note header, in view whatever the scroll position (#1419).
 
 test('Find stays in view at the bottom of a long note', async ({ browser }) => {
   await withMobilePage(browser, async (page) => {
-    await createNote(page, { title: 'Long note', body: 'start' });
+    // createNote waits for a note-list row, which a phone hides behind the open note.
+    await page.getByRole('navigation', { name: 'Folders' }).getByRole('button', { name: 'Main' }).tap();
+    await page.getByRole('button', { name: 'New note', exact: true }).tap();
+    await activeEditor(page).tap();
     await pasteHtml(
       page,
       Array.from({ length: 80 }, (_, i) => `<p>Filler paragraph ${i + 1} with words${i % 10 === 0 ? ' zorbleflux' : ''}.</p>`).join(''),
