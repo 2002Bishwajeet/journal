@@ -1,3 +1,14 @@
+## [2.73.9](https://github.com/2002Bishwajeet/journal/compare/v2.73.8...v2.73.9) (2026-11-18)
+
+
+### Bug Fixes
+
+* **images:** read the loaded size before the state update so OdinImage no longer crashes the editor ([#1406](https://github.com/2002Bishwajeet/journal/issues/1406)) ([eeca2d4](https://github.com/2002Bishwajeet/journal/commit/eeca2d4aa76e6e473febafcce303744e952280c4)), closes [#1387](https://github.com/2002Bishwajeet/journal/issues/1387) [#179](https://github.com/2002Bishwajeet/journal/issues/179)
+
+
+### Features
+
+* **tables:** keep the first column in view while a wide table scrolls sideways ([#1390](https://github.com/2002Bishwajeet/journal/issues/1390)) ([28ebd32](https://github.com/2002Bishwajeet/journal/commit/28ebd322d6b38947263a31ee440a22bf8205a3b5))
 ## [2.73.8](https://github.com/2002Bishwajeet/journal/compare/v2.73.7...v2.73.8) (2026-11-18)
 
 

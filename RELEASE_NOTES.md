@@ -16,6 +16,16 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.73.9 (2026-11-18)
+
+### Changed
+
+- When a table is wider than the note, its first column now stays in view while you scroll the other columns sideways. This works in the editor and on shared notes. A table that fits does not change. A first column wider than 40% of the note is not pinned.
+
+### Fixed
+
+- A note cover no longer makes the editor fail to load when its image finishes loading while the page changes size.
+
 ## 2.73.8 (2026-11-18)
 
 ### Changed
