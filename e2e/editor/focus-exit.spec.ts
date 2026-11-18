@@ -52,7 +52,9 @@ for (const width of [1440, 700]) {
     await activeEditor(app).click();
     await app.keyboard.press('Escape');
     await expect(pill(app)).toBeHidden();
-    await expect(app.getByTitle('Focus Mode (Cmd+Shift+F)')).toBeVisible();
+    // The tab bar's Focus Mode button only exists at desktop width; below it the toolbar is back.
+    if (width < 1024) await expect(toolbar(app)).toBeVisible();
+    else await expect(app.getByTitle('Focus Mode (Cmd+Shift+F)')).toBeVisible();
   });
 }
 
