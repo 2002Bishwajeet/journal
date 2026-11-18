@@ -9,6 +9,8 @@ export { expect };
 export const LIVE_STORAGE_STATE = 'e2e/.auth/live.json';
 export const LIVE_PEER_STORAGE_STATE = 'e2e/.auth/live-peer.json';
 export const LIVE_OUTSIDER_STORAGE_STATE = 'e2e/.auth/live-outsider.json';
+// The owner-console password of the Docker tier's throwaway identity, written by e2e/live/ci-bootstrap.ts
+export const LIVE_OWNER_PASSWORD_FILE = 'e2e/.auth/live-owner-password.txt';
 export const LIVE_CIRCLE_NAME = 'E2E collaborators';
 
 // The other two dev identities the e2e/sharing specs need (#676), next to the

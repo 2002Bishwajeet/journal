@@ -1,6 +1,7 @@
 import { request, type Page } from '@playwright/test';
 import { BlogConfig } from '@homebase-id/js-lib/public';
-import { test, expect, liveIdentityOrigin } from '../fixtures';
+import { existsSync, readFileSync } from 'node:fs';
+import { test, expect, liveIdentityOrigin, LIVE_OWNER_PASSWORD_FILE } from '../fixtures';
 import { activeEditor, createNote, waitForNoteSaved } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 import { openShareDialog, shareDialog } from '../support/shareDialog';
@@ -50,13 +51,24 @@ test('publishes a note with an edited image to the feed, with only the edited pi
   const title = `Feed post ${Date.now()}`;
   await createNote(page, { title, body: 'A note for the feed.' });
 
-  // Paste the picture, then crop 16:9, rotate right and flip horizontally
-  await activeEditor(page).evaluate((el, html) => {
+  // Paste the picture as a JPEG file, as a screenshot paste does: a pasted <img src="data:…"> stays
+  // inline and is never uploaded, so it can't be published. Then crop 16:9, rotate right and flip.
+  await activeEditor(page).evaluate(async (el, svg) => {
+    const img = new Image();
+    img.src = `data:image/svg+xml;base64,${btoa(svg)}`;
+    await img.decode();
+    const canvas = document.createElement('canvas');
+    [canvas.width, canvas.height] = [img.naturalWidth, img.naturalHeight];
+    canvas.getContext('2d')!.drawImage(img, 0, 0);
+    const jpeg = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.95));
     const data = new DataTransfer();
-    data.setData('text/html', html);
+    data.items.add(new File([jpeg], 'quadrants.jpg', { type: 'image/jpeg' }));
     el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
-  }, `<img src="data:image/svg+xml;base64,${Buffer.from(PICTURE).toString('base64')}" alt="Quadrants" width="320">`);
-  const img = activeEditor(page).locator('img[alt="Quadrants"]');
+  }, PICTURE);
+  const img = activeEditor(page).locator('.image-node img').first();
+  await expect(img).toBeVisible();
+  // Uploaded: the pending label ("Uploading…") clears once the node is promoted to an attachment
+  await expect(activeEditor(page).getByTestId('pending-image-label')).toBeHidden({ timeout: 120_000 });
   await img.click();
   await page.getByRole('button', { name: 'Edit image' }).click();
   const editDialog = page.getByRole('dialog', { name: 'Edit image' });
@@ -66,25 +78,30 @@ test('publishes a note with an edited image to the feed, with only the edited pi
   await editDialog.getByRole('button', { name: 'Apply' }).click();
   await expect(editDialog).toBeHidden();
   await waitForNoteSaved(page);
-  // Uploaded: "Uploading…" clears once the node is promoted to an attachment. The uploader then
-  // shows its own kept copy (#179), so the <img> is no sign of the upload; "Upload failed" is.
-  await expect(activeEditor(page).getByText('Uploading…')).toBeHidden({ timeout: 120_000 });
-  await expect(activeEditor(page).getByText('Upload failed')).toBeHidden();
   await expect(img).toBeVisible();
 
   // First Publish: the owner console asks for the public channel, then the reopened dialog publishes
   await openShareDialog(page, title);
   await shareDialog(page).getByRole('button', { name: 'Publish to feed' }).click();
-  await page.waitForURL((url) => url.hostname === identity, { timeout: 30_000 });
+  const published = page.getByText('Published to your feed');
+  // The consent page, unless the grant is there already (a retry): then it just publishes
+  await expect(async () => {
+    expect(new URL(page.url()).hostname === identity || (await published.isVisible())).toBe(true);
+  }).toPass({ timeout: 30_000 });
   const appOrigin = new URL(test.info().project.use.baseURL!).origin;
   await expect(async () => {
     if (new URL(page.url()).origin !== appOrigin) {
+      // The console's session can have lapsed: it then asks for the password before the grant page
+      const password = page.getByRole('textbox', { name: 'Password' });
+      if (existsSync(LIVE_OWNER_PASSWORD_FILE) && (await password.isVisible())) {
+        await password.fill(readFileSync(LIVE_OWNER_PASSWORD_FILE, 'utf8'));
+      }
       await page.getByRole('button', { name: /^(Allow|Next|Login)$/ }).first().click({ timeout: 5_000 });
     }
     expect(new URL(page.url()).origin).toBe(appOrigin);
   }).toPass({ timeout: 90_000 });
   await assertTestOrigin(page);
-  await expect(page.getByText('Published to your feed')).toBeVisible({ timeout: 120_000 });
+  await expect(published).toBeVisible({ timeout: 120_000 });
   await expect(shareDialog(page).getByRole('button', { name: 'Update on feed' })).toBeVisible();
 
   // Logged out: find the post on the public channel and read its image payload
@@ -105,7 +122,8 @@ test('publishes a note with an edited image to the feed, with only the edited pi
       return !!post;
     }, { timeout: 60_000, message: 'the post is on the public channel' }).toBe(true);
 
-    const media = post!.fileMetadata.payloads.find((p) => p.key.startsWith('pst_mdi'))!;
+    const media = post!.fileMetadata.payloads.find((p) => p.key.startsWith('pst_mdi'));
+    if (!media) throw new Error(`no pst_mdi payload; payloads: ${JSON.stringify(post!.fileMetadata.payloads.map((p) => p.key))}`);
     const payload = await anon.get(`${origin}/api/guest/v1/drive/files/payload`, {
       params: { alias: drive.alias, type: drive.type, fileId: post!.fileId, key: media.key, lastModified: media.lastModified },
     });
