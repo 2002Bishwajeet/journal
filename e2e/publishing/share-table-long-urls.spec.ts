@@ -2,6 +2,7 @@ import type { Locator } from '@playwright/test';
 import * as Y from 'yjs';
 import { test, expect } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
+import { lineCount } from '../support/tableLines';
 
 // #1384: on the share page a table whose cells hold long bare URLs fits the note
 // column the same way it does in the editor (e2e/editor/table-long-urls.spec.ts).
@@ -13,9 +14,11 @@ const SLACK = 0.5;
 
 const HEADER = ['Conference', 'City', 'Dates', 'Format', 'Apply', 'Fit', 'Status'];
 const ROWS = [
-  ['Rootconf', 'Pune', 'May', 'Talk', 'https://hasgeek.com/rootconf/call-for-submissions-distributed-systems-workshops/', 'High', 'Open'],
-  ['FOSSASIA', 'Bangkok', 'March', 'Workshop', 'https://eventyay.com/e/fossasia-summit-2026/cfs/call-for-proposals-open-source', 'Medium', 'Sent'],
+  ['Open source and cloud native infrastructure conference', 'Pune', 'May', 'Talk', 'https://hasgeek.com/rootconf/call-for-submissions-distributed-systems-workshops/', 'High', 'Open'],
+  ['Open source summit for infrastructure engineers', 'Bangkok', 'March', 'Workshop', 'https://eventyay.com/e/fossasia-summit-2026/cfs/call-for-proposals-open-source', 'Medium', 'Sent'],
 ];
+// Prose cells of several words: with the URLs broken, they must not sit one word per line.
+const PROSE = ROWS.map((row) => row[0]);
 const URLS = ROWS.map((row) => row[4]);
 
 // The share page reads a public note from its author's identity: canned GETs on a
@@ -104,8 +107,9 @@ for (const theme of THEMES) {
         const last = await box(table.locator('th').last());
         expect(last.x + last.width).toBeLessThanOrEqual(text.x + text.width + SLACK);
         for (const url of URLS) expect((await box(table.getByRole('link', { name: url }))).height).toBeGreaterThan(30);
-        for (const word of ['High', 'Open']) {
-          expect((await box(table.getByRole('cell', { name: word, exact: true }))).height).toBeLessThan(45);
+        for (const prose of PROSE) {
+          const lines = await lineCount(table.getByRole('cell', { name: prose, exact: true }), table.getByRole('columnheader', { name: 'City', exact: true }));
+          expect(lines).toBeLessThan(prose.split(' ').length);
         }
       }
       expect(await anonPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

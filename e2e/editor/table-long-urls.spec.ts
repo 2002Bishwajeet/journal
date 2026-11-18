@@ -1,9 +1,10 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
 import { activeEditor, createNote, screenshotInBothThemes } from '../support/actions';
+import { lineCount } from '../support/tableLines';
 
 // #1384: a table whose cells hold long bare URLs fits the note column, every column
-// stays visible, the URLs wrap inside their cells, and short columns do not wrap.
+// stays visible, the URLs wrap inside their cells, and a multi-word cell does not wrap one word per line.
 // The share page runs the same table in e2e/publishing/share-table-long-urls.spec.ts.
 
 const VIEWPORTS = { desktop: { width: 1280, height: 900 }, mobile: { width: 390, height: 844 } } as const;
@@ -11,9 +12,11 @@ const SLACK = 0.5;
 
 const HEADER = ['Conference', 'City', 'Dates', 'Format', 'Apply', 'Fit', 'Status'];
 const ROWS = [
-  ['Rootconf', 'Pune', 'May', 'Talk', 'https://hasgeek.com/rootconf/call-for-submissions-distributed-systems-workshops/', 'High', 'Open'],
-  ['FOSSASIA', 'Bangkok', 'March', 'Workshop', 'https://eventyay.com/e/fossasia-summit-2026/cfs/call-for-proposals-open-source', 'Medium', 'Sent'],
+  ['Open source and cloud native infrastructure conference', 'Pune', 'May', 'Talk', 'https://hasgeek.com/rootconf/call-for-submissions-distributed-systems-workshops/', 'High', 'Open'],
+  ['Open source summit for infrastructure engineers', 'Bangkok', 'March', 'Workshop', 'https://eventyay.com/e/fossasia-summit-2026/cfs/call-for-proposals-open-source', 'Medium', 'Sent'],
 ];
+// Prose cells of several words: with the URLs broken, they must not sit one word per line.
+const PROSE = ROWS.map((row) => row[0]);
 const URLS = ROWS.map((row) => row[4]);
 
 const box = async (locator: Locator) => {
@@ -62,9 +65,10 @@ test('editor: a table with long URLs fits the note column and the URLs wrap in t
       for (const url of URLS) {
         expect((await box(table.getByRole('link', { name: url }))).height).toBeGreaterThan(30);
       }
-      // A short column does not wrap its one word.
-      for (const word of ['High', 'Open']) {
-        expect((await box(table.getByRole('cell', { name: word, exact: true }))).height).toBeLessThan(45);
+      // A multi-word cell has fewer lines than words.
+      for (const prose of PROSE) {
+        const lines = await lineCount(table.getByRole('cell', { name: prose, exact: true }), table.getByRole('columnheader', { name: 'City', exact: true }));
+        expect(lines).toBeLessThan(prose.split(' ').length);
       }
     }
     await expect(table.locator('th')).toHaveCount(HEADER.length);
