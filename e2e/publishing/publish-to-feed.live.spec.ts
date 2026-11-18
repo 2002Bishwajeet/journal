@@ -66,7 +66,8 @@ test('publishes a note with an edited image to the feed, with only the edited pi
     data.items.add(new File([jpeg], 'quadrants.jpg', { type: 'image/jpeg' }));
     el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
   }, PICTURE);
-  const img = activeEditor(page).locator('.image-node img').first();
+  // Not the aria-hidden blur-up preview an uploaded image keeps under the full one: that one can't be clicked
+  const img = activeEditor(page).locator('.image-node img:not([aria-hidden="true"])').first();
   await expect(img).toBeVisible();
   // Uploaded: the pending label ("Uploading…") clears once the node is promoted to an attachment
   await expect(activeEditor(page).getByTestId('pending-image-label')).toBeHidden({ timeout: 120_000 });
