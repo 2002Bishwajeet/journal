@@ -135,7 +135,7 @@ export function BubbleMenuToolbar({ editor }: BubbleMenuToolbarProps) {
       {isVisible && isDesktop && (
       <div
         ref={toolbarRef}
-        className="fixed z-50 flex flex-wrap items-center gap-0.5 px-2 py-1.5 bg-popover text-popover-foreground backdrop-blur-sm rounded-lg shadow-lg border border-border animate-in fade-in zoom-in-95 duration-150"
+        className="fixed z-50 flex flex-wrap items-center gap-0.5 px-2 py-1.5 bg-popover text-popover-foreground backdrop-blur-sm rounded-lg shadow-lg border border-border animate-in fade-in zoom-in-95 duration-150 transition-none"
         // Wraps rather than collapsing into a More menu: it is only 7 buttons, so it
         // overflows only in windows under ~280px, not worth a second menu.
         style={{ maxWidth: `calc(100vw - ${BUBBLE_MARGIN * 2}px)` }}
