@@ -25,6 +25,14 @@ export interface OdinImageProps
   preferObjectUrl?: boolean; // => Prefer image urls over base64; But the objectUrls are never cleared after use;
 
   maxWidth?: string;
+
+  /**
+   * The image's size when the caller knows it (#1387): the box holds this size from the first
+   * paint and keeps it, instead of taking the tiny thumbnail's, then the loaded one's.
+   */
+  initialSize?: ImageSize;
+  /** The thumbnail sizes the caller knows (from the file header), so none has to be fetched to pick one. */
+  thumbSizes?: ImageSize[];
 }
 
 const thumblessContentTypes = ["image/svg+xml", "image/gif"];
@@ -39,6 +47,8 @@ export const OdinImage = ({
   onLoad,
   lazyLoad = true,
   maxWidth,
+  initialSize,
+  thumbSizes,
   ...props
 }: OdinImageProps) => {
   const imgFitClassNames = `${
@@ -65,9 +75,13 @@ export const OdinImage = ({
     undefined
   );
 
-  const [naturalSize, setNaturalSize] = useState<ImageSize | undefined>(
-    previewThumbnail
+  const [naturalSize, setNaturalSizeState] = useState<ImageSize | undefined>(
+    initialSize ?? previewThumbnail
   );
+  // A size the caller gave is final: the tiny thumbnail's and the loaded one's are rounded
+  const setNaturalSize = (update: (old: ImageSize | undefined) => ImageSize | undefined) => {
+    if (!initialSize) setNaturalSizeState(update);
+  };
   const [tinyThumb, setTinyThumb] = useState<ThumbnailMeta | undefined>();
 
   const weDontHaveSourceProps =
@@ -83,7 +97,7 @@ export const OdinImage = ({
       thumblessContentTypes.includes(
         previewThumbnail?.contentType || tinyThumb?.contentType || ""
       ) ||
-      (tinyThumb && !tinyThumb?.sizes?.length)
+      (tinyThumb ? !tinyThumb.sizes?.length : thumbSizes && !thumbSizes.length)
     ) {
       setLoadSize(
         avoidPayload ? { pixelHeight: 200, pixelWidth: 200 } : "full"
@@ -93,7 +107,7 @@ export const OdinImage = ({
 
     setLoadSize(
       pickLoadSize({
-        sizes: tinyThumb?.sizes,
+        sizes: tinyThumb?.sizes ?? thumbSizes,
         cssWidth: previewImgRef.current.clientWidth,
         cssHeight: previewImgRef.current.clientHeight,
         dpr: window.devicePixelRatio,
@@ -104,12 +118,13 @@ export const OdinImage = ({
   };
 
   useEffect(() => {
-    // Once we have the tinyThumb, we can calculate the size
+    // Once we have the tinyThumb, we can calculate the size. An embedded preview loads at
+    // once, so wait for the view too: only the placeholder is eager, the bytes stay lazy (#1387).
     // Note: calculateSize is not in deps because it uses component state that changes,
-    // and we only want to trigger this once when isTinyLoaded becomes true
-    if (isTinyLoaded) calculateSize();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- calculateSize uses complex state/refs, safe to omit from deps as we only want to trigger on isTinyLoaded
-  }, [isTinyLoaded]);
+    // and we only want to trigger this once when both become true
+    if (isTinyLoaded && isInView) calculateSize();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- calculateSize uses complex state/refs, safe to omit from deps as we only want to trigger on isTinyLoaded and isInView
+  }, [isTinyLoaded, isInView]);
 
   if (weDontHaveSourceProps) return null;
 
@@ -206,7 +221,7 @@ export const OdinImage = ({
           }
           onLoad={(e) => {
             // We re-set the natural size as this would be the max size/thumb of the image
-            setNaturalSize(
+            setNaturalSize(() =>
               e.currentTarget.naturalWidth && e.currentTarget.naturalHeight
                 ? {
                     pixelWidth: e.currentTarget.naturalWidth,

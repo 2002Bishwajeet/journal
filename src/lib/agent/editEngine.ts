@@ -18,6 +18,7 @@ import { fragmentToMarkdown } from '@/lib/yjs/fragmentToMarkdown';
 import { footnoteOrder, normalizeFootnotes } from '@/lib/editor/footnotes';
 import { getNewId } from '@/lib/utils';
 import { editAttrs, parseEditData } from '@/lib/images/imageEdits';
+import { naturalSizeAttrs, readNaturalSize } from '@/lib/images/imageSize';
 import { liveBlockKind, parseCodeInfo } from '@2002bishwajeet/live-blocks/core';
 import { CALLOUT_VARIANTS, type CalloutVariant } from '@/components/editor/nodes/calloutVariants';
 import { GALLERY } from '@/components/editor/nodes/GalleryNode';
@@ -72,7 +73,7 @@ const HTML_IMG = /<img\s[^>]*>/g;
 const HTML_ATTR = /([\w-]+)="([^"]*)"/g;
 const unescapeAttr = (v: string) => v.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&amp;/g, '&');
 
-/** `<img src alt title width data-align data-caption data-crop data-rotate data-flip>` (how the serializer writes a sized, aligned, captioned or edited image, #581, #583, #584) to an image node. */
+/** `<img src alt title width data-align data-caption data-width data-height data-crop data-rotate data-flip>` (how the serializer writes a sized, aligned, captioned or edited image, or one that knows its own size, #581, #583, #584, #1387) to an image node. */
 function htmlImage(tag: string): JSONContent | null {
   const a: Record<string, string> = {};
   for (const [, k, v] of tag.matchAll(HTML_ATTR)) a[k] = unescapeAttr(v);
@@ -80,7 +81,8 @@ function htmlImage(tag: string): JSONContent | null {
   const width = parseInt(a.width ?? '', 10);
   const align = ['left', 'center', 'right'].includes(a['data-align']) ? a['data-align'] : null;
   const edits = editAttrs(parseEditData((name) => a[name]));
-  return { type: 'image', attrs: { src: a.src, alt: a.alt ?? null, title: a.title ?? null, width: width > 0 ? width : null, align, caption: a['data-caption'] ?? null, ...edits } };
+  const natural = naturalSizeAttrs(readNaturalSize({ naturalWidth: a['data-width'], naturalHeight: a['data-height'] }));
+  return { type: 'image', attrs: { src: a.src, alt: a.alt ?? null, title: a.title ?? null, width: width > 0 ? width : null, align, caption: a['data-caption'] ?? null, ...natural, ...edits } };
 }
 
 /** The markdown parser leaves raw `<img>` HTML as text: turn it back into image nodes. */

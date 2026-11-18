@@ -14,6 +14,7 @@ import { fakeDotYouClient } from './fakes';
 const { odinImageProps } = vi.hoisted(() => ({ odinImageProps: [] as Record<string, unknown>[] }));
 // The editor's read-only flag (#1211): these notes are editable.
 vi.mock('@/components/editor/EditorContext', () => ({ useEditorContext: () => ({ readOnly: false }) }));
+vi.mock('@/hooks/image/useNoteImagePreviews', () => ({ useNoteImagePreviews: () => undefined }));
 vi.mock('@/components/OdinImage/OdinImage', () => ({
     OdinImage: (props: Record<string, unknown>) => { odinImageProps.push(props); return null; },
 }));

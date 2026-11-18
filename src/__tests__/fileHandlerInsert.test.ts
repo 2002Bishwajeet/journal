@@ -76,6 +76,30 @@ describe('FileHandler insertImageFiles command (toolbar insert)', () => {
         expect(toast.success).not.toHaveBeenCalled();
     });
 
+    it('stores the image size on the node, so its box is held before the bytes load (#1387)', async () => {
+        const close = vi.fn();
+        vi.stubGlobal('createImageBitmap', vi.fn(async () => ({ width: 640, height: 480, close })));
+        try {
+            e.commands.insertImageFiles([file('image/png')]);
+            await vi.waitFor(() => expect(images(e)).toHaveLength(1));
+            expect(images(e)[0]).toMatchObject({ naturalWidth: 640, naturalHeight: 480 });
+            expect(close).toHaveBeenCalled();
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('inserts an image the browser cannot measure without a size (it backfills on load)', async () => {
+        vi.stubGlobal('createImageBitmap', vi.fn(async () => { throw new Error('no decoder'); }));
+        try {
+            e.commands.insertImageFiles([file('image/png')]);
+            await vi.waitFor(() => expect(images(e)).toHaveLength(1));
+            expect(images(e)[0]).toMatchObject({ naturalWidth: null, naturalHeight: null });
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('queues before inserting, so the node never exists without its row', async () => {
         onImageDrop.mockImplementationOnce(async () => { expect(images(e)).toEqual([]); });
         e.commands.insertImageFiles([file('image/png')]);

@@ -111,6 +111,7 @@ export default function SharePage() {
                         identity={decodeURIComponent(identity)}
                         noteFileId={note.fileId}
                         lastModified={note.lastModified}
+                        imagePreviews={note.imagePreviews}
                         blockStates={note.blockStates}
                     />
                 </article>
