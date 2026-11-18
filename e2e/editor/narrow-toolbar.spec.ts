@@ -12,27 +12,6 @@ const more = (page: Page) => toolbar(page).getByRole('button', { name: 'More' })
 const toolbarBold = (page: Page) => toolbar(page).getByTitle('Bold (Cmd+B)');
 const bubbleBold = (page: Page) => page.getByTitle('Bold', { exact: true });
 
-
-// TEMP-DIAG
-async function diag(page: Page, label: string): Promise<void> {
-  const info = await page.evaluate(() => {
-    const a = document.activeElement as HTMLElement | null;
-    const ed = document.querySelector('.ProseMirror') as HTMLElement | null;
-    const sel = window.getSelection();
-    return {
-      editorHtml: ed?.innerHTML.slice(0, 300),
-      selection: sel ? sel.toString() : null,
-      active: a ? { tag: a.tagName, cls: a.className.toString().slice(0, 60), title: a.title } : null,
-      bolds: Array.from(document.querySelectorAll('[title^="Bold"]')).map((el) => {
-        const r = el.getBoundingClientRect();
-        const cs = getComputedStyle(el);
-        return { title: (el as HTMLElement).title, vis: cs.visibility, box: [r.x, r.y, r.width, r.height].map(Math.round), inToolbar: !!el.closest('[role=toolbar]') };
-      }),
-    };
-  });
-  console.log('DIAG ' + label + ' ' + JSON.stringify(info));
-}
-
 // Create a note at a wide size and wait until its own editor shows the body, so a later resize
 // or selection never races a note that is still opening (#1398).
 async function createWideNote(page: Page, title: string, body: string): Promise<void> {
@@ -105,10 +84,8 @@ test('narrow window: focus mode hides the toolbar but keeps the selection bubble
 
     // The bubble still shows on a selection, and a shortcut still formats it.
     await selectAll(app);
-    await diag(app, `${width} after selectAll (focus)`);
     await expect(bubbleBold(app)).toBeVisible();
     await app.keyboard.press('ControlOrMeta+b');
-    await diag(app, `${width} after Cmd+B (focus)`);
     await expect(activeEditor(app).locator('strong')).toHaveText('Quiet narrow body');
     await screenshotInBothThemes(app, (theme) => `narrow-${width}-focus-${theme}.png`);
 
@@ -117,9 +94,7 @@ test('narrow window: focus mode hides the toolbar but keeps the selection bubble
     await expect(app.getByRole('button', { name: /Exit Focus/ })).toBeHidden();
     await expect(toolbar(app)).toBeVisible();
     await selectAll(app);
-    await diag(app, `${width} after exit selectAll`);
     await app.keyboard.press('ControlOrMeta+b');
-    await diag(app, `${width} after exit Cmd+B`);
     await expect(activeEditor(app).locator('strong')).toHaveCount(0);
   }
 });
