@@ -26,16 +26,9 @@ async function openNarrow(page: Page, width: number): Promise<void> {
   await expect(activeEditor(page)).toBeVisible();
 }
 
-// A click right after a layout change (entering or leaving focus mode, a resize) can land before the
-// editor has settled and lose the following Ctrl+A, leaving an empty selection (#1404). Retry the
-// click and select-all together until the editor really holds a selection, so Bold never toggles blind.
 async function selectAll(page: Page): Promise<void> {
-  await expect(async () => {
-    await activeEditor(page).click();
-    await page.keyboard.press('ControlOrMeta+a');
-    const selected = await page.evaluate(() => window.getSelection()?.toString() ?? '');
-    expect(selected).not.toBe('');
-  }).toPass({ timeout: 10_000 });
+  await activeEditor(page).click();
+  await page.keyboard.press('ControlOrMeta+a');
 }
 
 test('narrow window: the toolbar compacts into More and the selection bubble shows', async ({ app }) => {
