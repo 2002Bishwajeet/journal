@@ -110,10 +110,8 @@ test('the Summary written before the consent page is kept on the note', async ({
   const dialog = shareDialog(app);
   const field = dialog.getByLabel('Summary', { exact: true });
   await field.fill(summary);
-  // Leaving the field saves it on the note, so the phone layout's sheet shows it too. The field is
-  // keyed on the saved summary: once the save lands React replaces the textarea with a new one, and
-  // an action that is mid-flight on the old element fails with "Element is not attached to the DOM".
-  // Mark the current element and wait for the locator to resolve to the replacement before going on.
+  // Leaving the field saves it on the note, so the phone layout's sheet shows it too. The save
+  // remounts the textarea (keyed on the summary), so wait for the replacement before going on.
   await field.evaluate((el) => el.setAttribute('data-replaced-on-save', ''));
   await field.blur();
   await expect(field).not.toHaveAttribute('data-replaced-on-save', '');
