@@ -9,7 +9,7 @@ import { Editor } from '@tiptap/core';
 import { yXmlFragmentToProseMirrorRootNode } from 'y-prosemirror';
 import { editorSchema, toMarkdown, createDoc } from '@/lib/agent/editEngine';
 import { createBaseExtensions } from '@/components/editor/plugins/extensions';
-import { naturalSizeAttrs, payloadPreviews, readNaturalSize, sizeToBackfill } from '@/lib/images/imageSize';
+import { naturalSizeAttrs, payloadPreviews, readNaturalSize } from '@/lib/images/imageSize';
 
 const roundTrip = (md: string) => toMarkdown(createDoc(md));
 const imageAttrs = (md: string) => {
@@ -75,24 +75,6 @@ describe('image size in markdown (#1387)', () => {
     expect(attrs).toMatchObject({ width: 320, naturalWidth: 1600, naturalHeight: 900 });
     editor.destroy();
     back.destroy();
-  });
-});
-
-describe('backfilling a size (#1387)', () => {
-  const header = { width: 1600, height: 900 };
-  const loaded = { width: 1280, height: 720 };
-
-  it('does nothing for a node that already has a size', () => {
-    expect(sizeToBackfill({ stored: { width: 800, height: 400 }, fromHeader: header, loaded })).toBeNull();
-  });
-
-  it('takes the size the note file lists for the payload first', () => {
-    expect(sizeToBackfill({ fromHeader: header, loaded })).toEqual(header);
-  });
-
-  it('falls back to the first loaded image, and to nothing while neither is known', () => {
-    expect(sizeToBackfill({ loaded })).toEqual(loaded);
-    expect(sizeToBackfill({})).toBeNull();
   });
 });
 

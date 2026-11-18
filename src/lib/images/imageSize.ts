@@ -5,9 +5,8 @@
  * a size from the note file's payload descriptors (its largest thumbnail), then from the
  * first load.
  */
-import type { CSSProperties } from 'react';
 import type { EmbeddedThumb, ImageSize, PayloadDescriptor } from '@homebase-id/js-lib/core';
-import { editedSize, type ImageEdits, type Size } from './imageEdits';
+import type { Size } from './imageEdits';
 
 /** A positive whole number, or undefined (an attribute may be a string, or missing). */
 function pixels(value: unknown): number | undefined {
@@ -26,16 +25,6 @@ export function readNaturalSize(attrs: { naturalWidth?: unknown; naturalHeight?:
 export function naturalSizeAttrs(size?: Size | null): { naturalWidth: number | null; naturalHeight: number | null } {
     const valid = size && readNaturalSize({ naturalWidth: size.width, naturalHeight: size.height });
     return { naturalWidth: valid ? valid.width : null, naturalHeight: valid ? valid.height : null };
-}
-
-/**
- * What to write onto a node that has no stored size (the one backfill write, in the
- * editor): the payload descriptor's size when the header has it, else the first loaded
- * image's. Null when the node already has one, or nothing is known yet.
- */
-export function sizeToBackfill({ stored, fromHeader, loaded }: { stored?: Size; fromHeader?: Size; loaded?: Size }): Size | null {
-    if (stored) return null;
-    return fromHeader ?? loaded ?? null;
 }
 
 /** The pixel size of an image file, or undefined when the browser can't decode it. */
@@ -83,9 +72,3 @@ export function payloadPreviews(
 
 /** A tiny embedded thumbnail as an <img> src. */
 export const thumbSrc = (thumb: EmbeddedThumb) => `data:${thumb.contentType};base64,${thumb.content}`;
-
-/** CSS `aspect-ratio` of the box an image of `size` shows in, with its crop and turn (#584). */
-export function boxAspect(size: Size, edits?: ImageEdits): CSSProperties['aspectRatio'] {
-    const box = edits ? editedSize(size, edits) : size;
-    return `${box.width} / ${box.height}`;
-}

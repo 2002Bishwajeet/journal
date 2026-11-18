@@ -1,5 +1,4 @@
 import { useEffect, useEffectEvent, type RefObject } from 'react';
-import { sizeToBackfill } from '@/lib/images/imageSize';
 import type { Size } from '@/lib/images/imageEdits';
 
 /**
@@ -25,8 +24,7 @@ export function useBackfillImageSize(
         }
         const measure = (img: HTMLImageElement) => {
             if (img.getAttribute('aria-hidden') === 'true') return;
-            const size = sizeToBackfill({ loaded: { width: img.naturalWidth, height: img.naturalHeight } });
-            if (size && size.width > 0 && size.height > 0) save(size);
+            if (img.naturalWidth > 0 && img.naturalHeight > 0) save({ width: img.naturalWidth, height: img.naturalHeight });
         };
         box.querySelectorAll('img').forEach((img) => img.complete && measure(img));
         // load doesn't bubble, but it does pass through the capture phase.
