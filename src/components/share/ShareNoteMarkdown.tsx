@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom';
 import Markdown, { defaultUrlTransform, type Components, type ExtraProps } from 'react-markdown';
 import { PublicNoteImage } from '@/components/share/PublicNoteImage';
 import { EditedImage } from '@/components/EditedImage';
-import { editDataAttrs, hasEdits, parseEditData } from '@/lib/images/imageEdits';
+import { editDataAttrs, editedSize, hasEdits, parseEditData } from '@/lib/images/imageEdits';
+import { readNaturalSize, type PayloadPreview } from '@/lib/images/imageSize';
+import { parseAttachmentSrc } from '@/lib/utils/attachmentSrc';
 import type { LightboxGallery } from '@/lib/images/lightboxGallery';
 import { CalloutAwareBlockquote } from '@/components/share/CalloutAwareBlockquote';
 import { GalleryAwareDiv } from '@/components/share/GalleryAwareDiv';
@@ -17,6 +19,8 @@ interface SharedNoteRef {
     identity: string;
     noteFileId: string;
     lastModified: number;
+    /** What the note file's header lists for each image payload, by payload key (#1387). */
+    imagePreviews?: Record<string, PayloadPreview>;
 }
 
 /** The note an attachment image loads from, for the module-scope `components` below. */
@@ -30,7 +34,8 @@ const TAP_SLOP = 8;
 
 /** The loaded image, alt text and edits of an image box (null while it is still loading). */
 function lightboxItem(box: HTMLElement) {
-    const img = box.querySelector('img');
+    // Not the aria-hidden placeholder that holds the box while the image loads (#1387)
+    const img = box.querySelector<HTMLImageElement>('img:not([aria-hidden="true"])');
     const src = img?.currentSrc || img?.getAttribute('src');
     if (!img || !src) return null;
     return { src, alt: img.alt, edits: parseEditData((name) => box.getAttribute(name)) };
@@ -63,7 +68,7 @@ function ShareLink({ node, href, ...rest }: ComponentProps<'a'> & ExtraProps) {
 }
 
 function ShareImage({ src, alt, node, width, ...rest }: ComponentProps<'img'> & ExtraProps) {
-    const { identity, noteFileId, lastModified } = useContext(SharedNoteContext);
+    const { identity, noteFileId, lastModified, imagePreviews } = useContext(SharedNoteContext);
     const linked = useContext(InLinkContext);
     // `node` is react-markdown's own extra prop, not a DOM attribute —
     // exclude it before spreading the rest (title, etc.) onto <img>.
@@ -77,6 +82,11 @@ function ShareImage({ src, alt, node, width, ...rest }: ComponentProps<'img'> & 
     const edits = parseEditData((name) => (rest as Record<string, string | undefined>)[name]);
     const edited = hasEdits(edits);
     const imgClass = edited ? 'block h-full w-full' : px ? 'w-full' : undefined;
+    // The image's own size (#1387): from the markdown's data-width / data-height, else the note file's header for notes from before
+    const key = src?.startsWith('attachment://') ? parseAttachmentSrc(src, noteFileId)?.payloadKey : undefined;
+    const preview = key ? imagePreviews?.[key] : undefined;
+    const size = readNaturalSize({ naturalWidth: (rest as Record<string, string | undefined>)['data-width'], naturalHeight: (rest as Record<string, string | undefined>)['data-height'] }) ?? preview?.size;
+    const shown = size && editedSize(size, edits);
     // The lightbox (#1357) shows the image as this page loaded it: the public payload's
     // object URL, or the plain URL. Kept after closing, so the dialog can fade out.
     const [fullSrc, setFullSrc] = useState<string | null>(null);
@@ -91,9 +101,9 @@ function ShareImage({ src, alt, node, width, ...rest }: ComponentProps<'img'> & 
         setOpen(true);
     };
     const picture = src?.startsWith('attachment://') ? (
-        <PublicNoteImage key={src} identity={identity} noteFileId={noteFileId} lastModified={lastModified} src={src} alt={alt} className={imgClass} />
+        <PublicNoteImage key={src} identity={identity} noteFileId={noteFileId} lastModified={lastModified} src={src} alt={alt} className={imgClass} size={size} preview={preview} />
     ) : (
-        <img src={src} alt={alt} loading="lazy" className={imgClass} {...imgRest} />
+        <img src={src} alt={alt} loading="lazy" width={size?.width} height={size?.height} className={imgClass} {...imgRest} />
     );
     return (
         <>
@@ -103,7 +113,15 @@ function ShareImage({ src, alt, node, width, ...rest }: ComponentProps<'img'> & 
                 className={linked ? 'share-wide share-img block' : 'share-wide share-img block cursor-zoom-in'}
                 data-align={align}
                 {...Object.fromEntries(editDataAttrs(edits))}
-                style={px ? ({ '--share-img-width': `${px}px` } as CSSProperties) : undefined}
+                style={
+                    px || shown
+                        ? ({
+                              ...(px && { '--share-img-width': `${px}px` }),
+                              // A row gallery sizes its items by aspect ratio: known now, not once the image loads (#1387)
+                              ...(shown && { '--ar': String(shown.width / shown.height) }),
+                          } as CSSProperties)
+                        : undefined
+                }
                 {...(!linked && {
                     role: 'button',
                     tabIndex: 0,
@@ -126,7 +144,7 @@ function ShareImage({ src, alt, node, width, ...rest }: ComponentProps<'img'> & 
                 })}
             >
                 {edited ? (
-                    <EditedImage key={src} edits={edits}>
+                    <EditedImage key={src} edits={edits} natural={size}>
                         {picture}
                     </EditedImage>
                 ) : (
@@ -179,9 +197,9 @@ interface ShareNoteMarkdownProps extends SharedNoteRef {
 }
 
 /** A shared note's body. Memoized: it re-renders only when the note does, not on scroll-spy updates. */
-export const ShareNoteMarkdown = memo(function ShareNoteMarkdown({ content, identity, noteFileId, lastModified, blockStates }: ShareNoteMarkdownProps) {
+export const ShareNoteMarkdown = memo(function ShareNoteMarkdown({ content, identity, noteFileId, lastModified, imagePreviews, blockStates }: ShareNoteMarkdownProps) {
     return (
-        <SharedNoteContext.Provider value={{ identity, noteFileId, lastModified }}>
+        <SharedNoteContext.Provider value={{ identity, noteFileId, lastModified, imagePreviews }}>
             <LiveBlockStatesContext.Provider value={blockStates ?? {}}>
                 <Markdown
                     remarkPlugins={shareRemarkPlugins}

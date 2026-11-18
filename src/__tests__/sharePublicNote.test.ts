@@ -84,6 +84,36 @@ describe('ShareProvider.getPublicNote', () => {
         expect(note!.fileId).toBe('file-xyz');
     });
 
+    it('lists each image payload\'s tiny thumbnail and size from the header, so the page can hold their boxes (#1387)', async () => {
+        const h = header();
+        const tiny = { contentType: 'image/jpeg', content: 'AAAA', pixelWidth: 20, pixelHeight: 11 };
+        mockGetHeader.mockResolvedValue({
+            ...h,
+            fileMetadata: {
+                ...h.fileMetadata,
+                payloads: [
+                    { key: 'jrnl_txt', thumbnails: [] },
+                    { key: 'jrnl_img0', previewThumbnail: tiny, thumbnails: [{ contentType: 'image/webp', pixelWidth: 1600, pixelHeight: 900 }] },
+                ],
+            },
+        });
+        mockGetPayload.mockResolvedValue({ bytes: new Uint8Array([1, 2, 3]) });
+
+        const note = await shareProvider.getPublicNote(IDENTITY, NOTE_ID);
+
+        expect(Object.keys(note!.imagePreviews!)).toEqual(['jrnl_img0']);
+        expect(note!.imagePreviews!.jrnl_img0).toMatchObject({ thumb: tiny, size: { width: 1600, height: 900 } });
+    });
+
+    it('has no image previews for a note without image payloads', async () => {
+        mockGetHeader.mockResolvedValue(header());
+        mockGetPayload.mockResolvedValue({ bytes: new Uint8Array([1, 2, 3]) });
+
+        const note = await shareProvider.getPublicNote(IDENTITY, NOTE_ID);
+
+        expect(note!.imagePreviews).toBeUndefined();
+    });
+
     it('uses the file modified time as updatedAt for an owner note (no transitUpdated)', async () => {
         const updated = 1710000000000;
         const h = header();

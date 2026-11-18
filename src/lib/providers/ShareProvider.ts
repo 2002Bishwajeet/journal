@@ -14,6 +14,7 @@ import { parseAttachmentSrc } from '@/lib/utils/attachmentSrc';
 import type { NoteFileContent } from '@/types';
 import { JOURNAL_DRIVE, PAYLOAD_KEY_CONTENT } from '@/lib/homebase/config';
 import { httpStatus } from '@/lib/homebase/httpStatus';
+import { payloadPreviews, type PayloadPreview } from '@/lib/images/imageSize';
 
 export interface SharedNoteData {
     title: string;
@@ -25,6 +26,8 @@ export interface SharedNoteData {
     cover?: { src: string; positionY: number; dark?: { src: string; positionY: number } };
     /** Saved state of the note's html and react blocks (#410), as JSON text per block id. */
     blockStates?: Record<string, string>;
+    /** The tiny thumbnail and sizes of each image payload, from the file's header (#1387), by payload key. */
+    imagePreviews?: Record<string, PayloadPreview>;
     createdAt: string;
     updatedAt: string;
 }
@@ -124,6 +127,8 @@ export class ShareProvider {
             console.warn('[ShareProvider] Failed to fetch shared note payload:', err);
         }
 
+        const imagePreviews = payloadPreviews(header.fileMetadata.payloads);
+
         return {
             title,
             content: markdown,
@@ -131,6 +136,7 @@ export class ShareProvider {
             lastModified,
             ...(cover ? { cover } : {}),
             ...(blockStates && Object.keys(blockStates).length > 0 ? { blockStates } : {}),
+            ...(Object.keys(imagePreviews).length > 0 ? { imagePreviews } : {}),
             createdAt: new Date(header.fileMetadata.appData.userDate || Date.now()).toISOString(),
             // `updated` is the file's modified time; `transitUpdated` is only set for
             // files received over transit, never for the owner's own notes.

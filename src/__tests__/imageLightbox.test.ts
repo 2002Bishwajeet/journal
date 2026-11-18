@@ -10,6 +10,7 @@ import type { NodeViewProps } from '@tiptap/react';
 
 // The editor's read-only flag (#1211): these notes are editable.
 vi.mock('@/components/editor/EditorContext', () => ({ useEditorContext: () => ({ readOnly: false }) }));
+vi.mock('@/hooks/image/useNoteImagePreviews', () => ({ useNoteImagePreviews: () => undefined }));
 vi.mock('@/components/OdinImage/OdinImage', () => ({ OdinImage: () => null }));
 vi.mock('@/hooks/usePendingImage', () => ({ usePendingImage: () => ({ url: 'blob:restored', state: 'uploading' as const }) }));
 vi.mock('@/hooks/useSyncService', () => ({ useSyncService: () => ({ sync: async () => {} }) }));

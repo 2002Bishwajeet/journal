@@ -18,6 +18,7 @@ const m = vi.hoisted(() => ({
 // The editor's read-only flag (#1211): editable unless a case says otherwise.
 const editorContext = vi.hoisted(() => ({ readOnly: false }));
 vi.mock('@/components/editor/EditorContext', () => ({ useEditorContext: () => editorContext }));
+vi.mock('@/hooks/image/useNoteImagePreviews', () => ({ useNoteImagePreviews: () => undefined }));
 vi.mock('@/hooks/usePendingImage', () => ({ usePendingImage: () => m.pending }));
 vi.mock('@/hooks/useSyncService', () => ({ useSyncService: () => ({ sync: m.sync }) }));
 vi.mock('@/lib/db', () => ({ retryPendingImageUploadNow: m.retry, deletePendingImageUpload: m.remove }));

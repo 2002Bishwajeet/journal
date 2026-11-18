@@ -7,7 +7,7 @@
  * - Regular URLs/base64: Standard img tag
  */
 
-import { useContext, useRef, useState, type ReactNode } from "react";
+import { useContext, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
 import { yUndoPluginKey } from "y-prosemirror";
 import { AlignCenter, AlignLeft, AlignRight, ArrowLeft, ArrowRight, Captions, Crop, Download, ImageUp, Loader2, Maximize2, MoreHorizontal } from "lucide-react";
@@ -18,6 +18,8 @@ import { cn } from "@/lib/utils";
 import { deletePendingImageUpload, retryPendingImageUploadNow } from "@/lib/db";
 import { usePendingImage } from "@/hooks/usePendingImage";
 import { useLocalImage } from "@/hooks/image/useLocalImage";
+import { useNoteImagePreviews } from "@/hooks/image/useNoteImagePreviews";
+import { useBackfillImageSize } from "@/hooks/image/useBackfillImageSize";
 import { useSyncService } from "@/hooks/useSyncService";
 import { useImageDownload } from "@/hooks/image/useImageDownload";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -25,7 +27,9 @@ import { Input } from "@/components/ui/input";
 import { ActionSheet } from "@/components/ui/action-sheet";
 import type { ContextMenuItemConfig } from "@/components/ui/context-menu-wrapper";
 import { EditedImage } from "@/components/EditedImage";
-import { editAttrs, editDataAttrs, hasEdits, readEdits, type ImageEdits } from "@/lib/images/imageEdits";
+import { editAttrs, editDataAttrs, editedSize, hasEdits, readEdits, type ImageEdits, type Size } from "@/lib/images/imageEdits";
+import { naturalSizeAttrs, readNaturalSize, type PayloadPreview } from "@/lib/images/imageSize";
+import { ImagePlaceholder } from "@/components/ImagePlaceholder";
 import type { LightboxGallery } from "@/lib/images/lightboxGallery";
 import {
   ALIGN_STYLE,
@@ -77,29 +81,35 @@ function AttachmentImage({
   payloadKey,
   imgClass,
   alt,
+  size,
+  thumb,
   children,
 }: {
   fileId: string;
   payloadKey: string;
   imgClass: string;
   alt: string;
+  size?: Size;
+  thumb?: PayloadPreview["thumb"];
   children: ReactNode;
 }) {
   const url = useLocalImage(fileId, payloadKey);
   // Still looking: mounting the server image now would start a fetch the local copy may make useless
-  if (url === undefined) return null;
-  return url ? <img src={url} alt={alt} className={imgClass} /> : children;
+  if (url === undefined) return size ? <ImagePlaceholder size={size} thumb={thumb} className={imgClass} /> : null;
+  return url ? <img src={url} alt={alt} width={size?.width} height={size?.height} className={imgClass} /> : children;
 }
 
 function PendingImage({
   pendingId,
   imgClass,
   alt,
+  size,
   onRemove,
 }: {
   pendingId: string;
   imgClass: string;
   alt: string;
+  size?: Size;
   /** Left out in a read-only editor: no Retry or Remove, as Remove deletes the node (#1211). */
   onRemove?: () => void;
 }) {
@@ -126,7 +136,11 @@ function PendingImage({
 
   return (
     <>
-      {url && <img src={url} alt={alt} className={cn(imgClass, "opacity-70")} />}
+      {url ? (
+        <img src={url} alt={alt} width={size?.width} height={size?.height} className={cn(imgClass, "opacity-70")} />
+      ) : (
+        size && <ImagePlaceholder size={size} className={cn(imgClass, "opacity-70")} />
+      )}
       <div
         contentEditable={false}
         // Clicking Retry/Remove must not move the selection onto the image.
@@ -179,6 +193,13 @@ export function ImageNodeView({
   const mode = imageRenderMode(src, pendingId);
   const edits = readEdits(node.attrs);
   const edited = hasEdits(edits);
+  // The image's own size (#1387): stored on the node, else what the note file's header lists for
+  // its payload (a note from before), so its box is held before the bytes arrive.
+  const stored = readNaturalSize(node.attrs);
+  const [attachmentFileId, attachmentKey] = mode === "attachment" ? src.replace("attachment://", "").split("/") : [];
+  // A note shared with you is on the author's drive: no header read for it
+  const preview = useNoteImagePreviews(owner ? undefined : attachmentFileId)?.[attachmentKey];
+  const size = stored ?? preview?.size;
   const [lightboxOpen, setLightboxOpen] = useState(false);
   // The gallery the viewer steps through, read when it opens: this view doesn't re-render when a neighbour moves.
   const [lightboxGallery, setLightboxGallery] = useState<LightboxGallery>();
@@ -227,6 +248,14 @@ export function ImageNodeView({
     updateAttributes(editAttrs(next));
     undoManager?.stopCapturing();
   };
+  // One quiet write, not an undo step: Ctrl+Z must not take back a size nobody typed
+  const writeSize = (next: Size) => {
+    const at = getPos();
+    const current = at === undefined ? null : editor.state.doc.nodeAt(at);
+    if (editor.isDestroyed || !current || current.type.name !== "image") return;
+    editor.view.dispatch(editor.state.tr.setNodeMarkup(at!, undefined, { ...current.attrs, ...naturalSizeAttrs(next) }).setMeta("addToHistory", false));
+  };
+  useBackfillImageSize(boxRef, { enabled: editable, stored, fromHeader: preview?.size, write: writeSize });
   const saveAlt = (value: string) => updateAttributes({ alt: value.trim() || null });
   // Skips unchanged text so a blur after "Hide caption" can't turn "" back into null.
   const saveCaption = (value: string) => {
@@ -504,13 +533,13 @@ export function ImageNodeView({
     // Mode "pending": not uploaded yet. The blob: src dies with the tab, so the
     // bytes come from the local upload queue instead.
     if (mode === "pending" && pendingId) {
-      return <PendingImage pendingId={pendingId} imgClass={cls} alt={alt} onRemove={editable ? deleteNode : undefined} />;
+      return <PendingImage pendingId={pendingId} imgClass={cls} alt={alt} size={size} onRemove={editable ? deleteNode : undefined} />;
     }
     // Mode "attachment": remote image (attachment://fileId/payloadKey)
     if (mode === "attachment") {
       const [fileId, payloadKey] = src.replace("attachment://", "").split("/");
       return (
-        <AttachmentImage fileId={fileId} payloadKey={payloadKey} imgClass={cls} alt={alt}>
+        <AttachmentImage fileId={fileId} payloadKey={payloadKey} imgClass={cls} alt={alt} size={size} thumb={preview?.thumb}>
           <OdinImage
             dotYouClient={dotYouClient}
             odinId={owner}
@@ -521,12 +550,16 @@ export function ImageNodeView({
             className={cls}
             // In a frame the image is scaled past its own size to fill the crop
             maxWidth={framed ? "none" : undefined}
+            // The size and tiny thumbnail are held from the first paint (#1387); the thumbnail only with the size, as its own is rounded to a few pixels
+            initialSize={size && { pixelWidth: size.width, pixelHeight: size.height }}
+            previewThumbnail={size ? preview?.thumb : undefined}
+            thumbSizes={preview?.sizes}
           />
         </AttachmentImage>
       );
     }
     // Mode "plain": regular URL or base64
-    return <img src={src} alt={alt} className={cls} />;
+    return <img src={src} alt={alt} width={size?.width} height={size?.height} className={cls} />;
   };
 
   const resizable = (children: ReactNode) => (
@@ -613,12 +646,19 @@ export function ImageNodeView({
     </div>
   );
 
+  const shown = size && editedSize(size, edits);
   return (
-    <NodeViewWrapper className="image-node" data-drag-handle {...Object.fromEntries(editDataAttrs(edits))}>
+    <NodeViewWrapper
+      className="image-node"
+      data-drag-handle
+      {...Object.fromEntries(editDataAttrs(edits))}
+      // A row gallery shares a height by each item's aspect ratio: known now, not once it loads (#1387)
+      style={inGallery && shown ? ({ "--ar": String(shown.width / shown.height) } as CSSProperties) : undefined}
+    >
       {resizable(
         edited ? (
           // Keyed by src: a replaced image is measured afresh
-          <EditedImage key={src} edits={edits}>
+          <EditedImage key={src} edits={edits} natural={size}>
             {renderImage(fillClass, true)}
           </EditedImage>
         ) : (

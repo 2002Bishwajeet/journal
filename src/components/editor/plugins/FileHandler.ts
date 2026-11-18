@@ -14,6 +14,7 @@ import { prepareImageForUpload, UnsupportedImageError } from '@/lib/images/image
 import { GALLERY } from '../nodes/GalleryNode';
 import { editAttrs, NO_EDITS } from '@/lib/images/imageEdits';
 import { imageRoom, imageLimitMessage } from '@/lib/images/payloadLimit';
+import { measureImage, naturalSizeAttrs } from '@/lib/images/imageSize';
 
 export interface FileHandlerOptions {
     /** Maximum file size in MB */
@@ -40,7 +41,7 @@ declare module '@tiptap/core' {
 }
 
 /** Validate, process and queue a file; null (after a toast) when it can't be used. */
-async function queueImageFile(options: FileHandlerOptions, file: File): Promise<{ processed: File; pendingId: string } | null> {
+async function queueImageFile(options: FileHandlerOptions, file: File): Promise<{ processed: File; pendingId: string; sizeAttrs: ReturnType<typeof naturalSizeAttrs> } | null> {
     const { maxSizeMB, allowedTypes, onImageDrop, imagesReadOnly } = options;
 
     // Otherwise the upload would be queued and could never succeed
@@ -86,7 +87,8 @@ async function queueImageFile(options: FileHandlerOptions, file: File): Promise<
         toast.error('Failed to queue image for upload');
         return null;
     }
-    return { processed, pendingId };
+    // The node holds this size from its first paint (#1387); none for a file the browser can't measure
+    return { processed, pendingId, sizeAttrs: naturalSizeAttrs(await measureImage(processed)) };
 }
 
 /** The files that fit under Homebase's payload limit; toasts when some are left out. */
@@ -99,13 +101,14 @@ function withinPayloadLimit(editor: Editor, files: File[]): File[] {
 async function processImageFile(editor: Editor, options: FileHandlerOptions, file: File, pos?: number): Promise<boolean> {
     const queued = await queueImageFile(options, file);
     if (!queued || editor.isDestroyed) return false;
-    const { processed, pendingId } = queued;
+    const { processed, pendingId, sizeAttrs } = queued;
 
     const content = {
         type: 'image',
         attrs: {
             src: URL.createObjectURL(processed),
             'data-pending-id': pendingId,
+            ...sizeAttrs,
         },
     };
 
@@ -127,7 +130,7 @@ async function insertDroppedImages(editor: Editor, options: FileHandlerOptions, 
     for (const file of withinPayloadLimit(editor, files)) {
         const queued = await queueImageFile(options, file);
         if (queued) {
-            images.push({ type: 'image', attrs: { src: URL.createObjectURL(queued.processed), 'data-pending-id': queued.pendingId } });
+            images.push({ type: 'image', attrs: { src: URL.createObjectURL(queued.processed), 'data-pending-id': queued.pendingId, ...queued.sizeAttrs } });
         }
     }
     if (!images.length || editor.isDestroyed) return;
@@ -161,6 +164,7 @@ async function replaceImageFile(editor: Editor, options: FileHandlerOptions, pos
             ...editAttrs(NO_EDITS),
             src: URL.createObjectURL(queued.processed),
             'data-pending-id': queued.pendingId,
+            ...queued.sizeAttrs,
         }),
     );
     undoManager?.stopCapturing();

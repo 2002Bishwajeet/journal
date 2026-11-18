@@ -484,12 +484,14 @@ li[data-type='footnote'] > [data-footnote-backref] {
 }
 
 /* OdinImage clips (overflow-hidden) to the img's height, so an attachment's img
-   margin would push its bottom out of view (#552): the spacing goes on the clip box. */
+   margin would push its bottom out of view (#552): the spacing goes on the clip box.
+   The box's inner div.relative sits between the box and the clip box, so every image
+   (placeholder, kept copy or server) holds the same 1.5rem and none shifts the page (#1387). */
 .prose .image-node .overflow-hidden img {
   margin: 0;
 }
 
-.prose .image-node > div > .overflow-hidden {
+.prose .image-node > div > div > .overflow-hidden {
   margin: 1.5rem 0;
 }
 
@@ -594,7 +596,7 @@ img.ProseMirror-separator {
 
 .prose [data-gallery] img,
 .prose [data-gallery] .image-edit,
-.prose [data-gallery] .image-node > div > .overflow-hidden {
+.prose [data-gallery] .image-node > div > div > .overflow-hidden {
   width: 100%;
   margin: 0;
 }

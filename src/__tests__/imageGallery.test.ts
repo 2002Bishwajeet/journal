@@ -187,6 +187,15 @@ describe('gallery item aspect (#607)', () => {
     stop();
   });
 
+  it('ignores an aria-hidden preview or placeholder: its size is rounded or a stand-in (#1387)', () => {
+    const root = setup();
+    root.querySelector('img')!.setAttribute('aria-hidden', 'true');
+    const stop = watchGalleryAspect(root);
+    expect(root.querySelectorAll<HTMLElement>('.item')[0].style.getPropertyValue('--ar')).toBe('');
+    expect(ar(root, 1)).toBeCloseTo(0.5);
+    stop();
+  });
+
   it('re-flows when the edit attributes change', async () => {
     const root = setup();
     const stop = watchGalleryAspect(root);

@@ -3,6 +3,7 @@ import { toCalloutVariant } from '@/components/editor/nodes/calloutVariants';
 import { previewToMarkdown } from '@/lib/editor/linkPreview';
 import { toGalleryColumns } from '@/components/editor/nodes/galleryLayout';
 import { editDataAttrs, readEdits } from '@/lib/images/imageEdits';
+import { readNaturalSize } from '@/lib/images/imageSize';
 
 const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -96,10 +97,11 @@ export function fragmentToMarkdown(
     const caption = node.getAttribute('caption');
     const hasCaption = typeof caption === 'string';
     const edits = editDataAttrs(readEdits(node.getAttributes()));
+    const natural = readNaturalSize(node.getAttributes());
     if (!src) return '';
-    if (width || align || hasCaption || edits.length) {
-      // Width, float, caption and edits have no markdown form: an <img> keeps them (#581, #583, #584); data-caption="" means hidden.
-      const attrs = [['src', src], ['alt', alt], ['title', title], ['width', width], ['data-align', align], ['data-caption', caption], ...edits]
+    if (width || align || hasCaption || edits.length || natural) {
+      // Width, float, caption, edits and the image's own size have no markdown form: an <img> keeps them (#581, #583, #584, #1387); data-caption="" means hidden.
+      const attrs = [['src', src], ['alt', alt], ['title', title], ['width', width], ['data-align', align], ['data-caption', caption], ['data-width', natural?.width], ['data-height', natural?.height], ...edits]
         .filter(([k, v]) => v || (k === 'data-caption' && hasCaption))
         .map(([k, v]) => `${k}="${escapeHtml(String(v))}"`);
       return `<img ${attrs.join(' ')}>`;

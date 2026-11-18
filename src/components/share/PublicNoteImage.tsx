@@ -2,6 +2,9 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { DotYouClient, ApiType, getPayloadBytes } from '@homebase-id/js-lib/core';
 import { JOURNAL_DRIVE } from '@/lib/homebase/config';
 import { parseAttachmentSrc } from '@/lib/utils/attachmentSrc';
+import { ImagePlaceholder } from '@/components/ImagePlaceholder';
+import type { Size } from '@/lib/images/imageEdits';
+import type { PayloadPreview } from '@/lib/images/imageSize';
 
 export interface PublicNoteImageProps {
     identity: string;
@@ -12,6 +15,10 @@ export interface PublicNoteImageProps {
     alt?: string;
     className?: string;
     style?: CSSProperties;
+    /** The image's size, when known: its box is held while the bytes load (#1387). */
+    size?: Size;
+    /** The note file's header entry for this image: the tiny thumbnail shown meanwhile. */
+    preview?: PayloadPreview;
 }
 
 /**
@@ -26,7 +33,7 @@ export interface PublicNoteImageProps {
  * this instance's state (a stale/revoked object URL, or a stale failure)
  * instead of loading the new image.
  */
-export function PublicNoteImage({ identity, noteFileId, src, lastModified, alt, className, style }: PublicNoteImageProps) {
+export function PublicNoteImage({ identity, noteFileId, src, lastModified, alt, className, style, size, preview }: PublicNoteImageProps) {
     const ref = parseAttachmentSrc(src, noteFileId);
     const fileId = ref?.fileId;
     const payloadKey = ref?.payloadKey;
@@ -66,9 +73,16 @@ export function PublicNoteImage({ identity, noteFileId, src, lastModified, alt, 
 
     if (!fileId || !payloadKey || failed) return null;
 
+    const known = size ?? preview?.size;
+
     if (!objectUrl) {
-        return <span className="block h-48 w-full rounded bg-muted animate-pulse" aria-hidden="true" />;
+        // Lazy bytes, eager placeholder: the box and the tiny thumbnail are there before the fetch ends
+        return known ? (
+            <ImagePlaceholder size={known} thumb={preview?.thumb} className={className} />
+        ) : (
+            <span className="block h-48 w-full rounded bg-muted animate-pulse" aria-hidden="true" />
+        );
     }
 
-    return <img src={objectUrl} alt={alt} loading="lazy" className={className} style={style} />;
+    return <img src={objectUrl} alt={alt} loading="lazy" width={known?.width} height={known?.height} className={className} style={style} />;
 }

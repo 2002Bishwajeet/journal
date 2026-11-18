@@ -25,7 +25,8 @@ import { parseAttachmentSrc } from '@/lib/utils/attachmentSrc';
 
 /** The post's own payload keys for the note's images, as the feed's uploader names media. */
 const FEED_MEDIA_KEY_PREFIX = 'pst_mdi';
-const EDIT_ATTRS = ['crop', 'rotate', 'flipH', 'flipV'];
+// The baked image has a different size from the stored one (#1387), so the size goes too
+const EDIT_ATTRS = ['crop', 'rotate', 'flipH', 'flipV', 'naturalWidth', 'naturalHeight'];
 
 export interface FeedArticleInput {
     /** The note body as Tiptap JSON (from its Yjs state). */

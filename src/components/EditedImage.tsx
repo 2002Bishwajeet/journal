@@ -5,6 +5,8 @@ interface EditedImageProps {
   edits: ImageEdits;
   /** Fit the box within this height too (a CSS length); else it is as wide as its container. */
   maxHeight?: string;
+  /** The image's size when it is known before it loads (#1387), so the box is held from the first paint. */
+  natural?: Size;
   /** Drawn over the edited box, e.g. the edit dialog's crop rectangle. */
   overlay?: ReactNode;
   /** The image itself, sized to fill its parent (an <img>, or OdinImage). */
@@ -17,9 +19,9 @@ interface EditedImageProps {
  * inside; until then the image lays out unedited and hidden, so it never flashes
  * the original. Used by the editor, the lightbox, the edit dialog and the share page.
  */
-export function EditedImage({ edits, maxHeight, overlay, children }: EditedImageProps) {
+export function EditedImage({ edits, maxHeight, natural: known, overlay, children }: EditedImageProps) {
   const frameRef = useRef<HTMLDivElement>(null);
-  const [natural, setNatural] = useState<Size | null>(null);
+  const [natural, setNatural] = useState<Size | null>(known ?? null);
 
   useEffect(() => {
     const frame = frameRef.current;

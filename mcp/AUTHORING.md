@@ -113,8 +113,8 @@ In markdown passed to `create_note`, `append_to_note`, `replace_in_note`'s `new_
   path: it costs no tokens.
 - PNG, JPEG or WebP, at most 5 MB each. Metadata such as EXIF and GPS is removed before
   upload. If any image is invalid, the call fails and nothing is written.
-- `get_note` returns an uploaded image as `![alt](attachment://…)`. Keep that as it is to
-  keep the image.
+- `get_note` returns an uploaded image as `![alt](attachment://…)`, or as an `<img>` tag
+  when it has attributes (below). Keep that as it is to keep the image.
 - `https://` image URLs are kept as they are, not fetched or uploaded. A new one with a
   query string or over 100 characters is refused, as are more than 5 new ones in a call,
   because showing the note would send that text to the image's host: save the image to a
@@ -124,7 +124,9 @@ In markdown passed to `create_note`, `append_to_note`, `replace_in_note`'s `new_
 - An image with a width or a float alignment is an HTML tag:
   `<img src="attachment://…" alt="alt" width="320" data-align="right">` (`width` in px,
   `data-align` is `left`, `center` or `right`; either may be left out). `get_note` returns
-  it that way; keep the tag as it is to keep the layout. An image with none of these stays
+  it that way; keep the tag as it is to keep the layout. An image Journal has measured also
+  has `data-width` and `data-height` (its own size in px), which hold its place while it
+  loads: keep them, and leave them out on a new image. An image with none of these stays
   `![alt](src)`.
 - An image shows its alt text centred under it as a caption. `data-caption="Text"` on the
   `<img>` shows that text instead; `data-caption=""` hides the caption. Plain text only.

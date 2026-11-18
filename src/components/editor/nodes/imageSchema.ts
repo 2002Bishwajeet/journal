@@ -6,6 +6,7 @@
  */
 import Image from "@tiptap/extension-image";
 import { editDataAttrs, parseEditData, readEdits } from "@/lib/images/imageEdits";
+import { readNaturalSize } from "@/lib/images/imageSize";
 import { ALIGN_STYLE, type ImageAlign } from "./imageLayout";
 
 export const ImageSchema = Image.extend({
@@ -71,6 +72,19 @@ export const ImageSchema = Image.extend({
         parseHTML: element => parseEditData(name => element.getAttribute(name)).flipV || null,
         // All four render as one set of data attributes.
         renderHTML: attributes => Object.fromEntries(editDataAttrs(readEdits(attributes))),
+      },
+      // The image's own pixel size (#1387), so its box is reserved before the bytes
+      // arrive. Separate from `width`, the drag-resized display width. Written as
+      // data-width / data-height; null on notes from before, which backfill it.
+      naturalWidth: {
+        default: null,
+        parseHTML: element => readNaturalSize({ naturalWidth: element.getAttribute("data-width"), naturalHeight: element.getAttribute("data-height") })?.width ?? null,
+        renderHTML: attributes => (attributes.naturalWidth ? { "data-width": attributes.naturalWidth } : {}),
+      },
+      naturalHeight: {
+        default: null,
+        parseHTML: element => readNaturalSize({ naturalWidth: element.getAttribute("data-width"), naturalHeight: element.getAttribute("data-height") })?.height ?? null,
+        renderHTML: attributes => (attributes.naturalHeight ? { "data-height": attributes.naturalHeight } : {}),
       },
       width: {
         default: null,

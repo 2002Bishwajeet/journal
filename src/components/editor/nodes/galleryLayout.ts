@@ -84,7 +84,8 @@ export function galleryBreaks(layout: GalleryLayout, columns: number | null, cou
  */
 function setItemAspect(img: HTMLImageElement): void {
   const gallery = img.closest('[data-gallery]');
-  if (!gallery || !img.naturalWidth || !img.naturalHeight) return;
+  // A preview or placeholder (aria-hidden) is not the image: its size is rounded or a stand-in (#1387)
+  if (!gallery || !img.naturalWidth || !img.naturalHeight || img.getAttribute('aria-hidden') === 'true') return;
   let item: HTMLElement = img;
   while (item.parentElement && item.parentElement !== gallery) item = item.parentElement;
   const edits = parseEditData((name) => img.closest(`[${name}]`)?.getAttribute(name));
