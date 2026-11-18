@@ -110,6 +110,7 @@ const rule = (selector: string) => css.match(new RegExp(`${selector.replace(/[.\
 describe('table styles', () => {
   it('cap the width of a cell, and give a resized table its dragged widths back', () => {
     expect(rule('.prose th, .prose td')).toMatch(/max-width:\s*22rem/);
+    expect(rule('.prose th, .prose td')).toMatch(/min-width:\s*7rem/);
     expect(rule('.prose table:has(> colgroup > col[style*="width"]:not([style*="min-width"])) :is(th, td)')).toMatch(/max-width:\s*none/);
   });
 

@@ -1007,8 +1007,9 @@ img.ProseMirror-separator {
   max-width: 22rem;
   /* ...and a table of many columns must not squeeze them to fit the note column either:
      auto layout would shrink prose cells toward their longest word. Each column keeps
-     a readable minimum, so a table that cannot fit scrolls inside `.tableWrapper`. */
-  min-width: 10rem;
+     a minimum, so a table that cannot fit scrolls inside `.tableWrapper`. 7rem keeps a
+     3-column table inside a phone column (owner decision 2026-11-18). */
+  min-width: 7rem;
 }
 
 /* A resized table keeps the exact widths the user dragged. */
@@ -1021,10 +1022,15 @@ img.ProseMirror-separator {
    column (#1384). Breaking anywhere would let auto layout crush the column to one
    character, so a cell holding a link keeps a readable minimum width: a table that
    cannot fit then scrolls inside `.tableWrapper` instead of stacking the URL one
-   character per line. Every cell has that minimum now (above). */
+   character per line. Only links: other cells keep the smaller minimum (above). */
 .prose th a,
 .prose td a {
   overflow-wrap: anywhere;
+}
+
+.prose th:has(a),
+.prose td:has(a) {
+  min-width: 10rem;
 }
 
 /* Header cells: a shaded band in a slightly softer ink than the body text, so the

@@ -22,6 +22,10 @@ describe('links in table cells', () => {
     expect(rule?.[1]).toMatch(/min-width:\s*10rem/);
   });
 
+  it('leave text cells a smaller minimum, so a 3-column table fits a phone', () => {
+    expect(declarations('.prose th, .prose td')).toMatch(/min-width:\s*7rem/);
+  });
+
   it('leave ordinary words in a cell unbroken', () => {
     expect(declarations('.prose th, .prose td')).not.toMatch(/overflow-wrap|word-break/);
   });
