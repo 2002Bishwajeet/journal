@@ -38,3 +38,14 @@ test('a match inside a closed toggle opens it', async ({ app }) => {
   await expect(toggle.getByRole('button', { name: 'Collapse' })).toBeVisible();
   await expect(app.locator('.search-highlight-current:visible')).toBeInViewport();
 });
+
+test('a match at the end of a long code line scrolls sideways into view', async ({ app }) => {
+  await createNote(app, { title: 'Code note', body: 'start' });
+  const longLine = 'const padding = "' + 'x'.repeat(600) + '"; // glimmerzonk';
+  await pasteHtml(app, `<pre><code>${longLine}</code></pre>`);
+
+  await app.keyboard.press('ControlOrMeta+f');
+  await app.getByRole('textbox', { name: 'Find in note' }).fill('glimmerzonk');
+  await expect(app.getByRole('search').getByText('1 of 1')).toBeVisible();
+  await expect(app.locator('.search-highlight-current:visible')).toBeInViewport();
+});
