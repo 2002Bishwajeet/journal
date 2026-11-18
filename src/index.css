@@ -957,6 +957,26 @@ img.ProseMirror-separator {
   margin: 1rem 0;
 }
 
+/* A table wider than the column shows which edge has hidden content: that edge fades
+   to a fifth of its strength (#1389). The scrollbar is an overlay on macOS and iOS, so
+   it hides until you scroll. `trackScrollShade` sets the attributes, on the editor's
+   wrapper and on the share page's. A mask is not scrolled with the content, needs no
+   colour for light or dark, and takes no clicks. */
+.prose .tableWrapper[data-shade-end] {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), rgb(0 0 0 / 0.2));
+  mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), rgb(0 0 0 / 0.2));
+}
+
+.prose .tableWrapper[data-shade-start] {
+  -webkit-mask-image: linear-gradient(to right, rgb(0 0 0 / 0.2), #000 2.5rem);
+  mask-image: linear-gradient(to right, rgb(0 0 0 / 0.2), #000 2.5rem);
+}
+
+.prose .tableWrapper[data-shade-start][data-shade-end] {
+  -webkit-mask-image: linear-gradient(to right, rgb(0 0 0 / 0.2), #000 2.5rem, #000 calc(100% - 2.5rem), rgb(0 0 0 / 0.2));
+  mask-image: linear-gradient(to right, rgb(0 0 0 / 0.2), #000 2.5rem, #000 calc(100% - 2.5rem), rgb(0 0 0 / 0.2));
+}
+
 /* No saved column widths: size the columns to their content, up to the column. */
 .prose table {
   width: auto;
@@ -980,6 +1000,16 @@ img.ProseMirror-separator {
   text-align: left;
   position: relative;
   vertical-align: top;
+  /* Auto layout only: one cell of long prose must not take the table over and squeeze
+     the other columns to a word per line (#1389). 22rem is about 60 characters, a
+     readable line; a column of long text wraps there. Short cells still size to
+     their content. */
+  max-width: 22rem;
+}
+
+/* A resized table keeps the exact widths the user dragged. */
+.prose table:has(> colgroup > col[style*="width"]:not([style*="min-width"])) :is(th, td) {
+  max-width: none;
 }
 
 /* A link in a cell may break anywhere: a bare URL has no space to wrap at, and its
