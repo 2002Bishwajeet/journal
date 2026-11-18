@@ -14,7 +14,7 @@ import type { Editor } from '@tiptap/react';
 import { Bold, Italic, Underline, Code, Link as LinkIcon, Strikethrough, RemoveFormatting } from 'lucide-react';
 import { ToolbarButton, safeEditorCommand } from './shared';
 import { LinkSheet } from './LinkSheet';
-import { useDeviceType } from '@/hooks';
+import { useDesktopControls } from '@/hooks';
 
 interface BubbleMenuToolbarProps {
   editor: Editor;
@@ -29,9 +29,8 @@ export function BubbleMenuToolbar({ editor }: BubbleMenuToolbarProps) {
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const toolbarRef = useRef<HTMLDivElement>(null);
   
-  // Only show on desktop - mobile uses the bottom toolbar
-  const deviceType = useDeviceType();
-  const isDesktop = deviceType === 'desktop';
+  // Only with a mouse or trackpad: a touch device uses the bottom toolbar (#1392)
+  const isDesktop = useDesktopControls();
 
   // Update visibility and position based on selection
   useEffect(() => {

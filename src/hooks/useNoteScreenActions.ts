@@ -10,6 +10,8 @@ export interface NoteScreenActions {
   onArchive: (note: NoteListEntry) => void;
   onTrash: (docId: string) => void;
   onRemoveFromList: (note: NoteListEntry) => void;
+  /** Focus mode hides the top toolbar in a narrow window; the touch layouts get it here, not as a prop (#1392). */
+  focusMode?: boolean;
 }
 
 /** The layout's actions, or undefined where the editor does not render in the layout's outlet (desktop tabs). */

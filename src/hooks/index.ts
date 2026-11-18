@@ -16,7 +16,7 @@ export { useNoteActions } from './useNoteActions';
 export { useNoteCollaboration } from './useNoteCollaboration';
 export { useThemePreference } from './useThemePreference';
 export type { ThemePreference } from './useThemePreference';
-export { useDeviceType } from './useDeviceType';
+export { useDeviceType, useDesktopControls } from './useDeviceType';
 export type { DeviceType } from './useDeviceType';
 export { useSyncService } from './useSyncService';
 export { useJournalWebsocket } from './useJournalWebsocket';
