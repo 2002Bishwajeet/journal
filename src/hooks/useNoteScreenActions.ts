@@ -12,6 +12,8 @@ export interface NoteScreenActions {
   onRemoveFromList: (note: NoteListEntry) => void;
   /** Focus mode hides the top toolbar in a narrow window; the touch layouts get it here, not as a prop (#1392). */
   focusMode?: boolean;
+  /** In focus mode the header stays hidden; the exit pill and the narrow-window toolbar show only now and then (#1391). */
+  focusChromeShown?: boolean;
 }
 
 /** The layout's actions, or undefined where the editor does not render in the layout's outlet (desktop tabs). */

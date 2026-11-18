@@ -55,6 +55,7 @@ import { useNotes } from "@/hooks/useNotes";
 import { getMobilePane, showNewNoteFab } from "@/layouts/mobilePane";
 import { useTextFieldFocused } from "@/hooks/useTextFieldFocused";
 import { useKeyboardOpen } from "@/hooks/useKeyboardOpen";
+import { useFocusChrome } from "@/hooks/useFocusChrome";
 import { useMobileTabs } from "@/hooks/useMobileTabs";
 import { useDailyNote } from "@/hooks/useDailyNote";
 import { useWelcomeNote } from "@/hooks/useWelcomeNote";
@@ -278,6 +279,8 @@ export default function JournalLayout() {
   });
 
   const isDesktop = deviceType === "desktop";
+  // Desktop keeps its Exit Focus button in the toolbar; narrower layouts reveal their chrome on demand (#1391).
+  const focusChrome = useFocusChrome(inFocusMode && !isDesktop);
 
   const currentViewLabel = viewLabel(folderId, selectedTag, folders);
   const { tags, tagCounts, deleteTag } = useTags();
@@ -440,6 +443,7 @@ export default function JournalLayout() {
         isManagementView={isManagementView}
         isEditorVisibleOnMobile={mobilePane === "editor"}
         focusMode={focusMode}
+        focusChromeShown={focusChrome.shown}
         onEnterFocusMode={() => setFocusMode(true)}
         onExitFocusMode={() => setFocusMode(false)}
         folderId={folderId}
@@ -471,18 +475,34 @@ export default function JournalLayout() {
         }
       />
 
-      {/* Focus mode exit pill for touch layouts; desktop has an Exit button in the toolbar. */}
+      {/* Focus mode exit pill for narrower layouts; desktop has an Exit button in the toolbar. It shows
+          briefly on entering, then only when asked for (#1391). It sits in the note header's band, so it
+          covers nothing but the hidden header. A touch device asks with a tap on the strip above it. */}
       {inFocusMode && !isDesktop && (
-        <div className="fixed top-[calc(env(safe-area-inset-top)+3rem)] left-0 right-0 z-40 flex justify-center pointer-events-none">
-          <button
-            onClick={() => setFocusMode(false)}
-            className="pointer-events-auto mt-2 flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-foreground/5 backdrop-blur-md border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:bg-foreground/10 transition-colors"
+        <>
+          {!focusChrome.shown && (
+            <div
+              aria-hidden
+              onClick={focusChrome.reveal}
+              className="fixed inset-x-0 top-[env(safe-area-inset-top)] z-40 hidden h-4 pointer-coarse:block"
+            />
+          )}
+          <div
+            className={cn(
+              "fixed inset-x-0 top-[env(safe-area-inset-top)] z-40 flex h-11 items-center justify-center pointer-events-none transition-[opacity,visibility] duration-(--duration-fade) ease-(--ease-standard) motion-reduce:transition-none",
+              !focusChrome.shown && "invisible opacity-0",
+            )}
           >
-            <Minimize2 className="h-3 w-3" />
-            Exit Focus
-            <Kbd className="pointer-coarse:hidden">⌘⇧F</Kbd>
-          </button>
-        </div>
+            <button
+              onClick={() => setFocusMode(false)}
+              className="pointer-events-auto flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-foreground/5 backdrop-blur-md border border-border/50 text-xs text-muted-foreground hover:text-foreground hover:bg-foreground/10 transition-colors"
+            >
+              <Minimize2 className="h-3 w-3" />
+              Exit Focus
+              <Kbd className="pointer-coarse:hidden">⌘⇧F</Kbd>
+            </button>
+          </div>
+        </>
       )}
 
       {showFab && canEdit && <NewNoteFab onClick={() => void noteActions.createAndOpen(folderId)} />}

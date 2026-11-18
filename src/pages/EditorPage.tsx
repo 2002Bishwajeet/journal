@@ -77,7 +77,9 @@ function EditorLayout({
   const screen = useNoteScreenActions();
   // The top toolbar follows the input device, not the width (#1392). Focus mode hides it with the
   // rest of the chrome in a narrow window; a read-only note has none (its Contents toggle needs the side panel).
-  const topToolbar = useDesktopControls() && (isDesktop || (!(focusMode || screen?.focusMode) && !readOnly));
+  const inFocusMode = focusMode || !!screen?.focusMode;
+  const topToolbar =
+    useDesktopControls() && (isDesktop || ((!inFocusMode || !!screen?.focusChromeShown) && !readOnly));
   useFindOnOpen(editor, isLoading, isActive);
 
   // Find the selected note metadata from the notes list
@@ -136,6 +138,8 @@ function EditorLayout({
             : cn(
                 "nav-bar bar-material absolute inset-x-0 top-0 z-30 flex h-(--note-header-h) items-center border-b px-3 pt-[env(safe-area-inset-top)] transition-colors duration-(--duration-fade) ease-(--ease-standard)",
                 titleInView && "border-transparent",
+                // Focus mode is full focus: the exit pill takes this band when asked for (#1391)
+                inFocusMode && "invisible",
               )
         }
       >

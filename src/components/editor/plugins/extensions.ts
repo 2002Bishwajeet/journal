@@ -27,6 +27,7 @@ import { TableHeader } from '@tiptap/extension-table-header';
 import { Mathematics } from '@tiptap/extension-mathematics';
 import { createLowlight } from 'lowlight';
 import { SearchAndReplace } from './SearchAndReplaceExtension';
+import { EditorEscape } from './EditorEscapeExtension';
 import { ImageSchema } from '../nodes/imageSchema';
 import { NoteLink } from '../nodes/NoteLinkNode';
 import { LinkPreview } from '../nodes/LinkPreviewNode';
@@ -461,6 +462,7 @@ export function createBaseExtensions(options?: ExtensionOptions) {
         PasteAsCodeBlock,
         SplitHardBreaksOnPaste,
         SearchAndReplace,
+        EditorEscape,
         options?.noteLink ?? NoteLink,
         options?.linkPreview ?? LinkPreview,
         options?.toggle ?? Toggle,
