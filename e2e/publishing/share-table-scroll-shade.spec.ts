@@ -135,10 +135,12 @@ for (const theme of THEMES) {
     for (const th of await cfp.locator('th').all()) expect((await box(th)).width).toBeLessThanOrEqual(CAP + SLACK);
     for (const prose of PROSE_CELLS) {
       const lines = await lineCount(cfp.getByRole('cell', { name: prose, exact: true }), cfp.getByRole('columnheader', { name: 'City', exact: true }));
-      // Cells keep a 7rem minimum (about 88px of text, ~2 words a line), so prose wraps
-      // to about half its word count. One word per line (lines == words) is the collapse
-      // this guards against, so allow up to 0.6 lines per word.
-      expect(lines).toBeLessThanOrEqual(prose.split(' ').length * 0.6);
+      // Option 2 (owner, 2026-11-18) accepts narrow wraps: at the 7rem minimum (~88px of
+      // text) long words take a line each, so about 1.3 words a line is expected. The guard is
+      // that the cell is not a one-word-per-line collapse (lines < words) and keeps its minimum.
+      expect(lines).toBeLessThan(prose.split(' ').length);
+      const cell = cfp.getByRole('cell', { name: prose, exact: true });
+      expect(await cell.evaluate((el) => el.getBoundingClientRect().width)).toBeGreaterThanOrEqual(7 * 16 - 1);
     }
     await shoot(wrapper, 'cfp-start', 'desktop');
 
