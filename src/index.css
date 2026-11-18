@@ -982,12 +982,18 @@ img.ProseMirror-separator {
 
 /* A link in a cell may break anywhere: a bare URL has no space to wrap at, and its
    whole length would be the column's minimum width, pushing the table past the note
-   column and starving the other columns (#1384). Only links: ordinary words keep
-   their minimum width, so a table that fits is not changed, and a long word that is
-   not a link still makes a wide table scroll inside `.tableWrapper`. */
+   column (#1384). Breaking anywhere would let auto layout crush the column to one
+   character, so a cell holding a link keeps a readable minimum width: a table that
+   cannot fit then scrolls inside `.tableWrapper` instead of stacking the URL one
+   character per line. Only links: ordinary words keep their minimum width. */
 .prose th a,
 .prose td a {
   overflow-wrap: anywhere;
+}
+
+.prose th:has(a),
+.prose td:has(a) {
+  min-width: 10rem;
 }
 
 /* Header cells: a shaded band in a slightly softer ink than the body text, so the

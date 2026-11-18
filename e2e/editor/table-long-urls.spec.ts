@@ -10,12 +10,11 @@ import { lineCount } from '../support/tableLines';
 const VIEWPORTS = { desktop: { width: 1280, height: 900 }, mobile: { width: 390, height: 844 } } as const;
 const SLACK = 0.5;
 
-const HEADER = ['Conference', 'City', 'Dates', 'Format', 'Apply', 'Fit', 'Status'];
+const HEADER = ['Conference', 'City', 'Dates', 'Apply', 'Status'];
 const ROWS = [
-  ['Open source and cloud native systems conference', 'Pune', 'May', 'Talk', 'https://hasgeek.com/rootconf/call-for-submissions-distributed-systems-workshops/', 'High', 'Open'],
-  ['Open source summit for systems engineers', 'Bangkok', 'March', 'Workshop', 'https://eventyay.com/e/fossasia-summit-2026/cfs/call-for-proposals-open-source', 'Medium', 'Sent'],
+  ['Open source and cloud native infrastructure conference', 'Pune', 'May', 'https://hasgeek.com/rootconf/call-for-submissions-distributed-systems-workshops/', 'Open'],
+  ['Open source summit for infrastructure engineers', 'Bangkok', 'March', 'https://eventyay.com/e/fossasia-summit-2026/cfs/call-for-proposals-open-source', 'Sent'],
 ];
-// The editor note column is narrower than the share page, so the prose words stay short enough for the seven columns to fit.
 // Prose cells of several words: with the URLs broken, they must not sit one word per line.
 const PROSE = ROWS.map((row) => row[0]);
 const URLS = ROWS.map((row) => row[4]);
@@ -70,6 +69,13 @@ test('editor: a table with long URLs fits the note column and the URLs wrap in t
       for (const prose of PROSE) {
         const lines = await lineCount(table.getByRole('cell', { name: prose, exact: true }), table.getByRole('columnheader', { name: 'City', exact: true }));
         expect(lines).toBeLessThan(prose.split(' ').length);
+      }
+    }
+    if (viewport === 'mobile') {
+      // A narrow screen scrolls the table sideways rather than crushing the URL column into a tall, one-character-wide stack.
+      for (const url of URLS) {
+        const lines = await lineCount(table.getByRole('cell', { name: url, exact: true }), table.getByRole('columnheader', { name: 'City', exact: true }));
+        expect(lines).toBeLessThan(8);
       }
     }
     await expect(table.locator('th')).toHaveCount(HEADER.length);

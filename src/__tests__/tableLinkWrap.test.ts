@@ -17,6 +17,11 @@ describe('links in table cells', () => {
     expect(rule?.[1]).toMatch(/overflow-wrap:\s*anywhere/);
   });
 
+  it('keep a readable minimum width on the cell, so the column is never crushed', () => {
+    const rule = css.match(/\.prose th:has\(a\),\s*\.prose td:has\(a\)\s*\{([^}]*)\}/);
+    expect(rule?.[1]).toMatch(/min-width:\s*10rem/);
+  });
+
   it('leave ordinary words in a cell unbroken', () => {
     expect(declarations('.prose th, .prose td')).not.toMatch(/overflow-wrap|word-break/);
   });
