@@ -1,5 +1,5 @@
-import { Extension } from '@tiptap/core';
-import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { Extension, type Editor } from '@tiptap/core';
+import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state';
 import type { Transaction } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import type { Node as PMNode } from '@tiptap/pm/model';
@@ -69,6 +69,37 @@ export function findMatchesInDoc(
     });
 
     return results;
+}
+
+/**
+ * Brings the match at `from` into view (the caller selects it in its own transaction): opens any
+ * closed toggle around it, then centres it, sideways too inside a horizontally scrolling code
+ * block or table. ProseMirror's own scrollIntoView does neither, and skips a selection that is not
+ * in the page's DOM selection, which is the case while the find input has focus.
+ *
+ * Nothing here runs inside the command: opening a toggle may dispatch, and a dispatch before the
+ * command's own transaction makes ProseMirror throw "Applying a mismatched transaction". The
+ * toggle opens in a microtask, after that transaction has applied; the scroll waits a frame so the
+ * opened toggle has rendered.
+ */
+function revealMatch(editor: Editor, from: number) {
+    queueMicrotask(() => {
+        if (editor.isDestroyed) return;
+        const { node } = editor.view.domAtPos(from);
+        const start = node instanceof Element ? node : node.parentElement;
+        if (!start) return;
+
+        for (let el = start.closest('[data-type="toggle"]'); el; el = el.parentElement?.closest('[data-type="toggle"]') ?? null) {
+            el.querySelector<HTMLButtonElement>(':scope > div > button[aria-expanded="false"]')?.click();
+        }
+
+        requestAnimationFrame(() => {
+            if (editor.isDestroyed) return;
+            // The current-match decoration is the exact text; the position's element is the fallback.
+            const target = editor.view.dom.querySelector('.search-highlight-current') ?? start;
+            target.scrollIntoView?.({ block: 'center', inline: 'center' });
+        });
+    });
 }
 
 function createDecorations(
@@ -268,45 +299,45 @@ export const SearchAndReplace = Extension.create({
 
             updateSearch:
                 (opts) =>
-                ({ editor }) => {
-                    editor.view.dispatch(
-                        editor.state.tr.setMeta(searchPluginKey, {
+                ({ tr, dispatch }) => {
+                    // The command's own tr: a nested dispatch throws when an appended transaction
+                    // (e.g. the trailing paragraph) changes the doc before the command's tr applies.
+                    if (dispatch) {
+                        tr.setMeta(searchPluginKey, {
                             type: 'setSearch',
                             searchTerm: opts.searchTerm,
                             caseSensitive: opts.caseSensitive,
                             wholeWord: opts.wholeWord,
-                        } as SearchMeta),
-                    );
+                        } as SearchMeta);
+                    }
                     return true;
                 },
 
             goToCurrentMatch:
                 () =>
-                ({ editor, state, commands }) => {
+                ({ editor, state, tr, dispatch }) => {
                     const pluginState = searchPluginKey.getState(state) as SearchPluginState | undefined;
                     const match = pluginState?.results[pluginState.currentIndex];
                     if (!match) return false;
-                    commands.setTextSelection(match.from);
-                    // ProseMirror's own scroll skips a selection that is not in the page's DOM
-                    // selection, which is the case while the find input has focus.
-                    const { node } = editor.view.domAtPos(match.from);
-                    (node instanceof Element ? node : node.parentElement)?.scrollIntoView?.({ block: 'center' });
+                    if (dispatch) {
+                        tr.setSelection(TextSelection.near(tr.doc.resolve(match.from)));
+                        revealMatch(editor, match.from);
+                    }
                     return true;
                 },
 
             goToNextMatch:
                 () =>
-                ({ editor }) => {
-                    const pluginState = searchPluginKey.getState(editor.state) as SearchPluginState | undefined;
+                ({ editor, state, tr, dispatch }) => {
+                    const pluginState = searchPluginKey.getState(state) as SearchPluginState | undefined;
                     if (!pluginState || pluginState.results.length === 0) return false;
 
-                    editor.view.dispatch(
-                        editor.state.tr.setMeta(searchPluginKey, { type: 'next' } as SearchMeta),
-                    );
-
-                    const newState = searchPluginKey.getState(editor.state) as SearchPluginState | undefined;
-                    if (newState && newState.currentIndex >= 0 && newState.results[newState.currentIndex]) {
-                        editor.chain().setTextSelection(newState.results[newState.currentIndex].from).scrollIntoView().run();
+                    if (dispatch) {
+                        const idx = nextMatchIndex(pluginState.currentIndex, pluginState.results.length);
+                        const match = pluginState.results[idx];
+                        tr.setMeta(searchPluginKey, { type: 'next' } as SearchMeta);
+                        tr.setSelection(TextSelection.near(tr.doc.resolve(match.from)));
+                        revealMatch(editor, match.from);
                     }
 
                     return true;
@@ -314,17 +345,16 @@ export const SearchAndReplace = Extension.create({
 
             goToPrevMatch:
                 () =>
-                ({ editor }) => {
-                    const pluginState = searchPluginKey.getState(editor.state) as SearchPluginState | undefined;
+                ({ editor, state, tr, dispatch }) => {
+                    const pluginState = searchPluginKey.getState(state) as SearchPluginState | undefined;
                     if (!pluginState || pluginState.results.length === 0) return false;
 
-                    editor.view.dispatch(
-                        editor.state.tr.setMeta(searchPluginKey, { type: 'prev' } as SearchMeta),
-                    );
-
-                    const newState = searchPluginKey.getState(editor.state) as SearchPluginState | undefined;
-                    if (newState && newState.currentIndex >= 0 && newState.results[newState.currentIndex]) {
-                        editor.chain().setTextSelection(newState.results[newState.currentIndex].from).scrollIntoView().run();
+                    if (dispatch) {
+                        const idx = prevMatchIndex(pluginState.currentIndex, pluginState.results.length);
+                        const match = pluginState.results[idx];
+                        tr.setMeta(searchPluginKey, { type: 'prev' } as SearchMeta);
+                        tr.setSelection(TextSelection.near(tr.doc.resolve(match.from)));
+                        revealMatch(editor, match.from);
                     }
 
                     return true;

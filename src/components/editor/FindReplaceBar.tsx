@@ -18,7 +18,6 @@ export function FindReplaceBar() {
   // A term handed over by openFind(term): once the plugin has searched for it, the first match is
   // selected and scrolled into view. The counter re-runs the search effect when the term is unchanged.
   const [handedOver, setHandedOver] = useState(0);
-  const revealRef = useRef(false);
   // On a touch device the on-screen keyboard would cover the match, so a handed-over term opens the bar unfocused.
   const skipFocusRef = useRef(false);
 
@@ -38,7 +37,6 @@ export function FindReplaceBar() {
       if (storage.pendingTerm) {
         setSearchTerm(storage.pendingTerm);
         storage.pendingTerm = null;
-        revealRef.current = true;
         skipFocusRef.current = window.matchMedia?.('(pointer: coarse)').matches ?? false;
         setHandedOver((n) => n + 1);
       }
@@ -88,8 +86,8 @@ export function FindReplaceBar() {
   useEffect(() => {
     if (!editor || !isOpen) return;
     editor.commands.updateSearch({ searchTerm, caseSensitive, wholeWord });
-    if (revealRef.current) {
-      revealRef.current = false;
+    // Typing a query, or a handed-over term, jumps to its first match.
+    if (searchTerm) {
       // After layout: a tab that has just been shown has no scroll box until the next frame.
       const frame = requestAnimationFrame(() => editor.commands.goToCurrentMatch());
       return () => cancelAnimationFrame(frame);
