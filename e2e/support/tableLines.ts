@@ -27,12 +27,17 @@ export async function expectRowsHugContent(table: Locator, linkText: string) {
         const range = document.createRange();
         range.selectNodeContents(cell);
         const style = getComputedStyle(cell);
+        const lineHeight = parseFloat(style.lineHeight);
+        // Lines of text: client rects whose tops are more than half a line apart are on different lines.
+        const tops = [...range.getClientRects()].map((r) => r.top).sort((x, y) => x - y);
+        const lines = tops.filter((top, i) => i === 0 || top - tops[i - 1] > lineHeight / 2).length;
         return {
           text: cell.textContent ?? '',
           width: cell.getBoundingClientRect().width,
-          content: range.getBoundingClientRect().height,
-          lineHeight: parseFloat(style.lineHeight),
-          chrome: parseFloat(style.paddingTop) + parseFloat(style.paddingBottom) + 2,
+          lines,
+          lineHeight,
+          // Padding and the cell's computed borders (a collapsed border adds up to its full width to the row).
+          chrome: parseFloat(style.paddingTop) + parseFloat(style.paddingBottom) + parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth),
           isLink: (cell.textContent ?? '').startsWith(link),
         };
       });
@@ -40,12 +45,12 @@ export async function expectRowsHugContent(table: Locator, linkText: string) {
     });
   }, linkText);
   for (const row of rows) {
-    const tallest = Math.max(...row.cells.map((c) => c.content + c.chrome));
+    const tallest = Math.max(...row.cells.map((c) => c.lines * c.lineHeight + c.chrome));
     expect(row.height, JSON.stringify(row)).toBeLessThanOrEqual(tallest + 2);
     const link = row.cells.find((c) => c.isLink);
     if (!link) continue;
     expect(link.width).toBeGreaterThanOrEqual(10 * 16 - 1);
     // No cell stacks into a tall sliver: the old URL-only guard, for every cell.
-    for (const c of row.cells) expect(c.content / c.lineHeight, c.text).toBeLessThan(8);
+    for (const c of row.cells) expect(c.lines, c.text).toBeLessThan(8);
   }
 }
