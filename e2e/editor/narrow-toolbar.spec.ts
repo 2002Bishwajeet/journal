@@ -84,7 +84,8 @@ test('narrow window: focus mode hides the toolbar but keeps the selection bubble
     await expect(activeEditor(app).locator('strong')).toHaveText('Quiet narrow body');
     await screenshotInBothThemes(app, (theme) => `narrow-${width}-focus-${theme}.png`);
 
-    await app.keyboard.press('Escape');
+    // Esc is not used here: ProseMirror swallows it while the editor has focus, so only the pill exits.
+    await app.getByRole('button', { name: /Exit Focus/ }).click();
     await expect(toolbar(app)).toBeVisible();
     await selectAll(app);
     await app.keyboard.press('ControlOrMeta+b');
