@@ -1,4 +1,5 @@
 import type { InvokeArgs } from '@tauri-apps/api/core';
+import { permissionReturnLink, permissionReturnRoute } from '@/lib/permissionReturn';
 
 // The Tauri shell's initialization script (src-tauri/src/lib.rs) sets
 // `window.__JOURNAL_NATIVE__` before any app code runs. The web never sets it.
@@ -82,13 +83,31 @@ export function externalUrl(href: string | URL | undefined | null): string | nul
   return url.href;
 }
 
+/** The owner console's extend-permissions page, which asks the owner to approve more access for the app. */
+const isPermissionGrantUrl = (url: string) => new URL(url).pathname === '/owner/appupdate';
+
+/** Runs the system auth session on `url` (iOS) and resolves to the URL it comes back to, or null when the sheet is closed. */
+async function authenticate(url: string): Promise<URL | null> {
+  const result = await invoke<{ url?: string } | null>('plugin:browser|authenticate', {
+    url,
+    callbackScheme: AUTH_SCHEME,
+  });
+  return result?.url ? new URL(result.url) : null;
+}
+
 /**
  * Opens a link outside the app's web view: an in-app browser sheet on iOS and
  * Android (SFSafariViewController, Custom Tabs), the default browser on desktop.
+ * An extend-permissions page on iOS runs in an auth session instead, which hands
+ * the `journal://permissions/return` link back so the app resumes where it left.
  */
 export async function openExternal(url: string): Promise<void> {
   const platform = nativePlatform();
-  if (platform === 'ios' || platform === 'android') await invoke('plugin:browser|open_url', { url });
+  if (platform === 'ios' && isPermissionGrantUrl(url)) {
+    const back = await authenticate(url);
+    const route = back && permissionReturnRoute(back.href);
+    if (route) window.location.replace(route);
+  } else if (platform === 'ios' || platform === 'android') await invoke('plugin:browser|open_url', { url });
   else await invoke('plugin:opener|open_url', { url });
 }
 
@@ -157,12 +176,28 @@ export async function startSignIn(authUrl: string): Promise<void> {
   if (!signsInOutsideApp()) {
     window.location.href = authUrl;
   } else if (platform === 'ios') {
-    const result = await invoke<{ url?: string } | null>('plugin:browser|authenticate', {
-      url: authUrl,
-      callbackScheme: AUTH_SCHEME,
-    });
-    if (result?.url) window.location.replace(`/auth/finalize${new URL(result.url).search}`);
+    const back = await authenticate(authUrl);
+    if (back) window.location.replace(`/auth/finalize${back.search}`);
   } else {
     await openExternal(authUrl);
   }
+}
+
+/**
+ * The `return` of an extend-permissions page for the app page `returnUrl`. Where the page
+ * opens outside the app (see `signsInOutsideApp`) that is a `journal://permissions/return` link,
+ * which the app turns back into `returnUrl`'s route; else `returnUrl` itself, a web view navigation.
+ */
+export function permissionReturnUrl(returnUrl: string): string {
+  return signsInOutsideApp() ? permissionReturnLink(returnUrl) : returnUrl;
+}
+
+/**
+ * Sends the user to an extend-permissions page built with `permissionReturnUrl`: outside the
+ * app on iOS, Android and macOS (the link interception above does the same for an anchor),
+ * a navigation of the web view on the web, Windows and Linux.
+ */
+export async function startPermissionGrant(url: string): Promise<void> {
+  if (isNativeApp() && externalUrl(url)) await openExternal(url);
+  else window.location.assign(url);
 }

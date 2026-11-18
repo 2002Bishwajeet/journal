@@ -12,7 +12,7 @@ import { bakeImageEdits } from '@/lib/share/bakeImageEdits';
 import { FEED_DRIVE_REQUEST, publishNoteToFeed } from '@/lib/share/publishNoteToFeed';
 import { collaborateReturnUrl } from '@/lib/share/shareAccess';
 import { noteShareUrl } from '@/lib/share/sharedFolder';
-import { publicOrigin } from '@/lib/native';
+import { publicOrigin, startPermissionGrant } from '@/lib/native';
 import { loadLocalYDoc } from '@/lib/yjs/loadDoc';
 import type { DocumentMetadata } from '@/types';
 
@@ -128,7 +128,11 @@ export function usePublishToFeed(noteId: string) {
             writePending(noteId);
             // The consent page unloads this one: the summary must be on disk, not just committed
             await flushToIndexedDb();
-            window.location.assign(missing.url);
+            await startPermissionGrant(missing.url).catch((err: unknown) => {
+                console.error('Failed to open the permission page:', err);
+                writePending(null);
+                toast.error('Could not open the permission page');
+            });
             return;
         }
         await publishing.mutateAsync().catch(() => undefined);
