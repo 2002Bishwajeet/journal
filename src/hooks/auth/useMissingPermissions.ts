@@ -3,6 +3,7 @@ import { getExtendAppRegistrationParams, type TargetDriveAccessRequest } from "@
 import { drivesEqual, getUniqueDrivesWithHighestPermission, stringifyToQueryParams } from "@homebase-id/js-lib/helpers";
 import type { AppPermissionType } from "@homebase-id/js-lib/network";
 import { JOURNAL_APP_ID } from "@/lib/homebase/config";
+import { permissionReturnUrl } from "@/lib/native";
 import { useSecurityContext } from "../securityContext/useSecurityContext";
 import { journalDriveRequest } from "./useYouAuthAuthorization";
 
@@ -21,7 +22,7 @@ const getExtendAppRegistrationUrl = (
         circleDrives,
         permissionKeys,
         circleOdinIds,
-        returnUrl
+        permissionReturnUrl(returnUrl)
     );
 
     return `${host}/owner/appupdate?${stringifyToQueryParams(params)}`;

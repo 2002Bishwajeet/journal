@@ -56,6 +56,24 @@ describe('useDeepLinks', () => {
         expect(mocks.navigate).toHaveBeenCalledWith('/share/alice.dotyou.cloud/n2');
     });
 
+    it('reloads the app at the route a permission grant returns to', async () => {
+        const replace = vi.fn();
+        vi.spyOn(window, 'location', 'get').mockReturnValue({ ...window.location, replace } as unknown as Location);
+        await mount();
+        await act(async () => mocks.forward!(['journal://permissions/return?to=%2F%3Faction%3Dcollaborate%26noteId%3Dn1']));
+        expect(replace).toHaveBeenCalledWith('/?action=collaborate&noteId=n1');
+        expect(mocks.navigate).not.toHaveBeenCalled();
+    });
+
+    it('ignores a permission return to another origin', async () => {
+        const replace = vi.fn();
+        vi.spyOn(window, 'location', 'get').mockReturnValue({ ...window.location, replace } as unknown as Location);
+        await mount();
+        await act(async () => mocks.forward!(['journal://permissions/return?to=https%3A%2F%2Fevil.example']));
+        expect(replace).not.toHaveBeenCalled();
+        expect(mocks.navigate).not.toHaveBeenCalled();
+    });
+
     it('is a no-op on the web', async () => {
         mocks.isNativeApp.mockReturnValue(false);
         await mount();

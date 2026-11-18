@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { deepLinkRoute } from '@/lib/deepLink';
 import { isNativeApp } from '@/lib/native';
+import { permissionReturnRoute } from '@/lib/permissionReturn';
 
 // The last link handled, so a reload (sign-in, chunk reload) doesn't follow the launch link again.
 const HANDLED_KEY = 'journal.deepLink.handled';
@@ -21,7 +22,10 @@ export function useDeepLinks(): void {
             const url = urls?.find((u) => deepLinkRoute(u) !== null);
             if (!url || (skipHandled && sessionStorage.getItem(HANDLED_KEY) === url)) return;
             sessionStorage.setItem(HANDLED_KEY, url);
-            navigate(deepLinkRoute(url)!);
+            // Back from a permission grant the app loads afresh, as it did when the page navigated the
+            // web view away: the publish dialog and Diagnostics read their resume flags at mount.
+            if (permissionReturnRoute(url)) window.location.replace(deepLinkRoute(url)!);
+            else navigate(deepLinkRoute(url)!);
         };
 
         import('@tauri-apps/plugin-deep-link')

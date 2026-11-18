@@ -1,4 +1,5 @@
 import { PUBLIC_ORIGIN } from '@/lib/native';
+import { permissionReturnRoute } from '@/lib/permissionReturn';
 
 /** The app's URL scheme (tauri.conf.json, plugins.deep-link). */
 const SCHEME = 'journal:';
@@ -11,6 +12,8 @@ const SCHEME = 'journal:';
  * Pages Function HTML with no in-app screen. `journal://auth/finalize` is the
  * YouAuth callback of the native sign-in (`startSignIn` in native.ts); it has no
  * https form, so a web link can't stand in for it. `journal://today` opens today's note.
+ * `journal://permissions/return?to=/path` is where an extend-permissions page sends the user
+ * back (`permissionReturnUrl` in native.ts); it opens `/path`, if that is an app path.
  */
 export function deepLinkRoute(link: string): string | null {
     let url: URL;
@@ -19,6 +22,7 @@ export function deepLinkRoute(link: string): string | null {
     } catch {
         return null;
     }
+    if (url.protocol === SCHEME && url.host === 'permissions') return permissionReturnRoute(link);
     // journal://share/a/b parses with host "share" and path "/a/b".
     let path: string;
     if (url.protocol === SCHEME) path = `/${url.host}${url.pathname}`.replace(/^\/+/, '/');
