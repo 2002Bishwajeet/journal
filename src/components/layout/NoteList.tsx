@@ -535,8 +535,10 @@ const NoteItem = memo(function NoteItem({
               {note.metadata.isPinned && (
                 <Pin className="h-3 w-3 text-muted-foreground/70 shrink-0" />
               )}
-              {note.metadata.isPublic && (
-                <Globe className="h-3 w-3 text-muted-foreground/70 shrink-0" />
+              {sharingLabel === "On your feed" ? (
+                <Rss className="h-3 w-3 text-muted-foreground/70 shrink-0" />
+              ) : (
+                note.metadata.isPublic && <Globe className="h-3 w-3 text-muted-foreground/70 shrink-0" />
               )}
               {note.metadata.isCollaborative && (
                 <Users className="h-3 w-3 text-collaborative/70 shrink-0" />
@@ -572,8 +574,7 @@ const NoteItem = memo(function NoteItem({
               {sharingLabel && (
                 <>
                   {" · "}
-                  {sharingLabel === "On your feed" ? <Rss className="inline size-3" aria-hidden /> : <Globe className="inline size-3" aria-hidden />}
-                  {" " + sharingLabel}
+                  {sharingLabel}
                 </>
               )}
               {agentName && (
