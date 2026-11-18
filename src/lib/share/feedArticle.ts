@@ -115,6 +115,13 @@ export async function buildFeedArticle(input: FeedArticleInput): Promise<BuiltFe
             const href = typeof node.attrs?.noteId === 'string' ? await input.publicNoteUrl(node.attrs.noteId) : null;
             return [href ? { type: 'text', text: label, marks: [{ type: 'link', attrs: { href } }] } : { type: 'text', text: label }];
         }
+        if (node.type === 'linkPreview') {
+            // The feed's renderer doesn't know the card: keep it as a paragraph with a link
+            const href = typeof node.attrs?.url === 'string' ? node.attrs.url : '';
+            if (!href) return [];
+            const title = typeof node.attrs?.title === 'string' ? node.attrs.title.trim() : '';
+            return [{ type: 'paragraph', content: [{ type: 'text', text: title || href, marks: [{ type: 'link', attrs: { href } }] }] }];
+        }
         if (!node.content) return [node];
         return [{ ...node, content: (await Promise.all(node.content.map(convert))).flat() }];
     };
