@@ -1,3 +1,20 @@
+## [2.73.7](https://github.com/2002Bishwajeet/journal/compare/v2.73.6...v2.73.7) (2026-11-18)
+
+
+### Bug Fixes
+
+* **editor:** hide the top toolbar in focus mode on the narrow layouts ([#1392](https://github.com/2002Bishwajeet/journal/issues/1392)) ([90857b6](https://github.com/2002Bishwajeet/journal/commit/90857b68785cce5e9b4664cc3026faaf8619cb92))
+* **editor:** keep the selection bubble inside the window ([#1398](https://github.com/2002Bishwajeet/journal/issues/1398)) ([395e0c7](https://github.com/2002Bishwajeet/journal/commit/395e0c73987ee6a3269b320614187f0984c3b437))
+* **editor:** measure bubble toolbar with offset size so entry scale does not skew clamping ([#1398](https://github.com/2002Bishwajeet/journal/issues/1398)) ([250ec1a](https://github.com/2002Bishwajeet/journal/commit/250ec1a07869b8d7c52b7dcd73e706dc823020be))
+* **editor:** pick the toolbar by input device, not window width ([#1392](https://github.com/2002Bishwajeet/journal/issues/1392)) ([1aeaac8](https://github.com/2002Bishwajeet/journal/commit/1aeaac8c16d73c9a0b081dc64f3e12b6a2fb92b3))
+* **tables:** keep a readable minimum width on link cells so phones scroll instead of stacking URLs ([#1384](https://github.com/2002Bishwajeet/journal/issues/1384)) ([405d569](https://github.com/2002Bishwajeet/journal/commit/405d569a6a588988d702ab425acb21f3eaecf22b))
+* **tables:** let links in table cells break so long URLs fit the note column ([#1384](https://github.com/2002Bishwajeet/journal/issues/1384)) ([d39fa65](https://github.com/2002Bishwajeet/journal/commit/d39fa65ef2fca3f78642eae2aaa188e63335c616))
+
+
+### Features
+
+* **images:** reserve each note image's size and show its tiny thumbnail at once ([#1387](https://github.com/2002Bishwajeet/journal/issues/1387)) ([7a822f6](https://github.com/2002Bishwajeet/journal/commit/7a822f660b9fc0a936f5f1413701e4c66e20d850))
+* **native:** open the extend-permissions page outside the app and return by deep link ([#1386](https://github.com/2002Bishwajeet/journal/issues/1386)) ([8d86f75](https://github.com/2002Bishwajeet/journal/commit/8d86f75705cc7063d8d33cd97b08a3a325fed637))
 ## [2.73.6](https://github.com/2002Bishwajeet/journal/compare/v2.73.5...v2.73.6) (2026-11-17)
 
 
