@@ -220,13 +220,12 @@ export const OdinImage = ({
               : undefined
           }
           onLoad={(e) => {
-            // We re-set the natural size as this would be the max size/thumb of the image
+            // We re-set the natural size as this would be the max size/thumb of the image.
+            // Read it now: React may run the updater during a later render, when currentTarget is null
+            const { naturalWidth, naturalHeight } = e.currentTarget;
             setNaturalSize(() =>
-              e.currentTarget.naturalWidth && e.currentTarget.naturalHeight
-                ? {
-                    pixelWidth: e.currentTarget.naturalWidth,
-                    pixelHeight: e.currentTarget.naturalHeight,
-                  }
+              naturalWidth && naturalHeight
+                ? { pixelWidth: naturalWidth, pixelHeight: naturalHeight }
                 : undefined
             );
             setIsFinal(true);

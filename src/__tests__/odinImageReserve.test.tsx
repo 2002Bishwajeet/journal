@@ -7,7 +7,7 @@ import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
 import { createElement as h, forwardRef, useEffect, act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 
-const m = vi.hoisted(() => ({ inView: null as (() => void) | null, picked: [] as unknown[] }));
+const m = vi.hoisted(() => ({ inView: null as (() => void) | null, picked: [] as unknown[], thumbLoad: null as ((e: unknown) => void) | null }));
 
 vi.mock('@/hooks/useIntersection', () => ({
     useIntersection: (_ref: unknown, callback: () => void) => {
@@ -23,7 +23,10 @@ vi.mock('@/components/OdinImage/OdinPreviewImage', () => ({
     }),
 }));
 vi.mock('@/components/OdinImage/OdinThumbnailImage', () => ({
-    OdinThumbnailImage: ({ loadSize }: { loadSize: { pixelWidth: number } }) => h('span', { 'data-testid': 'thumb', 'data-width': loadSize.pixelWidth }),
+    OdinThumbnailImage: ({ loadSize, onLoad }: { loadSize: { pixelWidth: number }; onLoad: (e: unknown) => void }) => {
+        m.thumbLoad = onLoad;
+        return h('span', { 'data-testid': 'thumb', 'data-width': loadSize.pixelWidth });
+    },
 }));
 vi.mock('@/components/OdinImage/OdinPayloadImage', () => ({
     OdinPayloadImage: () => h('span', { 'data-testid': 'payload' }),
@@ -51,6 +54,7 @@ describe('OdinImage reserving its box', () => {
     afterEach(async () => {
         m.inView = null;
         m.picked = [];
+        m.thumbLoad = null;
         await act(async () => root.unmount());
     });
 
@@ -90,5 +94,19 @@ describe('OdinImage reserving its box', () => {
         await act(async () => m.inView?.());
         expect(el.querySelector('[data-testid="payload"]')).not.toBeNull();
         expect(m.picked).toHaveLength(0);
+    });
+
+    it('reads the loaded size when the image loads, as React clears currentTarget after the handler', async () => {
+        const box = await render({ previewThumbnail: tiny, thumbSizes: sizes });
+        await act(async () => m.inView?.());
+        // Two loads in one batch: the second's state update is run during render, not in the handler
+        await act(async () => {
+            for (const [w, h] of [[320, 180], [640, 360]]) {
+                const event = { currentTarget: { naturalWidth: w, naturalHeight: h } as unknown };
+                m.thumbLoad!(event);
+                event.currentTarget = null;
+            }
+        });
+        expect(box.getAttribute('data-natural-size')).toBe('640x360');
     });
 });

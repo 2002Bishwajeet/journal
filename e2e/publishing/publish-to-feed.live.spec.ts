@@ -66,8 +66,11 @@ test('publishes a note with an edited image to the feed, with only the edited pi
   await editDialog.getByRole('button', { name: 'Apply' }).click();
   await expect(editDialog).toBeHidden();
   await waitForNoteSaved(page);
-  // Uploaded: the image is served from the identity, not a local blob
-  await expect(activeEditor(page).locator('img[alt="Quadrants"][crossorigin]')).toBeAttached({ timeout: 120_000 });
+  // Uploaded: "Uploading…" clears once the node is promoted to an attachment. The uploader then
+  // shows its own kept copy (#179), so the <img> is no sign of the upload; "Upload failed" is.
+  await expect(activeEditor(page).getByText('Uploading…')).toBeHidden({ timeout: 120_000 });
+  await expect(activeEditor(page).getByText('Upload failed')).toBeHidden();
+  await expect(img).toBeVisible();
 
   // First Publish: the owner console asks for the public channel, then the reopened dialog publishes
   await openShareDialog(page, title);
