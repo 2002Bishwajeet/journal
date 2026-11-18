@@ -30,6 +30,7 @@ async function selectAll(page: Page): Promise<void> {
   // TEMP-1404 instrumentation
   await page.evaluate(() => {
     const w = window as any;
+    if (w.__log) { w.__log.length = 0; w.__log.push('reset'); return; }
     w.__log = [];
     const t0 = performance.now();
     const log = (m: string) => w.__log.push(`${(performance.now() - t0).toFixed(1)} ${m}`);
@@ -41,15 +42,25 @@ async function selectAll(page: Page): Promise<void> {
     for (const ev of ['focusin', 'focusout'] as const)
       document.addEventListener(ev, (e) => log(`${ev} target=${(e.target as HTMLElement).tagName}.${((e.target as HTMLElement).className || '').toString().slice(0, 30)} related=${(e as FocusEvent).relatedTarget ? ((e as FocusEvent).relatedTarget as HTMLElement).tagName : 'null'}`), true);
     const pm = document.querySelector('.ProseMirror');
-    if (pm) new MutationObserver((ms) => ms.forEach((m) => log(`mutation ${m.type} target=${(m.target as HTMLElement).nodeName} added=${m.addedNodes.length} removed=${m.removedNodes.length}`))).observe(pm, { childList: true, subtree: true, characterData: true, attributes: true });
+    if (pm) new MutationObserver((ms) => ms.forEach((m) => log(`mutation ${m.type} ${m.attributeName ?? ''} target=${(m.target as HTMLElement).nodeName} added=${m.addedNodes.length} removed=${m.removedNodes.length}`))).observe(pm, { childList: true, subtree: true, characterData: true, attributes: true });
+    document.addEventListener('selectstart', () => log(`selectstart ${sel()}`), true);
+    for (const m of ['setBaseAndExtent', 'collapse', 'addRange', 'removeAllRanges', 'extend', 'selectAllChildren', 'setPosition', 'collapseToEnd', 'collapseToStart', 'removeRange', 'empty'] as const) {
+      const orig = (Selection.prototype as any)[m];
+      (Selection.prototype as any)[m] = function (...args: unknown[]) {
+        const stack = (new Error().stack ?? '').split('\n').slice(2, 6).map((l) => l.trim().replace(/https?:\/\/[^/]+\//, '')).join(' | ');
+        log(`SEL.${m} ${stack}`);
+        return orig.apply(this, args);
+      };
+    }
     log(`start ${sel()}`);
   });
   await activeEditor(page).click();
   await page.keyboard.press('ControlOrMeta+a');
   await page.waitForTimeout(150);
+  await page.evaluate(() => (window as any).__log.push('after150 ' + getSelection()!.toString().length));
   const log = await page.evaluate(() => ((window as any).__log as string[]).join('\n') + `\nfinal sel="${getSelection()!.toString()}"`);
   await test.info().attach(`selectAll-log-${Date.now()}`, { body: log, contentType: 'text/plain' });
-  if (log.includes('final sel=""')) console.log(`TEMP-1404 FAILING selectAll log:\n${log}`);
+  console.log(`TEMP-1404 FAILING selectAll log:\n${log}`);
 }
 
 test('narrow window: the toolbar compacts into More and the selection bubble shows', async ({ app }) => {
