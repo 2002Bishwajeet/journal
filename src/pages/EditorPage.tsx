@@ -187,8 +187,8 @@ function EditorLayout({
         className={
           focusToolbar
             ? cn(
-                "absolute inset-x-0 top-0 z-10 flex items-center border-b bg-background pt-(--note-header-h) transition-[opacity,visibility] duration-(--duration-fade) ease-(--ease-standard) motion-reduce:transition-none",
-                focusHidden && "invisible opacity-0 pointer-events-none",
+                "pointer-events-none [&>*]:pointer-events-auto absolute inset-x-0 top-0 z-10 flex items-center border-b bg-background pt-(--note-header-h) transition-[opacity,visibility] duration-(--duration-fade) ease-(--ease-standard) motion-reduce:transition-none",
+                focusHidden && "invisible opacity-0 [&>*]:pointer-events-none",
               )
             : topToolbar
               ? cn("flex items-center border-b shrink-0 bg-background z-10 w-full", !isDesktop && "pt-(--note-header-h)")

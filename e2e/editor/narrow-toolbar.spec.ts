@@ -154,7 +154,8 @@ test('narrow window: the selection bubble stays inside the window at every edge'
           }
         });
       }
-      if (focus) await app.getByRole('button', { name: /Exit Focus/ }).click();
+      // The pill hides after its peek (#1391); Esc leaves focus mode from the note.
+      if (focus) await app.keyboard.press('Escape');
     }
   }
 });
