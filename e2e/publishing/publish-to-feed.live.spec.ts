@@ -1,6 +1,7 @@
 import { request, type Page } from '@playwright/test';
 import { BlogConfig } from '@homebase-id/js-lib/public';
-import { test, expect, liveIdentityOrigin } from '../fixtures';
+import { existsSync, readFileSync } from 'node:fs';
+import { test, expect, liveIdentityOrigin, LIVE_OWNER_PASSWORD_FILE } from '../fixtures';
 import { activeEditor, createNote, waitForNoteSaved } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
 import { openShareDialog, shareDialog } from '../support/shareDialog';
@@ -79,6 +80,11 @@ test('publishes a note with an edited image to the feed, with only the edited pi
   const appOrigin = new URL(test.info().project.use.baseURL!).origin;
   await expect(async () => {
     if (new URL(page.url()).origin !== appOrigin) {
+      // The console's session can have lapsed: it then asks for the password before the grant page
+      const password = page.getByRole('textbox', { name: 'Password' });
+      if (existsSync(LIVE_OWNER_PASSWORD_FILE) && (await password.isVisible())) {
+        await password.fill(readFileSync(LIVE_OWNER_PASSWORD_FILE, 'utf8'));
+      }
       await page.getByRole('button', { name: /^(Allow|Next|Login)$/ }).first().click({ timeout: 5_000 });
     }
     expect(new URL(page.url()).origin).toBe(appOrigin);
