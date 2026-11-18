@@ -19,7 +19,7 @@ import { VoiceReviewBar } from "@/components/voice/VoiceNotes";
 import { NoteScreenMenu } from "@/components/editor/NoteScreenMenu";
 import HistoryModal from "@/components/modals/HistoryModal";
 import { cn } from "@/lib/utils";
-import { useSyncService, useKeyboardShortcuts, useDeviceType } from "@/hooks";
+import { useSyncService, useKeyboardShortcuts, useDeviceType, useDesktopControls } from "@/hooks";
 import { usePeerNoteWebsocket } from "@/hooks/usePeerNoteWebsocket";
 import { usePeerNoteContent } from "@/hooks/usePeerNoteContent";
 import { useShareLinkPull } from "@/hooks/useSharePush";
@@ -70,6 +70,9 @@ function EditorLayout({
   } = useNotes();
   const deviceType = useDeviceType();
   const isDesktop = deviceType === "desktop";
+  // The top toolbar follows the input device, not the width (#1392). Focus mode hides it with the
+  // rest of the chrome in a narrow window; a read-only note has none (its Contents toggle needs the side panel).
+  const topToolbar = useDesktopControls() && (isDesktop || (!focusMode && !readOnly));
   const [tocOpen, setTocOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   // Touch layouts: the header's small title appears once the big one has scrolled out (#825)
@@ -171,11 +174,11 @@ function EditorLayout({
         )}
       </div>
 
-      {/* Desktop Toolbar */}
+      {/* Top Toolbar: below the floating header in the touch layouts */}
       <div
         className={
-          isDesktop
-            ? "flex items-center border-b shrink-0 bg-background z-10 w-full"
+          topToolbar
+            ? cn("flex items-center border-b shrink-0 bg-background z-10 w-full", !isDesktop && "pt-(--note-header-h)")
             : "hidden"
         }
       >
@@ -183,7 +186,8 @@ function EditorLayout({
           <EditorToolbar
             editor={editor}
             tocOpen={tocOpen}
-            onToggleToc={() => setTocOpen((prev) => !prev)}
+            onToggleToc={isDesktop ? () => setTocOpen((prev) => !prev) : undefined}
+            overflow={!isDesktop}
             // Version history is for your own notes: a restore on a peer note
             // would push a whole-document replacement into someone else's note.
             onOpenHistory={isPeerNote ? undefined : () => setHistoryOpen(true)}
@@ -196,7 +200,7 @@ function EditorLayout({
           </div>
         )}
         {editor && !readOnly && <AIMenu editor={editor} />}
-        {(viewOnlyBadge || collaborativePopover) && (
+        {isDesktop && (viewOnlyBadge || collaborativePopover) && (
           <div className="ml-auto flex items-center gap-2 px-3">
             {viewOnlyBadge}
             {collaborativePopover}
@@ -219,7 +223,7 @@ function EditorLayout({
       <div className="flex-1 flex min-h-0 w-full overflow-hidden">
         {/* Touch layouts: the find bar stays put while the note scrolls under it (#825). */}
         <div className="relative flex min-w-0 flex-1">
-        {!isDesktop && (
+        {!isDesktop && !topToolbar && (
           <div className="absolute inset-x-0 top-(--note-header-h) z-20">
             <FindReplaceBar />
           </div>
@@ -230,10 +234,10 @@ function EditorLayout({
           data-note-scroller
           className={cn(
             "@container/live-blocks flex-1 overflow-y-auto relative bg-background w-full pb-[var(--editor-bottom-space,0px)]",
-            !isDesktop && "pt-(--note-header-h) scroll-pt-(--note-header-h)",
+            !isDesktop && !topToolbar && "pt-(--note-header-h) scroll-pt-(--note-header-h)",
           )}
         >
-          {isDesktop && <FindReplaceBar />}
+          {topToolbar && <FindReplaceBar />}
           <TipTapEditor
             noteId={noteId}
             metadata={selectedNoteMetadata!}

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { isFinePointerDevice } from '@/lib/utils';
 
 export type DeviceType = 'mobile' | 'tablet' | 'desktop';
 
@@ -27,4 +28,13 @@ export function useDeviceType(): DeviceType {
     }, []);
 
     return deviceType;
+}
+
+/**
+ * True where the editor shows its top toolbar and selection bubble: a desktop width, or any width on
+ * a machine with a mouse or trackpad and no touch screen. Layout follows the width; these controls
+ * follow the input device (#1392). A touch device at a narrow width keeps the bottom toolbar.
+ */
+export function useDesktopControls(): boolean {
+    return useDeviceType() === 'desktop' || isFinePointerDevice();
 }

@@ -115,3 +115,12 @@ export function debounce<T extends (...args: never[]) => void>(
 export function isTouchDevice(): boolean {
   return typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
 }
+
+/** True for a mouse or trackpad on a machine with no touch screen (a Mac or PC). An iPad with a Magic Keyboard still has touch, so it is false (#1392). */
+export function isFinePointerDevice(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    window.matchMedia('(pointer: fine)').matches &&
+    navigator.maxTouchPoints === 0
+  );
+}
