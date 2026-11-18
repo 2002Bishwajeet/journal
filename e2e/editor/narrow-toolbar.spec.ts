@@ -19,7 +19,21 @@ async function diag(page: Page, label: string): Promise<void> {
     const a = document.activeElement as HTMLElement | null;
     const ed = document.querySelector('.ProseMirror') as HTMLElement | null;
     const sel = window.getSelection();
+    const w = window as unknown as { __log?: string[]; __mark?: boolean };
+    if (!w.__log) {
+      w.__log = [];
+      const t0 = performance.now();
+      const add = (m: string) => w.__log!.push(`${Math.round(performance.now() - t0)} ${m}`);
+      document.addEventListener('selectionchange', () => add(`selchange "${window.getSelection()?.toString()}"`));
+      document.addEventListener('focusout', (e) => add(`focusout ${(e.target as HTMLElement).tagName}.${String((e.target as HTMLElement).className).slice(0, 20)}`), true);
+      window.addEventListener('keydown', (e) => add(`keydown ${e.key} meta=${e.metaKey} ctrl=${e.ctrlKey} dp=${e.defaultPrevented}`), true);
+      window.addEventListener('keydown', (e) => setTimeout(() => add(`  after ${e.key} dp=${e.defaultPrevented}`), 0));
+    }
+    const log = w.__log.splice(0);
+    const remounted = ed ? !(ed as unknown as { __m?: boolean }).__m : null;
+    if (ed) (ed as unknown as { __m?: boolean }).__m = true;
     return {
+      log, remounted, atCenter: ed ? (() => { const r = ed.getBoundingClientRect(); const el = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return el ? el.tagName + '.' + String(el.className).slice(0, 30) + ' ' + JSON.stringify([r.x, r.y, r.width, r.height].map(Math.round)) : null; })() : null,
       editorHtml: ed?.innerHTML.slice(0, 300),
       selection: sel ? sel.toString() : null,
       active: a ? { tag: a.tagName, cls: a.className.toString().slice(0, 60), title: a.title } : null,
