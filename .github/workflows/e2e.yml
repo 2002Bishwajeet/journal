@@ -90,6 +90,15 @@ jobs:
         timeout-minutes: 3
         run: .github/scripts/playwright-deps.sh chromium
 
+      # TEMP-1404 hammer
+      - name: TEMP hammer narrow-toolbar
+        if: matrix.shard == 2
+        continue-on-error: true
+        timeout-minutes: 12
+        run: npm run e2e -- e2e/editor/narrow-toolbar.spec.ts -g "focus mode hides" --repeat-each=20 --retries=0 --output=test-results/hammer
+        env:
+          CI: true
+
       - name: Run E2E (hermetic)
         timeout-minutes: 16
         run: npm run e2e -- --shard=${{ matrix.shard }}/4
