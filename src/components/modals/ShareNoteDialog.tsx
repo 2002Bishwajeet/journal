@@ -236,7 +236,7 @@ export default function ShareNoteDialog({ isOpen, onClose, noteId, noteTitle, in
         </div>
     );
 
-    const preview = <ShareLinkPreview noteId={noteId} noteTitle={noteTitle} isPublic={isPublic} />;
+    const preview = <ShareLinkPreview noteId={noteId} noteTitle={noteTitle} isPublic={isPublic} feedPostId={metadata?.feedPostId} feedSummary={metadata?.feedSummary} />;
 
     const footer = readOnlyDriveUrl ? null : (
         <>

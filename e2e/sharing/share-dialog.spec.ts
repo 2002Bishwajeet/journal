@@ -91,3 +91,32 @@ test('one Share… item opens the Share dialog, and the public link turns on and
   await app.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
 });
+
+// #1416: once the note is on the feed, the Link preview is the feed post's card, with its link.
+test('on the feed, the Link preview shows the identity domain and the post link', async ({ app }) => {
+  test.setTimeout(90_000);
+  await assertTestOrigin(app);
+  await app.setViewportSize(DESKTOP);
+  const title = `Feed preview ${Date.now()}`;
+  await createNote(app, { title, body: 'A note on the feed.' });
+
+  // Not on the feed: the journal card, no post link
+  await openNoteMenu(app, title);
+  await app.getByRole('menuitem', { name: 'Share…' }).click();
+  const dialog = app.getByRole('dialog', { name: 'Share Note' });
+  await expect(dialog.getByText('Link preview', { exact: true })).toBeVisible();
+  await expect(dialog.getByLabel('Feed post link', { exact: true })).toHaveCount(0);
+
+  const { docId } = (await app.evaluate(() => window.__journalE2E!.openNoteJSON()))!;
+  await app.evaluate((id) => window.__journalE2E!.seedFeedPost(id, 'abc-post-id', 'A summary for the feed card.'), docId);
+
+  const link = dialog.getByLabel('Feed post link', { exact: true });
+  await expect(link).toBeVisible();
+  const url = await link.inputValue();
+  expect(url).toMatch(/^https:\/\/[^/]+\/posts\/public-posts\/abc-post-id$/);
+  const preview = dialog.getByRole('region', { name: 'Link preview' });
+  await expect(preview.getByText(new URL(url).host, { exact: true }).first()).toBeVisible();
+  await expect(preview.getByText('A summary for the feed card.')).toBeVisible();
+  await expect(dialog.getByRole('link', { name: 'Open feed post' })).toHaveAttribute('href', url);
+  await shootBothWidths(app, 'feed-preview');
+});

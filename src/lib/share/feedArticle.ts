@@ -23,6 +23,14 @@ import { getNewId } from '@/lib/utils';
 import { readEdits, NO_EDITS, type ImageEdits } from '@/lib/images/imageEdits';
 import { parseAttachmentSrc } from '@/lib/utils/attachmentSrc';
 
+/**
+ * The post's page on the owner's identity, as Homebase's feed links it. The page also resolves a
+ * post by its global transit id (`feedPostId`), so no slug lookup is needed.
+ */
+export function feedPostUrl(identity: string, feedPostId: string): string {
+    return `https://${identity}/posts/${BlogConfig.PublicChannelSlug}/${encodeURIComponent(feedPostId)}`;
+}
+
 /** The post's own payload keys for the note's images, as the feed's uploader names media. */
 const FEED_MEDIA_KEY_PREFIX = 'pst_mdi';
 // The baked image has a different size from the stored one (#1387), so the size goes too

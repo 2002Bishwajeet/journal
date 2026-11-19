@@ -237,6 +237,11 @@ function markSharedWithMe(docId: string, authorOdinId: string): Promise<void> {
     return patchLocalMetadata(docId, { authorOdinId });
 }
 
+/** Puts a note on the feed as far as its metadata goes, as a publish would leave it (#1416). */
+function seedFeedPost(docId: string, feedPostId: string, feedSummary?: string): Promise<void> {
+    return patchLocalMetadata(docId, { feedPostId, feedSummary });
+}
+
 /** Leaves an agent's share_note request on a local note, as the MCP's write would after a pull (#325). */
 function seedShareRequest(docId: string, request: import('@/types').ShareRequest): Promise<void> {
     return patchLocalMetadata(docId, { shareRequest: request });
@@ -519,7 +524,7 @@ if (E2E_ORIGINS.includes(location.origin)) {
     // Set by a spec's init script before the page loads (#905).
     e2eSwitches.sessionRestoreDelayMs = Number(localStorage.getItem('e2e-session-restore-delay-ms')) || 0;
     Object.defineProperty(window, '__journalE2E', {
-        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, showActionSheet, showSheet, syncToDisk, ignoreInvites, seedPendingSync, seedImageUploads, seedCollaborativeNote, seedFolders, uploadPendingImages, refuseSharePush, deleteFilesNamed, subscribePeerPush, journalNotifications, noteHeader, probePeerNote, startAgentEval, takeAgentEvents, openNoteJSON, markSharedWithMe, seedShareRequest, seedSnapshotHistory }),
+        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, showActionSheet, showSheet, syncToDisk, ignoreInvites, seedPendingSync, seedImageUploads, seedCollaborativeNote, seedFolders, uploadPendingImages, refuseSharePush, deleteFilesNamed, subscribePeerPush, journalNotifications, noteHeader, probePeerNote, startAgentEval, takeAgentEvents, openNoteJSON, markSharedWithMe, seedShareRequest, seedFeedPost, seedSnapshotHistory }),
         writable: false,
         configurable: false,
         enumerable: false,
