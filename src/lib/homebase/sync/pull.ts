@@ -427,15 +427,15 @@ export async function handleRemoteNote(ctx: SyncContext, remoteFile: HomebaseFil
             viewerRecipients: content?.viewerRecipients,
             lastEditedBy: content?.lastEditedBy,
             shareRequest: content?.shareRequest,
-            // A lock made here and not pushed yet stays (#1427); a Remove lock elsewhere is `false`.
-            locked: content?.locked ?? (existingRecord.syncStatus !== 'synced' ? existingDoc?.metadata.locked : undefined),
+            // A lock or Remove lock made here and not pushed yet stays, whatever the server says (#1427).
+            locked: existingRecord.syncStatus !== 'synced' ? existingDoc?.metadata.locked : content?.locked,
         };
 
         // Hash what the server holds, not the merged state: a merge that kept unpushed
         // local edits must not match the push's hash early-exit (#442).
-        // A kept folder or feed post id differs from the server's, so the next push puts it back there.
+        // A kept folder, feed post id or lock differs from the server's, so the next push puts it back there.
         const contentHash = remoteBlob
-            ? await computeContentHash({ ...updatedMetadata, folderId: remoteFolderId, feedPostId: content?.feedPostId }, remoteBlob)
+            ? await computeContentHash({ ...updatedMetadata, folderId: remoteFolderId, feedPostId: content?.feedPostId, locked: content?.locked }, remoteBlob)
             : undefined;
         // Local edits the server lacks keep the note pending so the next push uploads them.
         const localAhead = existingRecord.syncStatus !== 'synced'

@@ -1,4 +1,4 @@
-import type { Browser, Page } from '@playwright/test';
+import type { Browser, Locator, Page } from '@playwright/test';
 import { test, expect, waitForAppReady, withFencedPage } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
 import { activeEditor, createNote, openSettingsSection, settingsPanel, THEMES } from '../support/actions';
@@ -41,12 +41,13 @@ async function openDesktopApp(browser: Browser, body: (page: Page) => Promise<vo
 const settle = (page: Page) => page.waitForFunction(() => document.getAnimations().every((a) => a.playState !== 'running'));
 const ownerChecks = (page: Page) => page.evaluate(() => Number(localStorage.getItem('e2e-owner-checks') ?? 0));
 
-async function shoot(page: Page, what: string, viewport: string) {
+/** The whole page, or only `target` (the 1280 note list, which otherwise shares a frame with the panel). */
+async function shoot(page: Page, what: string, viewport: string, target?: Locator) {
     for (const theme of THEMES) {
         await page.emulateMedia({ colorScheme: theme });
         await expect(page.locator('html')).toHaveClass(new RegExp(theme));
         await settle(page);
-        await page.screenshot({ path: test.info().outputPath(`${what}-${theme}-${viewport}.png`), animations: 'disabled' });
+        await (target ?? page).screenshot({ path: test.info().outputPath(`${what}-${theme}-${viewport}.png`), animations: 'disabled' });
     }
 }
 
@@ -69,6 +70,7 @@ test('lock a note: the locked panel and a hidden snippet, Unlock, then Lock now 
         // Locking asks nothing.
         expect(await ownerChecks(page)).toBe(0);
         await shoot(page, 'locked-note', '1280');
+        await shoot(page, 'locked-note-list', '1280', page.locator('[data-pane="note-list"]'));
 
         // A locked note can't be shared.
         await row.click({ button: 'right' });
