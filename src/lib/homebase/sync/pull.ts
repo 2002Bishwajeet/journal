@@ -1,6 +1,7 @@
 import type { AccessControlList, HomebaseFile, DeletedHomebaseFile } from '@homebase-id/js-lib/core';
 import {
     upsertFolder,
+    getFolderById,
     deleteFolder as deleteLocalFolder,
     getSearchIndexEntry,
     getAllDocIdsByFolder,
@@ -188,9 +189,13 @@ export async function handleRemoteFolder(ctx: SyncContext, remoteFile: HomebaseF
             encryptedKeyHeader: serializeKeyHeader(remoteFile.sharedSecretEncryptedKeyHeader),
         });
     } else {
-        // Update existing - remote wins for folders (simple content)
-        await upsertFolder(uniqueId, folderName, content.isPublic === true, content.locked === true);
+        // Update existing - remote wins for folders (simple content), except a lock or
+        // Remove lock made here and not pushed yet (#1427): it stays, and so does the pending push.
+        const unpushed = existingRecord.syncStatus !== 'synced';
+        const locked = unpushed ? (await getFolderById(uniqueId))?.locked ?? false : content.locked === true;
+        await upsertFolder(uniqueId, folderName, content.isPublic === true, locked);
         await markSynced(uniqueId, remoteFile.fileId, remoteFile.fileMetadata.versionTag, undefined, serializeKeyHeader(remoteFile.sharedSecretEncryptedKeyHeader));
+        if (unpushed) await updateSyncStatus(uniqueId, existingRecord.syncStatus);
     }
 }
 
