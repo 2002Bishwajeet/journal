@@ -1,4 +1,5 @@
 import { IdbFs, type MemoryFS } from '@electric-sql/pglite';
+import { ENCRYPTED_STORE } from './databaseKey';
 
 /**
  * A boot timing mark from inside the worker (#901), posted to the page, which records it
@@ -26,12 +27,6 @@ class TimedIdbFs extends IdbFs {
     return flush;
   }
 }
-
-/**
- * The encrypted database's IndexedDB store (#1361): the databases `journal-data.a` and
- * `.b`, the pair a data key rotation needs. The name says nothing about what it holds.
- */
-export const ENCRYPTED_STORE = 'journal-data';
 
 export interface WorkerFs {
   fs: IdbFs | MemoryFS;

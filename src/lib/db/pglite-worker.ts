@@ -41,10 +41,15 @@ worker({
       extensions: { pg_trgm, unaccent, live },
     });
     // Postgres is running on the loaded data dir.
-    void pg.waitReady.then(() => {
-      flushFs = flush;
-      markBoot('db-open');
-    });
+    void pg.waitReady.then(
+      () => {
+        flushFs = flush;
+        markBoot('db-open');
+      },
+      // Queries wait for a ready engine, so the page would wait forever: tell it why
+      // (a damaged encrypted store is a CorruptStoreError, #1362).
+      (error: Error) => postMessage({ type: 'journal-open-error', name: error.name, message: error.message }),
+    );
     return pg;
   },
 });

@@ -11,6 +11,12 @@ export function usesEncryptedDatabase(): boolean {
   return platform === 'macos' || platform === 'windows' || platform === 'linux';
 }
 
+/**
+ * The encrypted database's IndexedDB store (#1361): the databases `journal-data.a` and
+ * `.b`, the pair a data key rotation needs. The name says nothing about what it holds.
+ */
+export const ENCRYPTED_STORE = 'journal-data';
+
 /** The keychain entry is gone after this device made a key: the encrypted database can't be opened (#1362). */
 export class DatabaseKeyMissingError extends Error {
   constructor() {

@@ -48,6 +48,10 @@ export function BootErrorScreen() {
   // Only the migration's own failures are escapable — LegacyMigrationError is
   // thrown solely when a legacy database exists and could not be dumped.
   const isLegacyFailure = error.name === 'LegacyMigrationError';
+  // The desktop app's encrypted database can't be opened (#1362): its keychain key is
+  // gone, or the store is damaged. Retry can't fix either; a reset can.
+  const keyMissing = error.name === 'DatabaseKeyMissingError';
+  const offersReset = keyMissing || error.name === 'CorruptStoreError';
 
   const attempt = async (run: () => Promise<unknown>) => {
     setBusy(true);
@@ -75,6 +79,37 @@ export function BootErrorScreen() {
       const { bootWithoutLegacyData } = await import('@/lib/db');
       await bootWithoutLegacyData();
     });
+
+  // Never on its own: only this button deletes the local data.
+  const handleReset = () =>
+    attempt(async () => {
+      const { resetLocalData } = await import('@/lib/db/localReset');
+      await resetLocalData();
+    });
+
+  if (offersReset) {
+    return (
+      <div
+        role="alert"
+        className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background px-6 text-center"
+      >
+        <img src={logo} alt="" className="h-16 w-16 object-contain opacity-70" />
+        <div className="space-y-1">
+          <h1 className="text-base font-medium">Couldn't open the notes on this device</h1>
+          <p className="max-w-xs text-xs text-muted-foreground">
+            {keyMissing
+              ? 'The key to them is missing from the system keychain.'
+              : 'The local copy is damaged.'}{' '}
+            Your synced notes are safe in your Homebase: reset the local data to download them again.
+            Changes on this device that haven't synced yet will be lost.
+          </p>
+        </div>
+        <Button onClick={handleReset} disabled={busy} size="sm" variant="destructive">
+          {busy ? 'Resetting…' : 'Reset local data and sync again'}
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div
