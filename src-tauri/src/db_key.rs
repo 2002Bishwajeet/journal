@@ -19,7 +19,7 @@ const KEY_LEN: usize = 32;
 enum DatabaseKey {
     Key(Vec<u8>),
     /// This device made a key before, and its keychain entry is gone. No second key is made:
-    /// the encrypted database opens only with the first one (recovery is #1362).
+    /// the encrypted database opens only with the first one, until the user resets it (#1362).
     Missing,
 }
 
@@ -80,6 +80,16 @@ fn load_or_create(keychain: &dyn Keychain, made: &Path) -> Result<DatabaseKey, S
     Ok(DatabaseKey::Key(key))
 }
 
+/// After the page deleted the encrypted database (#1362): the key the keychain still has, or a
+/// new one when its entry is gone. The old database never opens with a new key, so only the
+/// reset makes one.
+fn reset(keychain: &dyn Keychain, made: &Path) -> Result<DatabaseKey, String> {
+    if keychain.get()?.is_none() && made.exists() {
+        fs::remove_file(made).map_err(|e| e.to_string())?;
+    }
+    load_or_create(keychain, made)
+}
+
 struct KeyState {
     keychain: Box<dyn Keychain>,
     made: PathBuf,
@@ -98,6 +108,15 @@ async fn database_key(state: tauri::State<'_, KeyState>) -> Result<DatabaseKey, 
     Ok(answer.clone().unwrap())
 }
 
+/// "Reset local data and sync again" (#1362), after the page deleted the database. This launch's
+/// later `database_key` calls (the reload) get the new answer.
+#[tauri::command]
+async fn reset_database_key(state: tauri::State<'_, KeyState>) -> Result<(), String> {
+    let mut answer = state.answer.lock().unwrap();
+    *answer = Some(reset(state.keychain.as_ref(), &state.made)?);
+    Ok(())
+}
+
 /// Only the app's own page, `http://localhost:{PORT}`, may ask for the key. A dev build also
 /// allows its dev server (`devUrl`, Tauri's local origin there); a release build allows no
 /// local origin at all.
@@ -111,7 +130,7 @@ fn capability() -> String {
 
 fn plugin_with<R: Runtime>(keychain: fn(&str) -> Box<dyn Keychain>) -> TauriPlugin<R> {
     Builder::new("journal-db-key")
-        .invoke_handler(tauri::generate_handler![database_key])
+        .invoke_handler(tauri::generate_handler![database_key, reset_database_key])
         .setup(move |app, _api| {
             app.manage(KeyState {
                 keychain: keychain(&app.config().identifier),
@@ -222,6 +241,25 @@ mod tests {
         );
         assert_eq!(keychain.writes.load(Ordering::SeqCst), 1);
         assert_eq!(*keychain.entry.lock().unwrap(), None);
+    }
+
+    #[test]
+    fn a_reset_makes_a_new_key_only_when_the_entry_is_gone() {
+        let scratch = Scratch::new();
+        let keychain = MockKeychain::default();
+        let first = key_of(load_or_create(&keychain, &scratch.made()).unwrap());
+
+        // A damaged database: the keychain still has the key, and the reset keeps it.
+        assert_eq!(key_of(reset(&keychain, &scratch.made()).unwrap()), first);
+        assert_eq!(keychain.writes.load(Ordering::SeqCst), 1);
+        assert!(scratch.made().exists());
+
+        *keychain.entry.lock().unwrap() = None;
+        let second = key_of(reset(&keychain, &scratch.made()).unwrap());
+        assert_ne!(second, first);
+        assert_eq!(keychain.writes.load(Ordering::SeqCst), 2);
+        // A restart reads the new key.
+        assert_eq!(key_of(load_or_create(&keychain, &scratch.made()).unwrap()), second);
     }
 
     #[test]
