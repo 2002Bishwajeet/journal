@@ -25,6 +25,8 @@ for (const c of CASES) {
     const asked: string[] = [];
     await app.exposeFunction('deviceIpc', (cmd: string) => {
       asked.push(cmd);
+      // The iOS app's database is encrypted too (#1364): its key, from src-tauri/src/db_key.rs.
+      if (cmd === 'plugin:journal-db-key|database_key') return { key: Array<number>(32).fill(7) };
       return null;
     });
     await app.addInitScript(() => {

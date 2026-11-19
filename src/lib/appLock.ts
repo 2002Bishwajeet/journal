@@ -2,14 +2,14 @@ import { APP_LOCK_KEY, appLockOn, changeNotesVisibility } from './native/bridge'
 import { LOCKED_SESSION_KEY } from './db/databaseKey';
 
 /**
- * The desktop app lock (#1363). Its switch lives in the key command (src-tauri/src/db_key.rs):
- * with it on, the database key comes only after Touch ID or Windows Hello. The page keeps a
+ * The app lock (#1363, #1364). Its switch lives in the key command (src-tauri/src/db_key.rs):
+ * with it on, the database key comes only after Touch ID, Windows Hello, Face ID or a fingerprint. The page keeps a
  * copy for what it decides on its own: notes outside the app, and the timeout.
  */
 
 /** What Settings -> Security shows (db_key.rs `security_status`). */
 export interface SecurityStatus {
-    /** Touch ID or Windows Hello can confirm the owner, so the lock is offered (never on Linux). */
+    /** Touch ID, Windows Hello, Face ID or a fingerprint can confirm the owner, so the lock is offered (never on Linux). */
     lockAvailable: boolean;
     lockOn: boolean;
     /** The key comes from a passphrase: this Linux has no keychain. */
@@ -29,7 +29,7 @@ export async function getSecurityStatus(): Promise<SecurityStatus> {
 }
 
 /**
- * Turns the lock on (after Touch ID or Windows Hello) or off. Turning it on hides the notes
+ * Turns the lock on (after Touch ID, Windows Hello, Face ID or a fingerprint) or off. Turning it on hides the notes
  * outside the app unless "Show notes outside the app" is on, and the bridge purges once.
  */
 export async function setAppLock(on: boolean): Promise<'done' | 'cancelled' | 'failed'> {
@@ -71,7 +71,7 @@ export async function lockApp(): Promise<void> {
     window.location.reload();
 }
 
-/** The lock screen's Unlock: the next key request asks Touch ID or Windows Hello. */
+/** The lock screen's Unlock: the next key request asks Touch ID, Windows Hello, Face ID or a fingerprint. */
 export function clearLockedSession(): void {
     sessionStorage.removeItem(LOCKED_SESSION_KEY);
 }

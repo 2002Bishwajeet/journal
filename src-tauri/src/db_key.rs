@@ -1,10 +1,11 @@
-//! The desktop database's key (#1361): 32 random bytes in the OS keychain (macOS Keychain,
-//! Windows Credential Manager, Linux Secret Service). The page asks for it with
-//! `database_key` and opens PGlite through pglite-cipher with it (src/lib/db/databaseKey.ts).
+//! The native app database's key (#1361, #1364): 32 random bytes in the OS keychain (macOS
+//! Keychain, Windows Credential Manager, Linux Secret Service, the iOS Keychain and the Android
+//! Keystore). The page asks for it with `database_key` and opens PGlite through pglite-cipher
+//! with it (src/lib/db/databaseKey.ts). Every platform has the same commands.
 //!
-//! With the app lock on (#1363), `database_key` hands the key out only after Touch ID or
-//! Windows Hello (app_lock.rs). A Linux without a Secret Service gets a salt instead, and the
-//! page derives the key from a passphrase.
+//! With the app lock on (#1363), `database_key` hands the key out only after Touch ID, Windows
+//! Hello, Face ID or the fingerprint (app_lock.rs). A Linux without a Secret Service gets a salt
+//! instead, and the page derives the key from a passphrase.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -12,9 +13,9 @@ use std::sync::Mutex;
 
 use serde::Serialize;
 use tauri::plugin::{Builder, TauriPlugin};
-use tauri::{Manager, Runtime};
+use tauri::{AppHandle, Manager, Runtime};
 
-use crate::app_lock::{parent_window, Authenticator, OsAuthenticator, Refusal};
+use crate::app_lock::{parent_window, Authenticator, Refusal};
 
 /// The key's length: AES-256.
 const KEY_LEN: usize = 32;
@@ -71,16 +72,48 @@ struct OsKeychain {
     service: String,
 }
 
+const ENTRY_USER: &str = "database-key";
+
 impl OsKeychain {
-    fn entry(&self) -> Result<keyring::Entry, KeychainError> {
-        keyring::Entry::new(&self.service, "database-key").map_err(keychain_error)
+    #[cfg(desktop)]
+    fn entry(&self) -> Result<keyring_core::Entry, KeychainError> {
+        keyring::Entry::new(&self.service, ENTRY_USER)
+            .map(|entry| entry.inner)
+            .map_err(keychain_error)
+    }
+
+    /// The data protection keychain (#1364): this device only (never synced to iCloud or
+    /// restored onto another phone), readable after the first unlock since the phone started.
+    #[cfg(target_os = "ios")]
+    fn entry(&self) -> Result<keyring_core::Entry, KeychainError> {
+        use keyring_core::api::CredentialStoreApi;
+        let policy = std::collections::HashMap::from([(
+            "access-policy",
+            "after-first-unlock-this-device-only",
+        )]);
+        apple_native_keyring_store::protected::Store::new()
+            .and_then(|store| store.build(&self.service, ENTRY_USER, Some(&policy)))
+            .map_err(keychain_error)
+    }
+
+    /// An app-private SharedPreferences file whose secrets a key in the Android Keystore
+    /// encrypts (#1364). The key never leaves the phone, and the file stays out of backups
+    /// (res/xml/data_extraction_rules.xml).
+    #[cfg(target_os = "android")]
+    fn entry(&self) -> Result<keyring_core::Entry, KeychainError> {
+        use keyring_core::api::CredentialStoreApi;
+        android_native_keyring_store::Store::new()
+            .and_then(|store| store.build(&self.service, ENTRY_USER, None))
+            .map_err(keychain_error)
     }
 }
 
 /// keyring has no Secret Service to connect to: it set up no store (#1363).
-fn keychain_error(error: keyring::Error) -> KeychainError {
+fn keychain_error(error: keyring_core::Error) -> KeychainError {
     match error {
-        keyring::Error::NoDefaultStore if cfg!(target_os = "linux") => KeychainError::Unavailable,
+        keyring_core::Error::NoDefaultStore if cfg!(target_os = "linux") => {
+            KeychainError::Unavailable
+        }
         error => KeychainError::Failed(error.to_string()),
     }
 }
@@ -89,7 +122,7 @@ impl Keychain for OsKeychain {
     fn get(&self) -> Result<Option<Vec<u8>>, KeychainError> {
         match self.entry()?.get_secret() {
             Ok(key) => Ok(Some(key)),
-            Err(keyring::Error::NoEntry) => Ok(None),
+            Err(keyring_core::Error::NoEntry) => Ok(None),
             Err(e) => Err(keychain_error(e)),
         }
     }
@@ -173,8 +206,17 @@ fn reset(keychain: &dyn Keychain, files: &Files) -> Result<DatabaseKey, String> 
     load_or_create(keychain, files)
 }
 
-const UNLOCK_REASON: &str = "unlock your notes";
-const TURN_ON_REASON: &str = "turn on the app lock";
+// macOS shows "Journal is trying to <reason>."; the phone shows the reason as it is.
+const UNLOCK_REASON: &str = if cfg!(mobile) {
+    "Unlock your notes"
+} else {
+    "unlock your notes"
+};
+const TURN_ON_REASON: &str = if cfg!(mobile) {
+    "Turn on the app lock"
+} else {
+    "turn on the app lock"
+};
 
 struct KeyState {
     keychain: Box<dyn Keychain>,
@@ -202,7 +244,7 @@ fn unlock(state: &KeyState, window: isize) -> Result<DatabaseKey, String> {
     Ok(key)
 }
 
-/// Async, so a keychain or Touch ID prompt never blocks the main thread.
+/// Async, so a keychain or biometric prompt never blocks the main thread.
 #[tauri::command]
 async fn database_key<R: Runtime>(
     window: tauri::Window<R>,
@@ -224,7 +266,8 @@ async fn reset_database_key(state: tauri::State<'_, KeyState>) -> Result<(), Str
 #[derive(Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct SecurityStatus {
-    /// Touch ID or Windows Hello can confirm the owner, so the lock is offered.
+    /// Touch ID, Windows Hello, Face ID or a fingerprint can confirm the owner, so the lock is
+    /// offered.
     lock_available: bool,
     lock_on: bool,
     /// The key comes from a passphrase: this Linux has no keychain.
@@ -250,7 +293,7 @@ fn set_lock(state: &KeyState, on: bool, window: isize) -> Result<Option<Refusal>
         return Ok(None);
     }
     if !state.auth.available() {
-        return Err("this computer can't confirm its owner".into());
+        return Err("this device can't confirm its owner".into());
     }
     if let Err(refusal) = state.auth.authenticate(TURN_ON_REASON, window) {
         return Ok(Some(refusal));
@@ -291,7 +334,7 @@ fn capability() -> String {
 
 fn plugin_with<R: Runtime>(
     keychain: fn(&str) -> Box<dyn Keychain>,
-    auth: fn() -> Box<dyn Authenticator>,
+    auth: fn(&AppHandle<R>) -> Box<dyn Authenticator>,
 ) -> TauriPlugin<R> {
     Builder::new("journal-db-key")
         .invoke_handler(tauri::generate_handler![
@@ -304,7 +347,7 @@ fn plugin_with<R: Runtime>(
         .setup(move |app, _api| {
             app.manage(KeyState {
                 keychain: keychain(&app.config().identifier),
-                auth: auth(),
+                auth: auth(app),
                 files: Files::in_dir(app.path().app_data_dir()?),
                 answer: Mutex::new(None),
             });
@@ -315,13 +358,19 @@ fn plugin_with<R: Runtime>(
 }
 
 pub fn plugin<R: Runtime>() -> TauriPlugin<R> {
+    #[cfg(desktop)]
+    let auth: fn(&AppHandle<R>) -> Box<dyn Authenticator> =
+        |_| Box::new(crate::app_lock::OsAuthenticator);
+    #[cfg(mobile)]
+    let auth: fn(&AppHandle<R>) -> Box<dyn Authenticator> =
+        |app| Box::new(crate::app_lock::MobileAuthenticator(app.clone()));
     plugin_with(
         |service| {
             Box::new(OsKeychain {
                 service: service.to_owned(),
             })
         },
-        || Box::new(OsAuthenticator),
+        auth,
     )
 }
 
@@ -703,7 +752,7 @@ mod tests {
                         ..Default::default()
                     })
                 },
-                || Box::new(MockAuth::answering(Ok(()))),
+                |_| Box::new(MockAuth::answering(Ok(()))),
             ))
             .build(tauri::generate_context!())
             .unwrap();

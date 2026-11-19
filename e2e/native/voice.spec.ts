@@ -30,7 +30,11 @@ async function openVoice(browser: Browser, platform: 'ios' | 'macos', fakes: Fak
             ({ platform, segments, holdAfter }) => {
                 const w = window as unknown as Record<string, unknown>;
                 w.__JOURNAL_NATIVE__ = { platform, plugins: [] };
-                w.__TAURI_INTERNALS__ = { transformCallback: () => 0, invoke: async () => null };
+                w.__TAURI_INTERNALS__ = {
+                    transformCallback: () => 0,
+                    // The encrypted database's key on every platform (src-tauri/src/db_key.rs, #1364).
+                    invoke: async (cmd: string) => (cmd === 'plugin:journal-db-key|database_key' ? { key: Array<number>(32).fill(7) } : null),
+                };
                 w.__JOURNAL_VOICE_FAKES__ = { speech: { segments, intervalMs: 150, holdAfter }, formatter: {} };
             },
             { platform, segments: SEGMENTS, holdAfter: fakes.holdAfter },
