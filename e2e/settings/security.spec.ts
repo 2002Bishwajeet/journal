@@ -141,6 +141,8 @@ test('Settings -> Security on Android at 390px: the Experimental switch off, the
         expect(await page.evaluate(() => localStorage.getItem('e2e-key-asked'))).toBeNull();
         await shoot(page, 'security-android-encryption-off', '390');
 
+        // Unsynced changes keep the plain store for a launch (#1362); the hermetic app can't push the Main folder.
+        await page.evaluate(() => window.__journalE2E!.markSynced());
         await encryption().click();
         const confirm = page.getByRole('dialog', { name: 'Encrypt notes on this device?' });
         await expect(confirm).toBeVisible();
