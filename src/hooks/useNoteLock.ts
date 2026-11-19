@@ -3,7 +3,6 @@ import { toast } from 'sonner';
 import { getSecurityStatus } from '@/lib/appLock';
 import { usesEncryptedDatabase } from '@/lib/db/databaseKey';
 import {
-    getNoteLocksVersion,
     isFolderOpen,
     isNoteOpen,
     setFolderLocked,
@@ -45,11 +44,6 @@ function subscribeAvailability(listener: () => void): () => void {
  */
 export function useNoteLocksAvailable(): boolean {
     return useSyncExternalStore(subscribeAvailability, () => available);
-}
-
-/** Re-renders when a note or folder opens, or everything locks again. */
-function useNoteLocksVersion(): number {
-    return useSyncExternalStore(subscribeNoteLocks, getNoteLocksVersion);
 }
 
 function reportCheck(answer: OwnerCheck): void {
@@ -104,10 +98,12 @@ export function useNoteLockActions() {
  * `canUnlock` is false where the owner can't be confirmed (the web).
  */
 export function useNoteLockState(note: NoteListEntry | undefined, folders: readonly Folder[]) {
-    useNoteLocksVersion();
     const available = useNoteLocksAvailable();
     const folderLocked = !!note && folders.some((f) => f.id === note.metadata.folderId && f.locked);
-    const locked = !!note && (note.locked === true || folderLocked) && !isNoteOpen(note, folderLocked);
+    // Read through the store, not beside it: the React Compiler memoizes plain reads of the
+    // module's state on their props, so Unlock would never show the note.
+    const open = useSyncExternalStore(subscribeNoteLocks, () => !!note && isNoteOpen(note, folderLocked));
+    const locked = !!note && (note.locked === true || folderLocked) && !open;
     return {
         locked,
         canUnlock: available,
@@ -120,10 +116,10 @@ export function useNoteLockState(note: NoteListEntry | undefined, folders: reado
 
 /** A locked folder's note list: locked until one Unlock opens all its notes. */
 export function useFolderLockState(folder: Folder | undefined) {
-    useNoteLocksVersion();
     const available = useNoteLocksAvailable();
+    const open = useSyncExternalStore(subscribeNoteLocks, () => !!folder && isFolderOpen(folder.id));
     return {
-        locked: !!folder?.locked && !isFolderOpen(folder.id),
+        locked: !!folder?.locked && !open,
         canUnlock: available,
         unlock: () => {
             if (!folder) return;

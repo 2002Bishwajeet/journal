@@ -23,21 +23,14 @@ export type OwnerCheck = 'done' | 'cancelled' | 'failed';
 /** Note ids, and folder ids of locked folders, opened since the last relock. */
 const opened = new Set<string>();
 const listeners = new Set<() => void>();
-let version = 0;
 
 function changed(): void {
-    version++;
     listeners.forEach((listener) => listener());
 }
 
 export function subscribeNoteLocks(listener: () => void): () => void {
     listeners.add(listener);
     return () => listeners.delete(listener);
-}
-
-/** Changes whenever a note or folder opens or everything relocks (useSyncExternalStore). */
-export function getNoteLocksVersion(): number {
-    return version;
 }
 
 /** Whether a locked note was opened: itself, or its locked folder. */
