@@ -18,6 +18,8 @@ export interface ExportResult {
     size: number; // in bytes
     filename: string;
     missingImages: number;
+    /** Locked notes (#1427), left out of the export. */
+    skippedLocked: number;
 }
 
 // ![alt](attachment://fileId/payloadKey), or <img src="attachment://fileId/payloadKey" ...>
@@ -53,12 +55,19 @@ export const ExportService = {
             // Create a map of folder IDs to names for quick lookup
             const folderMap = new Map<string, string>();
             folders.forEach(f => folderMap.set(f.id, f.name));
+            const lockedFolders = new Set(folders.filter(f => f.locked).map(f => f.id));
 
             let count = 0;
             let missingImages = 0;
+            let skippedLocked = 0;
             const takenNames = new Map<string, Set<string>>(); // folder name -> lowercased base names used
 
             for (const note of notes) {
+                // A locked note (#1427) never leaves the app unencrypted.
+                if (note.metadata.locked || lockedFolders.has(note.metadata.folderId)) {
+                    skippedLocked++;
+                    continue;
+                }
                 // Determine path based on folder
                 let folderName = '';
                 if (note.metadata.folderId && note.metadata.folderId !== MAIN_FOLDER_ID) {
@@ -106,6 +115,7 @@ export const ExportService = {
                 size: blob.size,
                 filename: downloadFilename,
                 missingImages,
+                skippedLocked,
             };
         } catch (error) {
             console.error('Export failed:', error);

@@ -10,7 +10,7 @@ import { MAIN_FOLDER_ID } from '../homebase/config';
 import { REQUEUE_THUMBNAIL_FAILURE_UPLOADS_SQL, SYNC_ERRORS_ACTIVE_INDEX_SQL } from './syncErrorsSchema';
 
 // Bump whenever a new statement is added to runMigrations().
-export const SCHEMA_VERSION = '11';
+export const SCHEMA_VERSION = '12';
 
 // pg_trgm and its GIN indexes. Run on demand by ensureTrigramSearch() in
 // pglite.ts, not at boot (loading the extension costs ~1–2s). The title index is
@@ -492,6 +492,15 @@ async function runMigrations(database: PGliteInterface): Promise<void> {
     `);
   } catch (error) {
     console.warn('[DB Migration] Could not add folders.is_public column:', error);
+  }
+
+  // Locked folders (#1427): every note in a locked folder is locked.
+  try {
+    await database.exec(`
+      ALTER TABLE folders ADD COLUMN IF NOT EXISTS locked BOOLEAN NOT NULL DEFAULT FALSE;
+    `);
+  } catch (error) {
+    console.warn('[DB Migration] Could not add folders.locked column:', error);
   }
 
   // Version history: full-state snapshots taken before compaction (#158). Local only.

@@ -177,7 +177,7 @@ export async function handleRemoteFolder(ctx: SyncContext, remoteFile: HomebaseF
 
     if (!existingRecord) {
         // New folder from remote
-        await upsertFolder(uniqueId, folderName, content.isPublic === true);
+        await upsertFolder(uniqueId, folderName, content.isPublic === true, content.locked === true);
         await upsertSyncRecord({
             localId: uniqueId,
             entityType: 'folder',
@@ -189,7 +189,7 @@ export async function handleRemoteFolder(ctx: SyncContext, remoteFile: HomebaseF
         });
     } else {
         // Update existing - remote wins for folders (simple content)
-        await upsertFolder(uniqueId, folderName, content.isPublic === true);
+        await upsertFolder(uniqueId, folderName, content.isPublic === true, content.locked === true);
         await markSynced(uniqueId, remoteFile.fileId, remoteFile.fileMetadata.versionTag, undefined, serializeKeyHeader(remoteFile.sharedSecretEncryptedKeyHeader));
     }
 }
@@ -346,6 +346,7 @@ export async function handleRemoteNote(ctx: SyncContext, remoteFile: HomebaseFil
             viewerRecipients: content?.viewerRecipients,
             lastEditedBy: content?.lastEditedBy,
             shareRequest: content?.shareRequest,
+            locked: content?.locked,
         };
 
         const contentHash = remoteBlob ? await computeContentHash(metadata, remoteBlob) : undefined;
@@ -421,6 +422,8 @@ export async function handleRemoteNote(ctx: SyncContext, remoteFile: HomebaseFil
             viewerRecipients: content?.viewerRecipients,
             lastEditedBy: content?.lastEditedBy,
             shareRequest: content?.shareRequest,
+            // A lock made here and not pushed yet stays (#1427); a Remove lock elsewhere is `false`.
+            locked: content?.locked ?? (existingRecord.syncStatus !== 'synced' ? existingDoc?.metadata.locked : undefined),
         };
 
         // Hash what the server holds, not the merged state: a merge that kept unpushed

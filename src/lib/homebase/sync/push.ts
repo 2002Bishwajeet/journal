@@ -138,6 +138,7 @@ export async function pushFolder(ctx: SyncContext, record: SyncRecord): Promise<
         isCollaborative: false, // TODO: V2 placeholder
         needsPassword: false,   // TODO: V2 placeholder
         isPublic: folder.isPublic,
+        locked: folder.locked,
     };
 
     // A shared folder's link card (#644), redrawn when its name or public-note count changed

@@ -14,6 +14,8 @@ export interface NoteSummary {
     tags: string[];
     modified: string;
     excludeFromAI?: boolean;
+    /** The note or its folder is locked (#1427): agents never see it. */
+    locked?: boolean;
 }
 
 export interface ReadDeps {
@@ -74,7 +76,7 @@ const SNIPPET_LENGTH = 200;
 const SEARCH_CONCURRENCY = 8;
 
 export function noteAccess(grants: AgentGrants, note: NoteSummary): AgentAccess {
-    return resolveAccess(grants, { noteId: note.id, folderId: note.folderId, excludeFromAI: note.excludeFromAI });
+    return resolveAccess(grants, { noteId: note.id, folderId: note.folderId, excludeFromAI: note.excludeFromAI, locked: note.locked });
 }
 
 /** The notes the agent can see, which a note link may point at (#561). */

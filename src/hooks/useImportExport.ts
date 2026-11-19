@@ -27,7 +27,10 @@ export function useImportExport(): UseImportExportReturn {
             const missingImagesNote = result.missingImages > 0
                 ? ` ${result.missingImages} images couldn't be exported (offline?)`
                 : "";
-            toast.success(`Exported ${result.count} items (${(result.size / 1024).toFixed(1)} KB).${missingImagesNote}`);
+            const lockedNote = result.skippedLocked > 0
+                ? ` ${result.skippedLocked} locked ${result.skippedLocked === 1 ? "note was" : "notes were"} left out.`
+                : "";
+            toast.success(`Exported ${result.count} items (${(result.size / 1024).toFixed(1)} KB).${missingImagesNote}${lockedNote}`);
         } catch (error) {
             console.error("Export error:", error);
             toast.error("Failed to export data");

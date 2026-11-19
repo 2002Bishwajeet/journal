@@ -217,6 +217,11 @@ const TURN_ON_REASON: &str = if cfg!(mobile) {
 } else {
     "turn on the app lock"
 };
+const LOCKED_NOTE_REASON: &str = if cfg!(mobile) {
+    "Unlock your locked note"
+} else {
+    "unlock your locked note"
+};
 
 struct KeyState {
     keychain: Box<dyn Keychain>,
@@ -311,6 +316,24 @@ async fn set_app_lock<R: Runtime>(
     set_lock(&state, on, parent_window(&window))
 }
 
+/// Locked notes and folders (#1427): Unlock and Remove lock ask the owner every time, with or
+/// without the app lock. Nothing is kept: the page decides what stays open. Answers the
+/// refusal, or `None` once confirmed.
+fn confirm(state: &KeyState, window: isize) -> Result<Option<Refusal>, String> {
+    if !state.auth.available() {
+        return Err("this device can't confirm its owner".into());
+    }
+    Ok(state.auth.authenticate(LOCKED_NOTE_REASON, window).err())
+}
+
+#[tauri::command]
+async fn confirm_owner<R: Runtime>(
+    window: tauri::Window<R>,
+    state: tauri::State<'_, KeyState>,
+) -> Result<Option<Refusal>, String> {
+    confirm(&state, parent_window(&window))
+}
+
 /// Lock now, or the lock timeout: the next `database_key` asks the owner again. The page
 /// reloads, so the key it had goes with the worker.
 #[tauri::command]
@@ -342,7 +365,8 @@ fn plugin_with<R: Runtime>(
             reset_database_key,
             security_status,
             set_app_lock,
-            lock_database
+            lock_database,
+            confirm_owner
         ])
         .setup(move |app, _api| {
             app.manage(KeyState {
@@ -689,6 +713,26 @@ mod tests {
         assert_eq!(set_lock(&state, false, 0).unwrap(), None);
         assert!(!state.files.lock.exists());
         assert_eq!(auth.prompts.load(Ordering::SeqCst), 2);
+    }
+
+    #[test]
+    fn a_locked_note_asks_the_owner_every_time_and_keeps_nothing() {
+        let scratch = Scratch::new();
+        let auth = std::sync::Arc::new(MockAuth::answering(Err(Refusal::Cancelled)));
+        let state = state(
+            &scratch,
+            std::sync::Arc::new(MockKeychain::default()),
+            auth.clone(),
+        );
+
+        assert_eq!(confirm(&state, 0).unwrap(), Some(Refusal::Cancelled));
+        *auth.answer.lock().unwrap() = Ok(());
+        assert_eq!(confirm(&state, 0).unwrap(), None);
+        assert_eq!(confirm(&state, 0).unwrap(), None);
+        assert_eq!(auth.prompts.load(Ordering::SeqCst), 3);
+        // Neither the app lock nor the key changed.
+        assert!(!state.files.lock.exists());
+        assert_eq!(*state.answer.lock().unwrap(), None);
     }
 
     #[test]

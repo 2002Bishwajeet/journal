@@ -12,6 +12,7 @@ import {
 import { getBootProgress, PHASE_PROGRESS, subscribeBootProgress } from '@/lib/bootProgress';
 import { usesEncryptedDatabase } from '@/lib/db/databaseKey';
 import { appLockOn, subscribeNotesVisibility } from '@/lib/native/bridge';
+import { relockNotes } from '@/lib/noteLock';
 
 const SECURITY_STATUS_KEY = ['security-status'];
 const MINUTE = 60_000;
@@ -65,17 +66,22 @@ export function useAppLockGate(): boolean {
     return usesEncryptedDatabase() && lockOn && progress < PHASE_PROGRESS['db-ready'];
 }
 
-/** "Lock after N minutes hidden": locks once the app has been hidden that long. */
+/**
+ * "Lock after N minutes hidden": locks once the app has been hidden that long. Unlocked notes
+ * and folders (#1427) lock again then too, with or without the app lock.
+ */
 export function useLockWhenHidden(): void {
     useEffect(() => {
         if (!usesEncryptedDatabase()) return;
         let hiddenAt: number | null = null;
         let timer: ReturnType<typeof setTimeout> | undefined;
         const lockAfter = () => {
-            const minutes = appLockOn() ? getLockAfterMinutes() : null;
+            const minutes = getLockAfterMinutes();
             return minutes === null ? null : minutes * MINUTE;
         };
         const lock = () => {
+            relockNotes();
+            if (!appLockOn()) return;
             lockApp().catch((err: unknown) => console.error('[useLockWhenHidden] Lock failed:', err));
         };
         const onVisibility = () => {

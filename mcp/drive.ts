@@ -39,7 +39,13 @@ export function toNoteSummary(file: HomebaseFile<NoteFileContent>): NoteSummary 
         tags: content.tags ?? [],
         modified: new Date(file.fileMetadata.updated).toISOString(),
         excludeFromAI: content.excludeFromAI,
+        locked: content.locked === true,
     };
+}
+
+/** A note in a locked folder is locked (#1427): agents never see it. */
+export function withFolderLock(summary: NoteSummary, lockedFolders: ReadonlySet<string>): NoteSummary {
+    return lockedFolders.has(summary.folderId) ? { ...summary, locked: true } : summary;
 }
 
 /**
@@ -145,16 +151,23 @@ export function createDriveDeps(creds: McpCredentials): McpDriveDeps {
             const items = page.folders.map((file) => {
                 const uniqueId = file.fileMetadata.appData.uniqueId;
                 const content = file.fileMetadata.appData.content;
-                return uniqueId && content ? { id: uniqueId, name: content.name, isPublic: content.isPublic === true } : null;
+                return uniqueId && content ? { id: uniqueId, name: content.name, isPublic: content.isPublic === true, locked: content.locked === true } : null;
             });
             return { items, cursor: page.cursor };
         });
 
-    const listNotes = () =>
-        collectPages(async (cursor) => {
-            const page = await notesProvider.queryNotes(cursor, 100);
-            return { items: page.notes.map(toNoteSummary), cursor: page.cursor };
-        });
+    const lockedFolderIds = async () => new Set((await listFolders()).filter((f) => f.locked).map((f) => f.id));
+
+    const listNotes = async () => {
+        const [notes, lockedFolders] = await Promise.all([
+            collectPages(async (cursor) => {
+                const page = await notesProvider.queryNotes(cursor, 100);
+                return { items: page.notes.map(toNoteSummary), cursor: page.cursor };
+            }),
+            lockedFolderIds(),
+        ]);
+        return notes.map((note) => withFolderLock(note, lockedFolders));
+    };
 
     async function fetchNoteForEdit(id: string): Promise<NoteForEdit | null> {
         const file = await notesProvider.getNote(id, undefined, { decrypt: false });
@@ -170,8 +183,9 @@ export function createDriveDeps(creds: McpCredentials): McpDriveDeps {
         ]);
         if (!content) return null;
         const appData = { ...file.fileMetadata.appData, content };
-        const summary = toNoteSummary({ ...file, fileMetadata: { ...file.fileMetadata, appData } });
-        if (!summary) return null;
+        const own = toNoteSummary({ ...file, fileMetadata: { ...file.fileMetadata, appData } });
+        if (!own) return null;
+        const summary = withFolderLock(own, await lockedFolderIds());
 
         const doc = new Y.Doc();
         if (payload && payload.length > 0) Y.applyUpdate(doc, payload);
@@ -204,6 +218,7 @@ export function createDriveDeps(creds: McpCredentials): McpDriveDeps {
             viewerRecipients: content.viewerRecipients,
             lastEditedBy: content.lastEditedBy,
             shareRequest: content.shareRequest,
+            locked: content.locked,
         };
 
         return {

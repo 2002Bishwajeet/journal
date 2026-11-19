@@ -40,6 +40,8 @@ export async function computeContentHash(
         // Only when set, so the hash of every note never published to the feed is unchanged (#1074)
         ...(metadata.feedPostId && { feedPostId: metadata.feedPostId }),
         ...(metadata.feedSummary && { feedSummary: metadata.feedSummary }),
+        // Only when set, so the hash of every note never locked is unchanged (#1427)
+        ...(metadata.locked && { locked: true }),
     });
 
     const encoder = new TextEncoder();

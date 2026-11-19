@@ -13,6 +13,7 @@ import { SyncStatus } from "./SyncStatus";
 import { MobileSyncPill } from "./MobileSyncPill";
 import { HiddenNotesView } from "./HiddenNotesView";
 import { EmptyState } from "./LargeTitle";
+import { LockedFolderNotice } from "@/components/editor/LockedPanel";
 
 interface NoteListPaneProps {
   isDesktop: boolean;
@@ -179,6 +180,7 @@ export function NoteListPane({
           onBack={onBack}
           backLabel={backLabel}
           barStatus={isPhone && <MobileSyncPill />}
+          notice={!selectedTag && <LockedFolderNotice folderId={folderId} />}
           trailing={
             split ? undefined : (
               <>

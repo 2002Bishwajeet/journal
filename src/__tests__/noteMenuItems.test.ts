@@ -105,6 +105,29 @@ describe('buildNoteMenuItems', () => {
     const items = buildNoteMenuItems(note(), { isPeerNote: false, dotYouRoot: 'me.example', handlers: rest });
     expect(items.find((i) => i.label === 'Archive')?.disabled).toBe(true);
   });
+
+  it('offers Lock note only where locks are available, and never on a note from someone else (#1427)', () => {
+    const onToggleLock = vi.fn();
+    expect(labels(buildNoteMenuItems(note(), { isPeerNote: false, dotYouRoot: 'me.example', handlers: handlers() }))).not.toContain('Lock note');
+    const items = buildNoteMenuItems(note(), { isPeerNote: false, dotYouRoot: 'me.example', handlers: { ...handlers(), onToggleLock } });
+    expect(labels(items)).toContain('Lock note');
+    items.find((i) => i.label === 'Lock note')!.action();
+    expect(onToggleLock).toHaveBeenCalledWith(note());
+    expect(labels(buildNoteMenuItems(note(), { isPeerNote: true, dotYouRoot: 'me.example', handlers: { ...handlers(), onToggleLock } }))).not.toContain('Lock note');
+  });
+
+  it('a locked note has Remove lock, and no Share or exports (#1427)', () => {
+    const locked = { ...note(), locked: true, metadata: { ...note().metadata, locked: true } };
+    const items = buildNoteMenuItems(locked, { isPeerNote: false, dotYouRoot: 'me.example', handlers: { ...handlers(), onToggleLock: vi.fn() } });
+    expect(labels(items)).toContain('Remove lock');
+    expect(labels(items)).not.toContain('Share…');
+    expect(labels(items)).not.toContain('Export to Markdown');
+    expect(labels(items)).not.toContain('Export to PDF');
+    // Locked only by its folder: the note can still be locked itself.
+    const inLockedFolder = buildNoteMenuItems({ ...note(), locked: true }, { isPeerNote: false, dotYouRoot: 'me.example', handlers: { ...handlers(), onToggleLock: vi.fn() } });
+    expect(labels(inLockedFolder)).toContain('Lock note');
+    expect(labels(inLockedFolder)).not.toContain('Share…');
+  });
 });
 
 describe('viewLabel', () => {

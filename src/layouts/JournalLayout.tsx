@@ -181,6 +181,11 @@ export default function JournalLayout() {
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const [shareNote, setShareNote] = useState<NoteListEntry | null>(null);
   const [moveNote, setMoveNote] = useState<NoteListEntry | null>(null);
+  // A locked note (#1427) can't be made public or shared with people.
+  const openShare = (note: NoteListEntry) => {
+    if (note.locked) toast.error("Remove the lock to share this note");
+    else setShareNote(note);
+  };
 
   const [searchParams] = useSearchParams();
 
@@ -205,7 +210,7 @@ export default function JournalLayout() {
     },
     openToday: () => handleOpenToday(),
     canEdit: canEditAnswer,
-    openCollaborate: setShareNote,
+    openCollaborate: openShare,
   });
 
   const selectedTag = searchParams.get("tag");
@@ -437,7 +442,7 @@ export default function JournalLayout() {
         listNotes={listNotes}
         isListLoading={isListLoading}
         noteActions={noteActions}
-        onShareNote={setShareNote}
+        onShareNote={openShare}
         onMoveToFolder={setMoveNote}
         onRemoveFromList={removeSharedNote}
       />
@@ -461,7 +466,7 @@ export default function JournalLayout() {
         onTabClose={handleTabClose}
         noteScreenActions={{
           backLabel: currentViewLabel ?? "Notes",
-          onShare: setShareNote,
+          onShare: openShare,
           onMoveToFolder: setMoveNote,
           onArchive: noteActions.archive,
           // A phone shows the list again; a tablet opens the next note beside it.
@@ -472,7 +477,7 @@ export default function JournalLayout() {
           canEdit ? (
             <ShareRequestNotice
               note={openNote}
-              onReview={setShareNote}
+              onReview={openShare}
             />
           ) : (
             <ReadOnlyBanner />
@@ -602,7 +607,14 @@ export default function JournalLayout() {
         currentFolderId={moveNote?.metadata.folderId ?? ""}
         folders={folders}
         onMove={(targetFolderId) => {
-          if (moveNote) void noteActions.moveToFolder(moveNote.docId, targetFolderId);
+          if (!moveNote) return;
+          // A note in a locked folder is locked, and a locked note isn't shared (#1427)
+          const shared = moveNote.metadata.isPublic || moveNote.metadata.isCollaborative;
+          if (shared && folders.some((f) => f.id === targetFolderId && f.locked)) {
+            toast.error("Stop sharing this note first", { description: "A note in a locked folder can't be shared." });
+            return;
+          }
+          void noteActions.moveToFolder(moveNote.docId, targetFolderId);
         }}
         onCreateFolder={findOrCreateFolderByName}
       />

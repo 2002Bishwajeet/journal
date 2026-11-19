@@ -142,6 +142,7 @@ src/
 │   ├── useNoteActions.ts       # Open / trash / archive / delete actions for lists and dialogs
 │   ├── useNoteCollaboration.ts # Share a note with circles / revoke it (remote, invite, local metadata)
 │   ├── useNoteListView.ts      # Note list for the current route (folder, tag, Shared, Trash, Archive)
+│   ├── useNoteLock.ts          # Locked notes and folders (#1427): availability, Lock / Remove lock, Unlock
 │   ├── useNoteTitleMap.ts      # Live id → title map for note-link chips
 │   ├── useNotes.ts             # Note list + CRUD, pin, trash/archive, publish
 │   ├── useOnlineContext.ts
@@ -776,7 +777,9 @@ Short maps of how each finished epic works. The e2e folder named in each is wher
   "circleIds": ["UUID"],
   "odinIds": ["OdinId"],
   "recipients": ["OdinId"],
-  "lastEditedBy": "OdinId"
+  "lastEditedBy": "OdinId",
+  "locked": "boolean"
 }
 ```
+`locked` (#1427, also `folders.locked` and the folder file's `locked`): a note locked itself or by its folder shows only its title until Unlock asks Touch ID / Windows Hello / Face ID / a fingerprint (`src/lib/noteLock.ts`, `confirm_owner` in `src-tauri/src/db_key.rs`). Its preview, body search, AI/agent access (`resolveAccess`), export, the native bridge's snippets and the notes mirror all skip it; it can't be shared. Unlocks live in memory and end on Lock now or the app lock's "Lock after".
 `circleIds` members are editors (`recipients` holds them, enrolled in the app-owned `journal-shares` circle); `odinIds` are named viewers (#897), enrolled in `journal-viewers` (Read only). Both go into the note's ACL (`sharedAcl`). A viewer's editor is read-only and its push never sends a peer update (`isViewOnly`, `src/lib/homebase/shareTargets.ts`); the owner's pull re-uploads an ACL that lost `odinIdList` to a peer update (odin-core#2002).

@@ -10,6 +10,7 @@ import { buildNoteMenuItems } from '@/helpers/noteMenuItems';
 import type { NoteScreenActions } from '@/hooks/useNoteScreenActions';
 import { useNotes } from '@/hooks/useNotes';
 import { useCanEdit } from '@/hooks/useCanEdit';
+import { useNoteLockActions } from '@/hooks/useNoteLock';
 import { extractHeadings } from '@/lib/editor/extractHeadings';
 import type { NoteListEntry } from '@/types';
 import { ContentsSheet } from './ContentsSheet';
@@ -66,6 +67,7 @@ export function NoteScreenMenu({
   ];
 
   const canEdit = useCanEdit();
+  const lockActions = useNoteLockActions();
   const items = buildNoteMenuItems(note, {
     isPeerNote,
     canEdit,
@@ -76,6 +78,7 @@ export function NoteScreenMenu({
       onMoveToFolder: actions.onMoveToFolder,
       onRemoveFromList: actions.onRemoveFromList,
       onArchive: actions.onArchive,
+      onToggleLock: lockActions?.toggleNote,
       // The trash confirm stays a centred alert.
       onTrash: () => setTrashOpen(true),
     },

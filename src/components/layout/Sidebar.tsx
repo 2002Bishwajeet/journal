@@ -9,6 +9,8 @@ import {
   FolderOpen,
   Globe,
   Hash,
+  Lock,
+  LockOpen,
   Plus,
   Search,
   Settings,
@@ -52,6 +54,7 @@ import { BarTitle, LargeTitle } from "./LargeTitle";
 import { MobileSyncPill } from "./MobileSyncPill";
 import { largeTitleBarClass } from "./largeTitleClasses";
 import { useCanEdit } from "@/hooks/useCanEdit";
+import { useNoteLockActions } from "@/hooks/useNoteLock";
 
 interface SidebarProps {
   folders: Folder[];
@@ -132,6 +135,7 @@ export default function Sidebar({
   const hasShared = collaborativeCount != null && collaborativeCount > 0;
   // Read-only (#1176): folders and tags open, but nothing creates, renames, shares or deletes them.
   const canEdit = useCanEdit();
+  const lockActions = useNoteLockActions();
 
   const handleRefresh = async () => {
     // The folder list is a live query — a sync pull surfaces new folders automatically.
@@ -511,7 +515,17 @@ export default function Sidebar({
                   ...(folder.id !== MAIN_FOLDER_ID
                     ? [
                         { label: "Rename Folder", icon: Pencil, action: () => onRenameFolder?.(folder.id) },
-                        { label: "Share folder…", icon: Globe, action: () => setShareFolderId(folder.id) },
+                        // A locked folder can't be shared (#1427)
+                        ...(folder.locked
+                          ? []
+                          : [{ label: "Share folder…", icon: Globe, action: () => setShareFolderId(folder.id) }]),
+                        ...(lockActions
+                          ? [{
+                              label: folder.locked ? "Remove lock" : "Lock folder",
+                              icon: folder.locked ? LockOpen : Lock,
+                              action: () => lockActions.toggleFolder(folder),
+                            }]
+                          : []),
                       ]
                     : []),
                   { label: "Delete Folder", icon: Trash2, action: () => setFolderToDelete(folder.id), variant: "destructive" as const },
@@ -541,7 +555,7 @@ export default function Sidebar({
                             onClick={() => onSelectFolder(folder.id)}
                             aria-current={isSelected ? "page" : undefined}
                             aria-label={isCollapsed ? folder.name : undefined}
-                            aria-description={folder.isPublic ? "Shared publicly" : undefined}
+                            aria-description={folder.isPublic ? "Shared publicly" : folder.locked ? "Locked" : undefined}
                           >
                             {isCollapsed ? (
                               <>
@@ -569,6 +583,9 @@ export default function Sidebar({
                             )}
                             {!isCollapsed && folder.isPublic && (
                               <Globe aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground/70" />
+                            )}
+                            {!isCollapsed && folder.locked && (
+                              <Lock aria-hidden className="h-3 w-3 shrink-0 text-muted-foreground/70" />
                             )}
                           </Button>
                         </TooltipTrigger>

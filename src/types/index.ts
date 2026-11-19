@@ -32,6 +32,8 @@ export interface DocumentMetadata {
     authorOdinId?: string;     // Identity that owns the note (for peer fetch)
     // An agent's share_note request, waiting for the owner to confirm in the Share dialog (#325)
     shareRequest?: ShareRequest;
+    // Locked behind Touch ID / Face ID (#1427). A note in a locked folder is locked too.
+    locked?: boolean;
 }
 
 /**
@@ -69,8 +71,10 @@ export interface SearchIndexEntry {
 export interface NoteListEntry {
     docId: string;
     title: string;
-    preview: string; // first ~150 chars of content
+    preview: string; // first ~150 chars of content; empty while locked
     metadata: DocumentMetadata;
+    /** The note or its folder is locked (#1427). */
+    locked?: boolean;
 }
 
 // Enhanced search result with match highlighting
@@ -91,6 +95,7 @@ export interface Folder {
     name: string;
     createdAt: Date;
     isPublic?: boolean; // Shared folder: every note in it is public (#618)
+    locked?: boolean;   // Locked folder: every note in it is locked (#1427)
 }
 
 
@@ -102,6 +107,7 @@ export interface FolderFile {
     color?: string;
     isPublic?: boolean;       // Shared folder: stored unencrypted with an Anonymous ACL (#618)
     card?: FolderCard;        // Its link card image payload and what it was drawn from (#644)
+    locked?: boolean;         // Locked folder (#1427)
 }
 
 // Note file content stored in Homebase header
@@ -126,6 +132,7 @@ export interface NoteFileContent {
     viewerRecipients?: string[]; // Their members
     lastEditedBy?: string;
     shareRequest?: ShareRequest;
+    locked?: boolean;        // Locked behind Touch ID / Face ID (#1427)
 }
 
 export interface CollaborationInviteContent {
