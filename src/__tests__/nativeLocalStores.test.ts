@@ -596,4 +596,20 @@ describe('the native boot', () => {
         expect(raw(localStorage, 'journal-recent-searches')).toBeNull();
         await vi.waitFor(() => expect(events.has('journal://flush-before-close')).toBe(true));
     });
+
+    it('Android with encryption paused (#1435): the sign-in stays in the keychain, the rest plain, no key asked', async () => {
+        window.__JOURNAL_NATIVE__ = { platform: 'android' };
+        localStorage.setItem('APSS', 'shared-secret');
+        localStorage.setItem('journal-recent-searches', JSON.stringify({ _v: 1, items: ['a search'] }));
+        const { prepareNativeBoot } = await import('@/lib/native/nativeBoot');
+        expect(await prepareNativeBoot(() => {})).toBe(true);
+        expect(keychain.secrets.get('APSS')).toBe('shared-secret');
+        expect(raw(localStorage, 'APSS')).toBeNull();
+        expect(raw(localStorage, 'journal-recent-searches')).not.toBeNull();
+
+        const { key, storage } = await queryCache();
+        await storage.setItem(key, MARKER);
+        expect(idb.get(key)).toBe(MARKER);
+        expect(keyRequests()).toBe(0);
+    });
 });

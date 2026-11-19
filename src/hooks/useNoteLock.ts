@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import { getSecurityStatus } from '@/lib/appLock';
-import { usesEncryptedDatabase } from '@/lib/db/databaseKey';
+import { inTauriApp } from '@/lib/db/databaseKey';
 import {
     isFolderOpen,
     isNoteOpen,
@@ -23,7 +23,7 @@ const availabilityListeners = new Set<() => void>();
 
 function subscribeAvailability(listener: () => void): () => void {
     availabilityListeners.add(listener);
-    if (!availability && usesEncryptedDatabase()) {
+    if (!availability && inTauriApp()) {
         availability = getSecurityStatus().then(
             (status) => {
                 available = status.lockAvailable;

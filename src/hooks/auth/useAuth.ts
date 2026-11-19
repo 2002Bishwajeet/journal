@@ -18,7 +18,7 @@ import { discardResumeState } from '@/lib/resumeRestore';
 import { discardAllUnsavedEdits } from '@/lib/yjs/unsavedEdits';
 import { clearSessionHint, setSessionHint } from '@/lib/sessionHint';
 import { markSignedIn } from '@/lib/firstRun';
-import { usesEncryptedDatabase } from '@/lib/db/databaseKey';
+import { inTauriApp } from '@/lib/db/databaseKey';
 import { QUERY_CACHE_KEY } from '@/lib/queryCache';
 import { del } from 'idb-keyval';
 import { useVerifyToken } from './useVerifyToken';
@@ -143,7 +143,7 @@ export function useAuth() {
         clearSessionHint();
         // The native app deletes its keychain entry, which must be gone before the reload (#1429):
         // when it can't be, this throws instead, as the reload would sign the revoked token in again.
-        if (usesEncryptedDatabase()) {
+        if (inTauriApp()) {
             const { clearSecureStorage, flushSecureStorage } = await import('@/lib/native/secureStorage');
             clearSecureStorage();
             await flushSecureStorage();

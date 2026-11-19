@@ -9,7 +9,7 @@ import { installResumeRestore } from './lib/resumeRestore';
 import { installReloadLog } from './lib/reloadReason';
 import { keepPageInPlace } from './lib/keyboardViewport';
 import { routeExternalLinks } from './lib/native';
-import { usesEncryptedDatabase } from './lib/db/databaseKey';
+import { inTauriApp } from './lib/db/databaseKey';
 import { registerMacReminderScheduler } from './lib/native/macNotifications';
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -73,7 +73,7 @@ const render = () => root.render(
 )
 
 // Native app: the Homebase sign-in is in the OS keychain, read before anything asks for it (#1429).
-if (usesEncryptedDatabase()) {
+if (inTauriApp()) {
   const showBootError = () => root.render(<BootErrorScreen />)
   import('./lib/native/nativeBoot')
     .then(({ prepareNativeBoot }) => prepareNativeBoot(showBootError))

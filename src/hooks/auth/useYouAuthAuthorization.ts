@@ -22,7 +22,7 @@ import {
 } from '@/lib/homebase/config';
 import { setSessionHint } from '@/lib/sessionHint';
 import { authCallbackUrl } from '@/lib/native';
-import { usesEncryptedDatabase } from '@/lib/db/databaseKey';
+import { inTauriApp } from '@/lib/db/databaseKey';
 
 // Drive request for Journal app
 export const journalDriveRequest: TargetDriveAccessRequest = {
@@ -150,7 +150,7 @@ export function useYouAuthAuthorization() {
             localStorage.setItem(STORAGE_KEY_SHARED_SECRET, sharedSecret);
             localStorage.setItem(STORAGE_KEY_AUTH_TOKEN, clientAuthToken);
             // The native app's keychain write must land before the page navigates (#1429).
-            if (usesEncryptedDatabase()) await (await import('@/lib/native/secureStorage')).flushSecureStorage();
+            if (inTauriApp()) await (await import('@/lib/native/secureStorage')).flushSecureStorage();
             setSessionHint();
 
             throwAwayTheECCKey();

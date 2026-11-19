@@ -18,7 +18,7 @@ import {
 } from './pglite-migrate';
 import { initializeSchema, TRIGRAM_SEARCH_SQL } from './schema';
 import { reloadPage } from '../reloadReason';
-import { loadDatabaseKey, PassphraseNeededError, usesEncryptedDatabase, usesPassphrase } from './databaseKey';
+import { ENCRYPTED_STORE, encryptionPaused, loadDatabaseKey, PassphraseNeededError, usesEncryptedDatabase, usesPassphrase } from './databaseKey';
 
 // PGlite 0.5 runs Postgres 18, which can't open the Postgres 17 data dir the
 // older engines left at 'idb://journal-db'. Using a new dir lets the legacy DB
@@ -46,13 +46,14 @@ let currentWorker: Worker | null = null;
 // open engine, so without this a damaged encrypted store (#1362) would hold the splash forever.
 let workerOpenFailed: Promise<never> = new Promise(() => {});
 
-// Set when this native app launch runs on the plain database an older build left (#1362).
+// Set when this native app launch runs on the database an older build left (#1362, #1435).
 let leftoverSession = false;
 
 /**
  * Whether this native app launch runs on the plain database an older build left, because it
  * has changes that never synced (#1362): this launch's syncs send them, and the first
- * launch that finds it all synced deletes it and opens the encrypted database.
+ * launch that finds it all synced deletes it and opens the encrypted database. On Android
+ * with encryption paused (#1435), the same for the encrypted store an older build left.
  */
 export function isLeftoverSession(): boolean {
   return leftoverSession;
@@ -412,8 +413,67 @@ async function openDesktopDatabase(): Promise<PGliteInterface> {
   return db;
 }
 
+// The encrypted store can't be opened, so it is deleted (#1435): its notes are on Homebase.
+const UNOPENABLE = ['DatabaseKeyMissingError', 'CorruptStoreError', 'WrongKeyError'];
+
+/**
+ * Android with encryption paused (#1435), #1362 in reverse. The app lock goes first, quietly:
+ * it gates the database key. The encrypted store an older build left is opened once with its
+ * key and its unsynced changes counted. With none, it is deleted with the sealed query cache
+ * and the sealed unload copies of edits, and the plain database opens and fills through the
+ * first sync. With some, this launch runs on it (isLeftoverSession), so the sync sends them.
+ * A missing key or a store that won't open is deleted too; one whose changes can't be
+ * counted is kept for a later launch. Nothing is copied. Null: open the plain database.
+ */
+async function leaveEncryptedStore(): Promise<PGliteInterface | null> {
+  const stores = [`${ENCRYPTED_STORE}.a`, `${ENCRYPTED_STORE}.b`];
+  const present = await databaseExists(stores);
+  const { appLockOn } = await import('../native/bridge');
+  if (present || appLockOn()) {
+    const { setAppLock } = await import('../appLock');
+    await setAppLock(false).catch((err: unknown) => console.warn('[DB] Could not turn the app lock off:', err));
+  }
+  if (!present) return null;
+  let encrypted: PGliteInterface | null = null;
+  try {
+    encrypted = await openWorkerDatabase(await loadDatabaseKey(true));
+    const { countUnsyncedChanges } = await import('./queries/syncRecords');
+    const unsynced = await countUnsyncedChanges(encrypted);
+    if (unsynced > 0) {
+      console.warn(`[DB] The encrypted store an older build left has ${unsynced} unsynced changes; opening it to sync them`);
+      leftoverSession = true;
+      return encrypted;
+    }
+  } catch (err) {
+    if (!(err instanceof Error && UNOPENABLE.includes(err.name))) {
+      console.warn('[DB] Could not count the changes in the encrypted store an older build left; keeping it:', err);
+      await encrypted?.close().catch(() => {});
+      return null;
+    }
+    console.warn('[DB] The encrypted store an older build left can\'t be opened; deleting it:', err);
+  }
+  await encrypted?.close().catch(() => {});
+  try {
+    const { deleteLocalDatabase } = await import('./localReset');
+    for (const name of stores) await deleteLocalDatabase(name);
+    const { get, del } = await import('idb-keyval');
+    const { QUERY_CACHE_KEY } = await import('../queryCache');
+    if ((await get(QUERY_CACHE_KEY)) instanceof Uint8Array) await del(QUERY_CACHE_KEY);
+    const { removeSealedCopies } = await import('../yjs/unsavedEdits');
+    removeSealedCopies();
+  } catch (err) {
+    // A later launch tries again.
+    console.warn('[DB] Could not delete the encrypted store an older build left:', err);
+  }
+  return null;
+}
+
 async function initDatabase(): Promise<PGliteInterface> {
   if (usesEncryptedDatabase()) return openDesktopDatabase();
+  if (encryptionPaused()) {
+    const leftover = await leaveEncryptedStore();
+    if (leftover) return leftover;
+  }
   // Two tabs booting on legacy data would each open the legacy dir with their
   // own engine, and the first to finish would delete it under the other. The
   // lock lets one migrate; the rest re-read the stamp inside it and fall

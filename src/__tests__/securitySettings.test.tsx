@@ -2,7 +2,7 @@
 /**
  * #1363, #1364: Settings -> Security in each state, and the lock screen. A page that only
  * claims a native platform, without Tauri, shows only "Show notes outside the app"; the app,
- * desktop or phone, shows that its notes are encrypted, and the lock where Touch ID, Windows
+ * desktop or phone (not Android while its encryption is paused, #1435), shows that its notes are encrypted, and the lock where Touch ID, Windows
  * Hello, Face ID or a fingerprint can confirm the owner.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -131,7 +131,6 @@ describe('Settings -> Security', () => {
 
     it.each([
         ['ios', 'The key is in the system keychain.', 'Ask for Face ID, Touch ID or your passcode before Journal shows your notes.'],
-        ['android', 'The key is protected by the Android Keystore.', 'Ask for your fingerprint, face or screen lock before Journal shows your notes.'],
     ] as const)('the %s app says its notes are encrypted and offers the same lock', async (platform, key, lock) => {
         nativeApp(platform);
         status.lockOn = true;
@@ -145,11 +144,20 @@ describe('Settings -> Security', () => {
     });
 
     it('a phone without Face ID or a fingerprint set up is encrypted, with no lock', async () => {
-        nativeApp('android');
+        nativeApp('ios');
         status.lockAvailable = false;
         await render(h(SecuritySection));
         expect(text()).toContain('Notes on this device are encrypted');
         expect(control('security-app-lock')).toBeNull();
+    });
+
+    it('Android, with encryption paused (#1435): no encrypted line and no app lock, even with a fingerprint set up', async () => {
+        nativeApp('android');
+        await render(h(SecuritySection));
+        expect(text()).not.toContain('encrypted');
+        expect(control('security-app-lock')).toBeNull();
+        expect(control('security-notes-outside-app')).not.toBeNull();
+        expect(invoke).not.toHaveBeenCalledWith('plugin:journal-db-key|security_status', undefined);
     });
 });
 
