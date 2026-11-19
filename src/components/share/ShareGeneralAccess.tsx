@@ -46,8 +46,8 @@ export function ShareLinkPreview({ noteId, noteTitle, isPublic, feedPostId, feed
     const cardPreview = useShareCardPreview(noteId);
     const cardImage = useShareCardImage(noteId, cardPreview.cardImageFrom, isPublic);
     const [copied, setCopied] = useState(false);
-    const identity = getIdentity() || 'unknown';
-    const postUrl = feedPostId ? feedPostUrl(identity, feedPostId) : undefined;
+    const identity = getIdentity();
+    const postUrl = feedPostId && identity ? feedPostUrl(identity, feedPostId) : undefined;
 
     const copyPostUrl = async () => {
         if (!postUrl) return;
@@ -69,7 +69,7 @@ export function ShareLinkPreview({ noteId, noteTitle, isPublic, feedPostId, feed
             <ShareCardPreview
                 title={noteTitle || 'Untitled'}
                 description={postUrl ? (feedSummary?.trim() || cardPreview.description) : cardPreview.description}
-                domain={postUrl ? identity : new URL(publicOrigin()).host}
+                domain={postUrl && identity ? identity : new URL(publicOrigin()).host}
                 image={cardImage ? (
                     <img src={cardImage} alt="" className="h-full w-full object-cover" />
                 ) : undefined}

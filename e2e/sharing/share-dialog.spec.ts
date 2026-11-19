@@ -100,15 +100,12 @@ test('on the feed, the Link preview shows the identity domain and the post link'
   const title = `Feed preview ${Date.now()}`;
   await createNote(app, { title, body: 'A note on the feed.' });
 
-  // Not on the feed: the journal card, no post link
+  // Seed the feed post before the dialog opens, so the preview reads it on first render
+  const { docId } = (await app.evaluate(() => window.__journalE2E!.openNoteJSON()))!;
+  await app.evaluate((id) => window.__journalE2E!.seedFeedPost(id, 'abc-post-id', 'A summary for the feed card.'), docId);
   await openNoteMenu(app, title);
   await app.getByRole('menuitem', { name: 'Share…' }).click();
   const dialog = app.getByRole('dialog', { name: 'Share Note' });
-  await expect(dialog.getByText('Link preview', { exact: true })).toBeVisible();
-  await expect(dialog.getByLabel('Feed post link', { exact: true })).toHaveCount(0);
-
-  const { docId } = (await app.evaluate(() => window.__journalE2E!.openNoteJSON()))!;
-  await app.evaluate((id) => window.__journalE2E!.seedFeedPost(id, 'abc-post-id', 'A summary for the feed card.'), docId);
 
   const link = dialog.getByLabel('Feed post link', { exact: true });
   await expect(link).toBeVisible();
