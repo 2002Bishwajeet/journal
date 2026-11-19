@@ -6,7 +6,12 @@
 //! With the app lock on (#1363), `database_key` hands the key out only after Touch ID, Windows
 //! Hello, Face ID or the fingerprint (app_lock.rs). A Linux without a Secret Service gets a salt
 //! instead, and the page derives the key from a passphrase.
+//!
+//! The Homebase sign-in (the app's shared secret and token) is in a second entry (#1429):
+//! `auth_secrets` and `set_auth_secret`, read at boot by src/lib/native/secureStorage.ts in
+//! place of localStorage.
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -67,17 +72,19 @@ trait Keychain: Send + Sync {
     fn set(&self, key: &[u8]) -> Result<(), String>;
 }
 
-/// The OS keychain, one entry per app identifier.
+/// An OS keychain entry of the app identifier.
 struct OsKeychain {
     service: String,
+    user: &'static str,
 }
 
 const ENTRY_USER: &str = "database-key";
+const SECRETS_USER: &str = "auth-secrets";
 
 impl OsKeychain {
     #[cfg(desktop)]
     fn entry(&self) -> Result<keyring_core::Entry, KeychainError> {
-        keyring::Entry::new(&self.service, ENTRY_USER)
+        keyring::Entry::new(&self.service, self.user)
             .map(|entry| entry.inner)
             .map_err(keychain_error)
     }
@@ -92,7 +99,7 @@ impl OsKeychain {
             "after-first-unlock-this-device-only",
         )]);
         apple_native_keyring_store::protected::Store::new()
-            .and_then(|store| store.build(&self.service, ENTRY_USER, Some(&policy)))
+            .and_then(|store| store.build(&self.service, self.user, Some(&policy)))
             .map_err(keychain_error)
     }
 
@@ -103,7 +110,7 @@ impl OsKeychain {
     fn entry(&self) -> Result<keyring_core::Entry, KeychainError> {
         use keyring_core::api::CredentialStoreApi;
         android_native_keyring_store::Store::new()
-            .and_then(|store| store.build(&self.service, ENTRY_USER, None))
+            .and_then(|store| store.build(&self.service, self.user, None))
             .map_err(keychain_error)
     }
 }
@@ -226,6 +233,8 @@ struct KeyState {
     /// reload get this answer, until Lock now or the lock timeout (`lock_database`). An error
     /// or a refused unlock isn't kept, so the boot screen's Retry or Unlock asks again.
     answer: Mutex<Option<DatabaseKey>>,
+    /// The sign-in's entry, and the lock for its read-modify-write (two windows can write).
+    secrets: Mutex<Box<dyn Keychain>>,
 }
 
 /// `database_key`: with the app lock on, the owner confirms before the keychain is read.
@@ -321,6 +330,53 @@ async fn lock_database(state: tauri::State<'_, KeyState>) -> Result<(), String> 
     Ok(())
 }
 
+/// What `auth_secrets` answers: `{ "secrets": { key: value } }`, or `"unavailable"` on a Linux
+/// without a keychain, where the page keeps them in localStorage.
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
+enum AuthSecrets {
+    Secrets(BTreeMap<String, String>),
+    Unavailable,
+}
+
+fn read_secrets(keychain: &dyn Keychain) -> Result<AuthSecrets, String> {
+    match keychain.get() {
+        Ok(Some(json)) => serde_json::from_slice(&json)
+            .map(AuthSecrets::Secrets)
+            .map_err(|e| e.to_string()),
+        Ok(None) => Ok(AuthSecrets::Secrets(BTreeMap::new())),
+        Err(KeychainError::Unavailable) => Ok(AuthSecrets::Unavailable),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// Sets one value, or removes it with `None`, keeping the others.
+fn write_secret(keychain: &dyn Keychain, key: String, value: Option<String>) -> Result<(), String> {
+    let AuthSecrets::Secrets(mut secrets) = read_secrets(keychain)? else {
+        return Err(KeychainError::Unavailable.to_string());
+    };
+    match value {
+        Some(value) => secrets.insert(key, value),
+        None => secrets.remove(&key),
+    };
+    keychain.set(&serde_json::to_vec(&secrets).map_err(|e| e.to_string())?)
+}
+
+/// Never behind the app lock: the page needs the sign-in to show the lock screen at all.
+#[tauri::command]
+async fn auth_secrets(state: tauri::State<'_, KeyState>) -> Result<AuthSecrets, String> {
+    read_secrets(state.secrets.lock().unwrap().as_ref())
+}
+
+#[tauri::command]
+async fn set_auth_secret(
+    state: tauri::State<'_, KeyState>,
+    key: String,
+    value: Option<String>,
+) -> Result<(), String> {
+    write_secret(state.secrets.lock().unwrap().as_ref(), key, value)
+}
+
 /// Only the app's own page, `http://localhost:{PORT}`, may ask for the key. A dev build also
 /// allows its dev server (`devUrl`, Tauri's local origin there); a release build allows no
 /// local origin at all.
@@ -333,7 +389,7 @@ fn capability() -> String {
 }
 
 fn plugin_with<R: Runtime>(
-    keychain: fn(&str) -> Box<dyn Keychain>,
+    keychain: fn(&str, &'static str) -> Box<dyn Keychain>,
     auth: fn(&AppHandle<R>) -> Box<dyn Authenticator>,
 ) -> TauriPlugin<R> {
     Builder::new("journal-db-key")
@@ -342,14 +398,17 @@ fn plugin_with<R: Runtime>(
             reset_database_key,
             security_status,
             set_app_lock,
-            lock_database
+            lock_database,
+            auth_secrets,
+            set_auth_secret
         ])
         .setup(move |app, _api| {
             app.manage(KeyState {
-                keychain: keychain(&app.config().identifier),
+                keychain: keychain(&app.config().identifier, ENTRY_USER),
                 auth: auth(app),
                 files: Files::in_dir(app.path().app_data_dir()?),
                 answer: Mutex::new(None),
+                secrets: Mutex::new(keychain(&app.config().identifier, SECRETS_USER)),
             });
             app.add_capability(capability())?;
             Ok(())
@@ -365,9 +424,10 @@ pub fn plugin<R: Runtime>() -> TauriPlugin<R> {
     let auth: fn(&AppHandle<R>) -> Box<dyn Authenticator> =
         |app| Box::new(crate::app_lock::MobileAuthenticator(app.clone()));
     plugin_with(
-        |service| {
+        |service, user| {
             Box::new(OsKeychain {
                 service: service.to_owned(),
+                user,
             })
         },
         auth,
@@ -624,6 +684,7 @@ mod tests {
             auth: Box::new(auth),
             files: scratch.files(),
             answer: Mutex::new(None),
+            secrets: Mutex::new(Box::new(MockKeychain::default())),
         }
     }
 
@@ -746,9 +807,10 @@ mod tests {
         // A stored key, so the test never makes one or writes the real app data dir.
         let app = tauri::test::mock_builder()
             .plugin(plugin_with(
-                |_| {
+                |_, user| {
+                    let entry = (user == ENTRY_USER).then(|| vec![7; KEY_LEN]);
                     Box::new(MockKeychain {
-                        entry: Mutex::new(Some(vec![7; KEY_LEN])),
+                        entry: Mutex::new(entry),
                         ..Default::default()
                     })
                 },
@@ -781,5 +843,61 @@ mod tests {
         assert!(ipc(&webview, "lock_database", &own).is_ok());
         assert!(ipc(&webview, "security_status", "https://example.com/").is_err());
         assert!(ipc(&webview, "lock_database", "https://example.com/").is_err());
+        // And the sign-in's (#1429).
+        assert_eq!(
+            ipc(&webview, "auth_secrets", &own).unwrap(),
+            serde_json::json!({ "secrets": {} })
+        );
+        assert!(ipc(&webview, "auth_secrets", "https://example.com/").is_err());
+        assert!(ipc(&webview, "auth_secrets", "http://localhost:1234/").is_err());
+    }
+
+    #[test]
+    fn the_sign_in_secrets_are_set_and_removed_one_at_a_time() {
+        let keychain = MockKeychain::default();
+        let secrets = |keychain: &MockKeychain| match read_secrets(keychain).unwrap() {
+            AuthSecrets::Secrets(secrets) => secrets,
+            other => panic!("expected secrets, got {other:?}"),
+        };
+        assert!(secrets(&keychain).is_empty());
+
+        write_secret(&keychain, "APSS".into(), Some("secret".into())).unwrap();
+        write_secret(&keychain, "BX0900".into(), Some("token".into())).unwrap();
+        assert_eq!(
+            secrets(&keychain),
+            BTreeMap::from([
+                ("APSS".to_owned(), "secret".to_owned()),
+                ("BX0900".to_owned(), "token".to_owned())
+            ])
+        );
+
+        // Sign-out removes them; another key stays.
+        write_secret(&keychain, "odin_peer_token_a".into(), Some("{}".into())).unwrap();
+        write_secret(&keychain, "APSS".into(), None).unwrap();
+        write_secret(&keychain, "BX0900".into(), None).unwrap();
+        assert_eq!(
+            secrets(&keychain),
+            BTreeMap::from([("odin_peer_token_a".to_owned(), "{}".to_owned())])
+        );
+    }
+
+    #[test]
+    fn no_keychain_means_the_sign_in_stays_where_it_was() {
+        let keychain = MockKeychain {
+            absent: true,
+            ..Default::default()
+        };
+        assert_eq!(read_secrets(&keychain).unwrap(), AuthSecrets::Unavailable);
+        assert!(write_secret(&keychain, "APSS".into(), Some("secret".into())).is_err());
+        assert_eq!(
+            serde_json::to_value(AuthSecrets::Unavailable).unwrap(),
+            serde_json::json!("unavailable")
+        );
+
+        let broken = MockKeychain {
+            broken: true,
+            ..Default::default()
+        };
+        assert!(read_secrets(&broken).is_err());
     }
 }

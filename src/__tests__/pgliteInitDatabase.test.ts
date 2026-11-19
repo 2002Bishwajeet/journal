@@ -143,6 +143,7 @@ async function loadDatabaseModule() {
     mocks.events.push('cipher-loaded');
     return importOriginal();
   });
+  vi.doMock('idb-keyval', () => ({ del: async (key: string) => void mocks.events.push(`idb-delete:${key}`) }));
   return import('../lib/db/pglite');
 }
 
@@ -721,6 +722,8 @@ describe('desktop recovery and the plain database an older build left (#1362)', 
     const deletes = mocks.events.filter((event) => event.startsWith('delete:'));
     expect(deletes).toEqual(['delete:journal-data.a', 'delete:journal-data.b', PLAIN, LEGACY]);
     expect(mocks.events.indexOf(PLAIN)).toBeLessThan(mocks.events.indexOf('invoke:plugin:journal-db-key|reset_database_key'));
+    // The query cache, sealed with the old key, goes too (#1429).
+    expect(mocks.events).toContain('idb-delete:journal-query-cache');
 
     // The reload: an empty encrypted database with the new key, which the first sync fills.
     mocks.plainUnsynced = null;

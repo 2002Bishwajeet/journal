@@ -63,6 +63,21 @@ describe('useTabManager persistence', () => {
         await t.unmount();
     });
 
+    it('stores no note titles in the native app (#1429), and keeps them in memory', async () => {
+        window.__JOURNAL_NATIVE__ = { platform: 'macos' };
+        (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {};
+        try {
+            const t = await mountTabManager();
+            await t.act(() => t.api.openTab('note-1', 'Secret title'));
+            expect(t.api.openTabs).toEqual([{ docId: 'note-1', title: 'Secret title' }]);
+            expect(storedTabs()).toEqual({ openTabs: [{ docId: 'note-1', title: '' }], activeTabId: 'note-1' });
+            await t.unmount();
+        } finally {
+            delete window.__JOURNAL_NATIVE__;
+            delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
+        }
+    });
+
     it('restores tabs from localStorage without reading the database', async () => {
         localStorage.setItem(TABS_STORAGE_KEY, JSON.stringify({
             openTabs: [{ docId: 'note-2', title: 'Restored' }],

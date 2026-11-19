@@ -9,6 +9,7 @@ import { installResumeRestore } from './lib/resumeRestore';
 import { installReloadLog } from './lib/reloadReason';
 import { keepPageInPlace } from './lib/keyboardViewport';
 import { routeExternalLinks } from './lib/native';
+import { usesEncryptedDatabase } from './lib/db/databaseKey';
 import { registerMacReminderScheduler } from './lib/native/macNotifications';
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -63,8 +64,18 @@ if (import.meta.env.MODE === 'e2e') {
   void import('./lib/e2e/testHooks');
 }
 
-createRoot(document.getElementById('root')!).render(
+const render = () => createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
   </StrictMode>,
 )
+
+// Native app: the Homebase sign-in is in the OS keychain, read before anything asks for it (#1429).
+if (usesEncryptedDatabase()) {
+  import('./lib/native/secureStorage')
+    .then(({ installSecureStorage }) => installSecureStorage())
+    .catch((err: unknown) => console.error('[boot] Could not read the sign-in from the keychain:', err))
+    .finally(render);
+} else {
+  render();
+}

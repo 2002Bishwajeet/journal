@@ -74,6 +74,8 @@ let passphraseDevice = false;
 
 export function setPassphrase(value: string): void {
   passphrase = value;
+  // What a wrong passphrase's key sealed isn't for this one.
+  storeKey = null;
 }
 
 /** This device's key comes from a passphrase, so the worker's WrongKeyError means a wrong one. */
@@ -83,6 +85,40 @@ export function usesPassphrase(): boolean {
 
 type KeyAnswer = { key: number[] } | 'missing' | { passphrase: number[] } | { locked: 'cancelled' | 'failed' };
 
+/** The 32 key bytes, from the OS keychain or the passphrase. */
+async function loadKeyBytes(): Promise<Uint8Array<ArrayBuffer>> {
+  // Locked in this window: the lock screen shows, and only Unlock asks the owner.
+  if (sessionStorage.getItem(LOCKED_SESSION_KEY) !== null) throw new DatabaseLockedError('locked');
+  const { invoke } = await import('@tauri-apps/api/core');
+  const answer = await invoke<KeyAnswer>('plugin:journal-db-key|database_key');
+  if (answer === 'missing') throw new DatabaseKeyMissingError();
+  if ('locked' in answer) throw new DatabaseLockedError(answer.locked);
+  if ('passphrase' in answer) {
+    passphraseDevice = true;
+    if (passphrase === null) {
+      const { databaseExists } = await import('./pglite-migrate');
+      throw new PassphraseNeededError(!(await databaseExists([`${ENCRYPTED_STORE}.a`])));
+    }
+    return derivePassphraseKey(passphrase, Uint8Array.from(answer.passphrase));
+  }
+  return Uint8Array.from(answer.key);
+}
+
+/** Set with the database's key, for the rest of this page. */
+let storeKey: CryptoKey | null = null;
+
+/** The AES-GCM key of the web view's other stores (#1429), kept apart from the database's by HKDF. */
+async function deriveStoreKey(bytes: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
+  const material = await crypto.subtle.importKey('raw', bytes, 'HKDF', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info: new TextEncoder().encode('journal-local-stores') },
+    material,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt'],
+  );
+}
+
 /**
  * The database's key from the OS keychain (src-tauri/src/db_key.rs), imported as a
  * non-extractable key for the PGlite worker. Null where the database is plain; there
@@ -91,21 +127,23 @@ type KeyAnswer = { key: number[] } | 'missing' | { passphrase: number[] } | { lo
  */
 export async function loadDatabaseKey(): Promise<CryptoKey | null> {
   if (!usesEncryptedDatabase()) return null;
-  // Locked in this window: the lock screen shows, and only Unlock asks the owner.
-  if (sessionStorage.getItem(LOCKED_SESSION_KEY) !== null) throw new DatabaseLockedError('locked');
-  const { invoke } = await import('@tauri-apps/api/core');
-  const answer = await invoke<KeyAnswer>('plugin:journal-db-key|database_key');
-  if (answer === 'missing') throw new DatabaseKeyMissingError();
-  if ('locked' in answer) throw new DatabaseLockedError(answer.locked);
+  const bytes = await loadKeyBytes();
+  storeKey = await deriveStoreKey(bytes);
   const { importKek } = await import('pglite-cipher');
-  if ('passphrase' in answer) {
-    passphraseDevice = true;
-    if (passphrase === null) {
-      const { databaseExists } = await import('./pglite-migrate');
-      throw new PassphraseNeededError(!(await databaseExists([`${ENCRYPTED_STORE}.a`])));
-    }
-    return importKek(await derivePassphraseKey(passphrase, Uint8Array.from(answer.passphrase)));
-  }
   // importKek zeroes the bytes once it has the key.
-  return importKek(Uint8Array.from(answer.key));
+  return importKek(bytes);
+}
+
+/**
+ * The key that seals the query cache and the unload copies of edits (#1429, sealed.ts), from
+ * the same keychain key. Without `askKeychain` (the app lock is on) it never asks the owner
+ * itself: it refuses until the database's unlock.
+ */
+export async function loadStoreKey(askKeychain: boolean): Promise<CryptoKey> {
+  if (storeKey) return storeKey;
+  if (!askKeychain) throw new DatabaseLockedError('locked');
+  const bytes = await loadKeyBytes();
+  storeKey = await deriveStoreKey(bytes);
+  bytes.fill(0);
+  return storeKey;
 }

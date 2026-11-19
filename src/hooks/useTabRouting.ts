@@ -62,15 +62,13 @@ export function useTabRouting({ noteId, folderId, notes, isNotesLoading }: UseTa
         staleTabIds(openTabs, liveIds, noteId).forEach(closeTab);
     }, [isNotesLoading, notes, openTabs, noteId, closeTab]);
 
-    // Sync tab titles when notes data changes
+    // Sync tab titles when notes data changes. Every tab's: the native app stores none (#1429).
     useEffect(() => {
-        if (activeTabId) {
-            const note = notes.find((n) => n.docId === activeTabId);
-            if (note) {
-                updateTabTitle(activeTabId, note.title || 'Untitled');
-            }
+        for (const tab of openTabs) {
+            const note = notes.find((n) => n.docId === tab.docId);
+            if (note) updateTabTitle(tab.docId, note.title || 'Untitled');
         }
-    }, [notes, activeTabId, updateTabTitle]);
+    }, [notes, openTabs, updateTabTitle]);
 
     // Handle tab click - navigate to the note
     const handleTabClick = (docId: string) => {

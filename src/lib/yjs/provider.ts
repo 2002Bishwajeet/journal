@@ -134,7 +134,7 @@ export class PGliteProvider {
             // Edits an earlier page copied on unload (#873). Only what the database lacks
             // fires an update, which the normal write path then persists. The copy is kept
             // until the note closes, as that write can be lost to the next unload too.
-            const unsaved = readUnsavedEdits(this.docId);
+            const unsaved = await readUnsavedEdits(this.docId);
             if (unsaved) {
                 this.sessionUpdates.push(unsaved);
                 this.hasUnsavedCopy = true;
@@ -163,10 +163,10 @@ export class PGliteProvider {
     static async pruneUnsavedEdits(openDocId: string): Promise<void> {
         try {
             for (const docId of unsavedEditDocIds()) {
-                const copy = docId === openDocId ? null : readUnsavedEdits(docId);
+                const copy = docId === openDocId ? null : await readUnsavedEdits(docId);
                 if (!copy) continue;
                 const deleted = !(await getSearchIndexEntry(docId));
-                if (deleted || (await isStored(docId, copy))) removeUnsavedEdits(docId, copy);
+                if (deleted || (await isStored(docId, copy))) await removeUnsavedEdits(docId, copy);
             }
         } catch (error) {
             console.error('[PGliteProvider] Failed to prune unsaved edits:', error);
@@ -340,7 +340,7 @@ export class PGliteProvider {
                 await this.compact();
             }
             // The note closed while the page lives on, so its writes can finish.
-            if (this.hasUnsavedCopy) removeUnsavedEdits(this.docId);
+            if (this.hasUnsavedCopy) await removeUnsavedEdits(this.docId);
         } finally {
             PGliteProvider.live.delete(this);
         }

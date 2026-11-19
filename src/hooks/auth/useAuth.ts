@@ -18,6 +18,7 @@ import { discardResumeState } from '@/lib/resumeRestore';
 import { discardAllUnsavedEdits } from '@/lib/yjs/unsavedEdits';
 import { clearSessionHint, setSessionHint } from '@/lib/sessionHint';
 import { markSignedIn } from '@/lib/firstRun';
+import { usesEncryptedDatabase } from '@/lib/db/databaseKey';
 import { useVerifyToken } from './useVerifyToken';
 import { useOnlineContext } from '../useOnlineContext';
 
@@ -132,6 +133,8 @@ export function useAuth() {
         discardResumeState();
         discardAllUnsavedEdits();
         clearSessionHint();
+        // The native app's keychain write of the removals must land before the reload (#1429).
+        if (usesEncryptedDatabase()) await (await import('@/lib/native/secureStorage')).flushSecureStorage();
 
         window.location.replace('/');
     }, [getDotYouClient]);
