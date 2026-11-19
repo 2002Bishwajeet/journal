@@ -4,7 +4,6 @@ import { MotionConfig } from "framer-motion";
 import { QueryClient, defaultShouldDehydrateQuery } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
-import { get, set, del } from "idb-keyval";
 import EditorPage from "@/pages/EditorPage.lazy";
 const EmptyEditorPage = lazy(() => import("@/pages/EmptyEditorPage"));
 const TodayPage = lazy(() => import("@/pages/TodayPage"));
@@ -33,6 +32,7 @@ import { UpdatePrompt } from "@/components/pwa/UpdatePrompt";
 import { BootErrorScreen } from "@/components/layout/SplashScreen";
 import { isPublicSharePath } from "@/lib/sharePath";
 import { markBoot } from "@/lib/bootProgress";
+import { QUERY_CACHE_KEY, queryCacheStorage } from "@/lib/queryCache";
 import { useCloseOtherAppNotifications } from "@/hooks/useCloseOtherAppNotifications";
 import { useDeepLinks } from "@/hooks/useDeepLinks";
 import { useOpenedNotifications } from "@/hooks/useOpenedNotifications";
@@ -53,14 +53,10 @@ const queryClient = new QueryClient({
   },
 });
 
-// IndexedDB persister for offline support
+// IndexedDB persister for offline support, sealed in the native app (#1429)
 const persister = createAsyncStoragePersister({
-  storage: {
-    getItem: async (key: string) => await get(key),
-    setItem: async (key: string, value: string) => await set(key, value),
-    removeItem: async (key: string) => await del(key),
-  },
-  key: "journal-query-cache",
+  storage: queryCacheStorage(),
+  key: QUERY_CACHE_KEY,
 });
 
 // Inside the router: a deep link navigates.

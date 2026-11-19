@@ -9,12 +9,14 @@ import { installResumeRestore } from './lib/resumeRestore';
 import { installReloadLog } from './lib/reloadReason';
 import { keepPageInPlace } from './lib/keyboardViewport';
 import { routeExternalLinks } from './lib/native';
+import { usesEncryptedDatabase } from './lib/db/databaseKey';
 import { registerMacReminderScheduler } from './lib/native/macNotifications';
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import './styles/syntax.css'
 import App from './App.tsx'
+import { BootErrorScreen } from './components/layout/SplashScreen'
 
 // Vite fires this when a lazy-loaded chunk fails to fetch/import (stale deploy,
 // missing asset). Recover with a single reload instead of an unhandled rejection.
@@ -63,8 +65,19 @@ if (import.meta.env.MODE === 'e2e') {
   void import('./lib/e2e/testHooks');
 }
 
-createRoot(document.getElementById('root')!).render(
+const root = createRoot(document.getElementById('root')!)
+const render = () => root.render(
   <StrictMode>
     <App />
   </StrictMode>,
 )
+
+// Native app: the Homebase sign-in is in the OS keychain, read before anything asks for it (#1429).
+if (usesEncryptedDatabase()) {
+  const showBootError = () => root.render(<BootErrorScreen />)
+  import('./lib/native/nativeBoot')
+    .then(({ prepareNativeBoot }) => prepareNativeBoot(showBootError))
+    .then((ready) => ready ? render() : showBootError());
+} else {
+  render();
+}

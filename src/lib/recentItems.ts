@@ -1,4 +1,5 @@
 import { RECENT_NOTES_KEY, RECENT_SEARCHES_KEY, readJson, writeJson } from '@/lib/storage';
+import { usesEncryptedDatabase } from '@/lib/db/databaseKey';
 
 export interface RecentNote {
     docId: string;
@@ -25,13 +26,22 @@ const isRecentNote = (item: unknown): item is RecentNote =>
 
 const isString = (item: unknown): item is string => typeof item === 'string';
 
+// The native app keeps recent searches for this launch only: what you search for is note
+// text, and it writes none outside its encrypted database (#1429). Boot deletes an older
+// build's (plaintextLeftovers.ts).
+let searchesThisLaunch: string[] = [];
+
 export const loadRecentNotes = () => load(RECENT_NOTES_KEY, isRecentNote);
-export const loadRecentSearches = () => load(RECENT_SEARCHES_KEY, isString);
+export function loadRecentSearches(): string[] {
+    return usesEncryptedDatabase() ? searchesThisLaunch : load(RECENT_SEARCHES_KEY, isString);
+}
 
 export const saveRecentNotes = (items: RecentNote[]) =>
     writeJson(RECENT_NOTES_KEY, { _v: CURRENT_VERSION, items });
-export const saveRecentSearches = (items: string[]) =>
-    writeJson(RECENT_SEARCHES_KEY, { _v: CURRENT_VERSION, items });
+export function saveRecentSearches(items: string[]): void {
+    if (usesEncryptedDatabase()) searchesThisLaunch = items;
+    else writeJson(RECENT_SEARCHES_KEY, { _v: CURRENT_VERSION, items });
+}
 
 export function pushRecentNote(items: RecentNote[], docId: string, openedAt = Date.now()): RecentNote[] {
     return [{ docId, openedAt }, ...items.filter((n) => n.docId !== docId)].slice(0, MAX_RECENT_NOTES_STORED);

@@ -47,3 +47,22 @@ describe('useTabRouting handleTabClick', () => {
         expect(p.type()).toBe('PUSH');
     });
 });
+
+describe('useTabRouting tab titles', () => {
+    it("fills in every tab's title from the notes, not only the active one's (the native app stores none, #1429)", () => {
+        localStorage.setItem('journal-open-tabs', JSON.stringify({
+            openTabs: [{ docId: 'a', title: '' }, { docId: 'b', title: '' }],
+            activeTabId: 'a',
+        }));
+        let titles: string[] = [];
+        function Harness() {
+            titles = useTabRouting({ noteId: 'a', folderId: 'f', notes, isNotesLoading: false }).openTabs.map((t) => t.title);
+            return null;
+        }
+        const root = createRoot(document.createElement('div'));
+        act(() => root.render(h(MemoryRouter, { initialEntries: ['/f/a'] }, h(Harness))));
+        expect(titles).toEqual(['A', 'B']);
+        act(() => root.unmount());
+        localStorage.clear();
+    });
+});

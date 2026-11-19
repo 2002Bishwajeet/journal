@@ -74,6 +74,8 @@ let passphraseDevice = false;
 
 export function setPassphrase(value: string): void {
   passphrase = value;
+  // What a wrong passphrase's key sealed isn't for this one.
+  awaitNextStoreKey();
 }
 
 /** This device's key comes from a passphrase, so the worker's WrongKeyError means a wrong one. */
@@ -83,6 +85,53 @@ export function usesPassphrase(): boolean {
 
 type KeyAnswer = { key: number[] } | 'missing' | { passphrase: number[] } | { locked: 'cancelled' | 'failed' };
 
+/** The 32 key bytes, from the OS keychain or the passphrase. */
+async function loadKeyBytes(): Promise<Uint8Array<ArrayBuffer>> {
+  // Locked in this window: the lock screen shows, and only Unlock asks the owner.
+  if (sessionStorage.getItem(LOCKED_SESSION_KEY) !== null) throw new DatabaseLockedError('locked');
+  const { invoke } = await import('@tauri-apps/api/core');
+  const answer = await invoke<KeyAnswer>('plugin:journal-db-key|database_key');
+  if (answer === 'missing') throw new DatabaseKeyMissingError();
+  if ('locked' in answer) throw new DatabaseLockedError(answer.locked);
+  if ('passphrase' in answer) {
+    passphraseDevice = true;
+    if (passphrase === null) {
+      const { databaseExists } = await import('./pglite-migrate');
+      throw new PassphraseNeededError(!(await databaseExists([`${ENCRYPTED_STORE}.a`])));
+    }
+    return derivePassphraseKey(passphrase, Uint8Array.from(answer.passphrase));
+  }
+  return Uint8Array.from(answer.key);
+}
+
+/** The keys of the web view's other stores, from loadDatabaseKey's latest attempt; before its first, ones that wait for it. */
+type LocalKeys = { store: CryptoKey; authSecrets: CryptoKey };
+let localKeys!: Promise<LocalKeys>;
+let settleLocalKeys!: (keys: Promise<LocalKeys>) => void;
+function awaitNextStoreKey(): void {
+  localKeys = new Promise((resolve) => { settleLocalKeys = resolve; });
+  // Its error reaches whoever waits; nobody waiting is fine.
+  localKeys.catch(() => {});
+}
+awaitNextStoreKey();
+
+/** An AES-GCM key from the database's key bytes (#1429), kept apart from the database's by HKDF's `info`. */
+async function deriveKey(bytes: Uint8Array<ArrayBuffer>, info: string): Promise<CryptoKey> {
+  const material = await crypto.subtle.importKey('raw', bytes, 'HKDF', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info: new TextEncoder().encode(info) },
+    material,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt'],
+  );
+}
+
+const deriveLocalKeys = async (bytes: Uint8Array<ArrayBuffer>): Promise<LocalKeys> => ({
+  store: await deriveKey(bytes, 'journal-local-stores'),
+  authSecrets: await deriveKey(bytes, 'journal-auth-secrets'),
+});
+
 /**
  * The database's key from the OS keychain (src-tauri/src/db_key.rs), imported as a
  * non-extractable key for the PGlite worker. Null where the database is plain; there
@@ -91,21 +140,31 @@ type KeyAnswer = { key: number[] } | 'missing' | { passphrase: number[] } | { lo
  */
 export async function loadDatabaseKey(): Promise<CryptoKey | null> {
   if (!usesEncryptedDatabase()) return null;
-  // Locked in this window: the lock screen shows, and only Unlock asks the owner.
-  if (sessionStorage.getItem(LOCKED_SESSION_KEY) !== null) throw new DatabaseLockedError('locked');
-  const { invoke } = await import('@tauri-apps/api/core');
-  const answer = await invoke<KeyAnswer>('plugin:journal-db-key|database_key');
-  if (answer === 'missing') throw new DatabaseKeyMissingError();
-  if ('locked' in answer) throw new DatabaseLockedError(answer.locked);
+  const bytes = loadKeyBytes();
+  const derived = bytes.then(deriveLocalKeys);
+  derived.catch(() => {});
+  settleLocalKeys(derived);
+  localKeys = derived;
+  await derived;
   const { importKek } = await import('pglite-cipher');
-  if ('passphrase' in answer) {
-    passphraseDevice = true;
-    if (passphrase === null) {
-      const { databaseExists } = await import('./pglite-migrate');
-      throw new PassphraseNeededError(!(await databaseExists([`${ENCRYPTED_STORE}.a`])));
-    }
-    return importKek(await derivePassphraseKey(passphrase, Uint8Array.from(answer.passphrase)));
-  }
   // importKek zeroes the bytes once it has the key.
-  return importKek(Uint8Array.from(answer.key));
+  return importKek(await bytes);
+}
+
+/**
+ * The key that seals the query cache and the unload copies of edits (#1429, sealed.ts), from
+ * the same keychain key. It never asks the keychain itself, so the owner sees one Touch ID or
+ * Windows Hello prompt: it waits for the database's loadDatabaseKey and fails with it.
+ */
+export function loadStoreKey(): Promise<CryptoKey> {
+  return localKeys.then((keys) => keys.store);
+}
+
+/**
+ * The key that seals the Homebase sign-in on a Linux without a keychain (#1429,
+ * secureStorage.ts), from the passphrase's key like the store key. Like it, it waits for the
+ * database's loadDatabaseKey and fails with it.
+ */
+export function loadAuthSecretsKey(): Promise<CryptoKey> {
+  return localKeys.then((keys) => keys.authSecrets);
 }

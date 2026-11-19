@@ -26,6 +26,7 @@ vi.mock('@/lib/yjs/unsavedEdits', () => ({ discardAllUnsavedEdits: vi.fn() }));
 vi.mock('@tauri-apps/api/core', () => ({
     invoke: vi.fn(async (cmd: string) => { mocks.calls.push(cmd); }),
 }));
+vi.mock('idb-keyval', () => ({ del: vi.fn(async (key: string) => { mocks.calls.push(`idb-delete:${key}`); }) }));
 
 import { useAuth } from '@/hooks/auth/useAuth';
 
@@ -65,7 +66,7 @@ describe('logout', () => {
 
         finishFlush();
         await done;
-        expect(mocks.calls).toEqual(['clear', 'flush', 'navigate']);
+        expect(mocks.calls).toEqual(['clear', 'flush', 'idb-delete:journal-query-cache', 'navigate']);
         await unmount();
     });
 
@@ -75,7 +76,7 @@ describe('logout', () => {
         const { logout, unmount } = await renderLogout();
 
         await logout();
-        expect(mocks.calls).toEqual(['clear', 'navigate']);
+        expect(mocks.calls).toEqual(['clear', 'idb-delete:journal-query-cache', 'navigate']);
         expect(warn).toHaveBeenCalledWith(expect.stringContaining('[logout]'), expect.any(Error));
         await unmount();
     });
@@ -87,7 +88,30 @@ describe('logout', () => {
 
         await logout();
         delete window.__JOURNAL_NATIVE__;
-        expect(mocks.calls).toEqual(['plugin:journal-bridge|bridge_wipe', 'clear', 'navigate']);
+        expect(mocks.calls).toEqual(['plugin:journal-bridge|bridge_wipe', 'clear', 'idb-delete:journal-query-cache', 'navigate']);
+        await unmount();
+    });
+
+    it('deletes the previous identity\'s query cache, and in the native app its whole keychain entry, before it navigates (#1429)', async () => {
+        mocks.flush.mockResolvedValue();
+        const storage = { clearSecureStorage: vi.fn(() => { mocks.calls.push('keychain-clear'); }), flushSecureStorage: vi.fn(async () => { mocks.calls.push('keychain-flush'); }) };
+        vi.doMock('@/lib/native/secureStorage', () => storage);
+        window.__JOURNAL_NATIVE__ = { platform: 'windows' };
+        (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {};
+        const { logout, unmount } = await renderLogout();
+
+        await logout();
+        expect(mocks.calls).toEqual(['clear', 'idb-delete:journal-query-cache', 'keychain-clear', 'keychain-flush', 'navigate']);
+
+        // An entry that can't be deleted would sign the revoked token in again: no reload.
+        mocks.calls.length = 0;
+        storage.flushSecureStorage.mockRejectedValueOnce('keychain locked');
+        await expect(logout()).rejects.toBe('keychain locked');
+        expect(mocks.calls).not.toContain('navigate');
+
+        delete window.__JOURNAL_NATIVE__;
+        delete (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__;
+        vi.doUnmock('@/lib/native/secureStorage');
         await unmount();
     });
 });

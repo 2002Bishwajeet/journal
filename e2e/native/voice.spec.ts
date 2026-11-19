@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import type { Browser, Page } from '@playwright/test';
 import { test, expect, waitForAppReady, withFencedPage } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
+import { fakeKeychain } from '../support/fakeKeychain';
 import { activeEditor, screenshotInBothThemes } from '../support/actions';
 
 // #1250: the /voice capture screen and the transcript → note pipeline, on the scripted engines
@@ -39,6 +40,7 @@ async function openVoice(browser: Browser, platform: 'ios' | 'macos', fakes: Fak
             },
             { platform, segments: SEGMENTS, holdAfter: fakes.holdAfter },
         );
+        await fakeKeychain(page);
         await page.setViewportSize(platform === 'ios' ? PHONE : DESKTOP);
         await page.goto('/voice');
         await assertTestOrigin(page);

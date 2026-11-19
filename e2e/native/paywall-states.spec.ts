@@ -3,6 +3,7 @@ import path from 'node:path';
 import type { Browser, Page } from '@playwright/test';
 import { test, expect, waitForAppReady, withFencedPage } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
+import { fakeKeychain } from '../support/fakeKeychain';
 import { inBothThemes } from '../support/actions';
 
 // Every billing state, desktop and phone, light and dark, for the paywall design pass.
@@ -73,6 +74,7 @@ async function open(browser: Browser, setup: Setup, body: (page: Page) => Promis
             },
             { platform: setup.platform, infoSeen: !!setup.infoSeen },
         );
+        await fakeKeychain(page);
         await page.goto('/');
         await assertTestOrigin(page);
         await waitForAppReady(page);

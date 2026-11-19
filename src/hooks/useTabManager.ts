@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { getAppState } from '@/lib/db';
 import { TABS_STORAGE_KEY, readJson, writeJson } from '@/lib/storage';
+import { usesEncryptedDatabase } from '@/lib/db/databaseKey';
 
 export interface TabInfo {
     docId: string;
@@ -27,8 +28,12 @@ function loadTabs(): TabManagerState | null {
     return isTabState(parsed) ? parsed : null;
 }
 
+// The native app writes no note titles outside its encrypted database (#1429): useTabRouting
+// fills them in from the notes.
 function saveTabs(state: TabManagerState): void {
-    writeJson(TABS_STORAGE_KEY, state);
+    writeJson(TABS_STORAGE_KEY, usesEncryptedDatabase()
+        ? { ...state, openTabs: state.openTabs.map((tab) => ({ ...tab, title: '' })) }
+        : state);
 }
 
 /**

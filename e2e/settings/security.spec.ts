@@ -1,6 +1,7 @@
 import type { Browser, Page } from '@playwright/test';
 import { test, expect, waitForAppReady, withFencedPage } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
+import { fakeKeychain } from '../support/fakeKeychain';
 import { openSettingsSection, settingsPanel, THEMES } from '../support/actions';
 
 // #1363: Settings -> Security in the desktop app, and the app lock. The app is forced native
@@ -27,6 +28,7 @@ async function openDesktopApp(browser: Browser, body: (page: Page) => Promise<vo
                 },
             };
         });
+        await fakeKeychain(page);
         await page.goto('/');
         await assertTestOrigin(page);
         await waitForAppReady(page);
