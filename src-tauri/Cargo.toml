@@ -1,6 +1,6 @@
 [package]
 name = "journal"
-version = "2.73.12"
+version = "2.73.13"
 description = "Journal"
 edition = "2021"
 rust-version = "1.77.2"

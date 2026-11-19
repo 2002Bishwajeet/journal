@@ -2190,7 +2190,7 @@ dependencies = [
 
 [[package]]
 name = "journal"
-version = "2.73.12"
+version = "2.73.13"
 dependencies = [
  "block2",
  "getrandom 0.4.3",

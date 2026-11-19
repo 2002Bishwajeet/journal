@@ -16,6 +16,18 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.73.13 (2026-11-19)
+
+### New
+
+- Settings → Security in the desktop app shows that your notes on this computer are encrypted.
+- An optional app lock for the desktop app: Journal asks for Touch ID (or your password) on a Mac, or Windows Hello on Windows, before it shows your notes. Lock it any time with Lock now, or have it lock after it has been hidden for a while. While the lock is on, widgets, search and shortcuts show no note titles unless you turn on "Show notes outside the app".
+- On Linux without a system keychain, the desktop app protects your notes with a passphrase instead.
+
+### Changed
+
+- Once a note is on your feed, the Share dialog's link preview shows the feed post: your identity domain and the post's link, with buttons to copy and open it.
+
 ## 2.73.12 (2026-11-19)
 
 ### New

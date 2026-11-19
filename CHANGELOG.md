@@ -1,3 +1,10 @@
+## [2.73.13](https://github.com/2002Bishwajeet/journal/compare/v2.73.12...v2.73.13) (2026-11-19)
+
+
+### Features
+
+* **native:** Settings -> Security, desktop app lock and a Linux passphrase ([#1363](https://github.com/2002Bishwajeet/journal/issues/1363)) ([447f7e0](https://github.com/2002Bishwajeet/journal/commit/447f7e0742874702b82483deaf3f53eae58adcff))
+* **share:** link preview shows the feed post once the note is on the feed ([#1416](https://github.com/2002Bishwajeet/journal/issues/1416)) ([d34b102](https://github.com/2002Bishwajeet/journal/commit/d34b1029718524b4e81ceaf1b7e21a5878fc788a))
 ## [2.73.12](https://github.com/2002Bishwajeet/journal/compare/v2.73.11...v2.73.12) (2026-11-19)
 
 
