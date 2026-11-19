@@ -50,6 +50,10 @@ tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 tauri-plugin-global-shortcut = "2"
 # External links and the macOS sign-in open in the default browser (src/lib/native.ts).
 tauri-plugin-opener = "2"
+# The database key (db_key.rs, #1361): kept in the macOS Keychain, Windows Credential Manager or
+# Linux Secret Service, made from the OS's random source (getrandom is in the tree already).
+keyring = "4"
+getrandom = "0.4"
 
 # External links and the sign-in open in an in-app browser (plugins/browser, #1188).
 [target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]

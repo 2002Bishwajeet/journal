@@ -209,6 +209,11 @@ export default defineConfig(({ mode }) => ({
   optimizeDeps: {
     exclude: ['@electric-sql/pglite', 'pglite-v4', '@electric-sql/pglite-tools', '@tiptap/extension-mathematics'],
   },
+  worker: {
+    // Module workers can split, so the database worker's import('pglite-cipher') (the
+    // desktop app's encryption, #1361) is a chunk of its own the PWA never loads.
+    format: 'es',
+  },
   server: {
     // e2e mode serves plain HTTP on 127.0.0.1 (set by the e2e script via
     // --host/--port) and must not read the dev cert files or bind the dev host.

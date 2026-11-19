@@ -16,6 +16,7 @@ import {
 } from './pglite-migrate';
 import { initializeSchema, TRIGRAM_SEARCH_SQL } from './schema';
 import { reloadPage } from '../reloadReason';
+import { loadDatabaseKey, usesEncryptedDatabase } from './databaseKey';
 
 // PGlite 0.5 runs Postgres 18, which can't open the Postgres 17 data dir the
 // older engines left at 'idb://journal-db'. Using a new dir lets the legacy DB
@@ -184,9 +185,12 @@ export function flushToIndexedDb(): Promise<void> {
  * been flushed to IndexedDB, which is much faster but means committed data can
  * be lost in a crash. Pass false for a launch that cannot afford that.
  */
-function createWorkerInstance(relaxedDurability = true): Promise<PGliteInterface> {
+async function createWorkerInstance(relaxedDurability = true): Promise<PGliteInterface> {
+  // The desktop app's database is encrypted (#1361): the worker opens its own store with
+  // this key instead of DATA_DIR.
+  const key = await loadDatabaseKey();
   const options: Record<string, unknown> = {
-    dataDir: DATA_DIR,
+    ...(key ? { key } : { dataDir: DATA_DIR }),
     // Forwarded to the worker's init(), which passes it to the engine.
     relaxedDurability,
     // Must differ from the pre-0.5 build's id: PGliteWorker derives its leader
@@ -306,11 +310,14 @@ async function migrateLegacyDatabase(): Promise<PGliteInterface | null> {
 }
 
 async function initDatabase(): Promise<PGliteInterface> {
+  // The encrypted database starts empty and syncs from Homebase: no plain database is
+  // migrated into it, cleaned up or stamped here (older native builds' data is #1362's).
+  const encrypted = usesEncryptedDatabase();
   // Two tabs booting on legacy data would each open the legacy dir with their
   // own engine, and the first to finish would delete it under the other. The
   // lock lets one migrate; the rest re-read the stamp inside it and fall
   // through. Already-migrated boots never wait on it.
-  if (getStoredPGliteVersion() !== PGLITE_VERSION && !legacyMigrationSkipped()) {
+  if (!encrypted && getStoredPGliteVersion() !== PGLITE_VERSION && !legacyMigrationSkipped()) {
     const migrated = navigator.locks
       ? await navigator.locks.request(MIGRATION_LOCK, migrateLegacyDatabase)
       : await migrateLegacyDatabase();
@@ -320,7 +327,7 @@ async function initDatabase(): Promise<PGliteInterface> {
   const storedVersion = getStoredPGliteVersion();
   const skipped = legacyMigrationSkipped();
 
-  if (storedVersion === PGLITE_VERSION) {
+  if (!encrypted && storedVersion === PGLITE_VERSION) {
     // The migration's own delete of the legacy DB is blocked by the tab's open
     // IndexedDB connection to it, so it outlives the migration. A launch that
     // never opens it can finish the job — off the boot path, failures logged.
@@ -332,7 +339,7 @@ async function initDatabase(): Promise<PGliteInterface> {
   try {
     // Leave the stamp alone for a skipped migration: the legacy data is still
     // there, waiting, and must not look like it was migrated.
-    if (!skipped) setStoredPGliteVersion(PGLITE_VERSION);
+    if (!skipped && !encrypted) setStoredPGliteVersion(PGLITE_VERSION);
     console.log('[DB] PGlite worker ready, initializing schema...');
     await initializeSchema(db);
     console.log('[DB] Schema initialized');

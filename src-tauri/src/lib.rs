@@ -37,6 +37,8 @@ mod premium {
     pub fn set_skipped_update(_app: &tauri::AppHandle, _version: Option<String>) {}
 }
 
+#[cfg(desktop)]
+mod db_key;
 mod ios_keyboard;
 #[cfg(any(target_os = "ios", target_os = "macos", target_os = "linux", test))]
 mod webview_recovery;
@@ -888,7 +890,8 @@ pub fn run() {
     #[cfg(desktop)]
     let builder = builder
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(updater_events());
+        .plugin(updater_events())
+        .plugin(db_key::plugin());
     #[cfg(target_os = "macos")]
     let builder = builder.menu(app_menu).on_menu_event(|app, event| {
         if event.id() == CHECK_FOR_UPDATES_MENU_ID {
