@@ -1,3 +1,9 @@
+## [2.73.14](https://github.com/2002Bishwajeet/journal/compare/v2.73.13...v2.73.14) (2026-11-19)
+
+
+### Features
+
+* **native:** iOS Keychain / Android Keystore key and a Face ID / fingerprint app lock ([#1364](https://github.com/2002Bishwajeet/journal/issues/1364)) ([b0b0c1e](https://github.com/2002Bishwajeet/journal/commit/b0b0c1ee5bf91c7d5bdab14d7dfa9e8a079828ab)), closes [#1362](https://github.com/2002Bishwajeet/journal/issues/1362)
 ## [2.73.13](https://github.com/2002Bishwajeet/journal/compare/v2.73.12...v2.73.13) (2026-11-19)
 
 
