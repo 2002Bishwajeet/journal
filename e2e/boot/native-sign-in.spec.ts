@@ -39,11 +39,15 @@ test('iOS app: sign-in runs in an auth session and external links open in the pl
   // Recorded on the test side, so the calls outlive the navigation to /auth/finalize.
   const ipc: { cmd: string; args: Record<string, unknown> }[] = [];
   await page.exposeFunction('recordIpc', (cmd: string, args: Record<string, unknown>) => ipc.push({ cmd, args }));
+  // Only the browser plugin's calls: the app also reads its keychain (#1429), which is not what this is about.
+  const browserCalls = () => ipc.filter((call) => call.cmd.startsWith('plugin:browser|'));
   await page.addInitScript(() => {
     window.__JOURNAL_NATIVE__ = { platform: 'ios' };
     (window as unknown as { __TAURI_INTERNALS__: unknown }).__TAURI_INTERNALS__ = {
       invoke: async (cmd: string, args: Record<string, unknown>) => {
         await (window as unknown as { recordIpc: (cmd: string, args: unknown) => Promise<void> }).recordIpc(cmd, args);
+        // The keychain holds no sign-in on this fake device (#1429).
+        if (cmd === 'plugin:journal-db-key|auth_secrets') return 'unavailable';
         // The identity's redirect, as ASWebAuthenticationSession hands it back.
         if (cmd === 'plugin:browser|authenticate') {
           return { url: 'journal://auth/finalize?identity=alice.homebase.test&public_key=pk&salt=s&state=%2F' };
@@ -56,7 +60,7 @@ test('iOS app: sign-in runs in an auth session and external links open in the pl
   await page.goto('/welcome');
   // The welcome step's sign-up button (#1282) opens in the in-app browser, as links do.
   await page.getByRole('link', { name: 'Create your Homebase identity' }).click();
-  await expect.poll(() => ipc).toEqual([{ cmd: 'plugin:browser|open_url', args: { url: 'https://homebase.id/' } }]);
+  await expect.poll(browserCalls).toEqual([{ cmd: 'plugin:browser|open_url', args: { url: 'https://homebase.id/' } }]);
   await expect(page).toHaveURL(/\/welcome$/);
   // The iOS app is Journal. Without the store plugin (journal-iap) it sells nothing: no trial line.
   await expect(page.getByRole('heading', { name: 'Welcome to Journal' })).toBeVisible();
@@ -67,7 +71,7 @@ test('iOS app: sign-in runs in an auth session and external links open in the pl
   await signIn(page);
   expect((await finalize).url()).toBe(`${baseURL}/auth/finalize?identity=alice.homebase.test&public_key=pk&salt=s&state=%2F`);
 
-  const [, auth] = ipc as { cmd: string; args: { url: string; callbackScheme: string } }[];
+  const [, auth] = browserCalls() as { cmd: string; args: { url: string; callbackScheme: string } }[];
   expect(auth.cmd).toBe('plugin:browser|authenticate');
   expect(auth.args.callbackScheme).toBe('journal');
   const authorize = new URL(auth.args.url);
