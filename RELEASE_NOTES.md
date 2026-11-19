@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.73.17 (2026-11-19)
+
+### Changed
+
+- The desktop and phone apps now also encrypt the copy of your note list that makes the app open fast, and the copy of your last edits. They keep your Homebase sign-in in the system keychain, not in the app's web storage.
+
 ## 2.73.16 (2026-11-19)
 
 ### New

@@ -1,3 +1,9 @@
+## [2.73.17](https://github.com/2002Bishwajeet/journal/compare/v2.73.16...v2.73.17) (2026-11-19)
+
+
+### Features
+
+* **native:** seal the query cache and keep the Homebase sign-in in the keychain ([#1429](https://github.com/2002Bishwajeet/journal/issues/1429)) ([38849ef](https://github.com/2002Bishwajeet/journal/commit/38849ef4b3c4f211e108df1864fc049db35ca518))
 ## [2.73.16](https://github.com/2002Bishwajeet/journal/compare/v2.73.15...v2.73.16) (2026-11-19)
 
 
