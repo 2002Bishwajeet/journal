@@ -8,13 +8,14 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-type InitOptions = { dataDir?: string; relaxedDurability?: boolean };
+type InitOptions = { dataDir?: string; relaxedDurability?: boolean; key?: CryptoKey };
 
 type InitFn = (options: InitOptions) => Promise<unknown>;
 
 const mocks = {
   pgliteArgs: [] as Array<Record<string, unknown>>,
   flushLog: [] as string[],
+  cipherLoads: 0,
 };
 
 /** Loads pglite-worker.ts with the engine and worker runtime stubbed out. */
@@ -22,6 +23,7 @@ async function loadWorkerInit(): Promise<InitFn> {
   vi.resetModules();
   mocks.pgliteArgs = [];
   mocks.flushLog = [];
+  mocks.cipherLoads = 0;
   // A local, assigned only inside the mock factory below: resetting a property
   // here instead would pin its type for the rest of this function.
   let captured: InitFn | undefined;
@@ -53,6 +55,21 @@ async function loadWorkerInit(): Promise<InitFn> {
   }));
   vi.doMock('@electric-sql/pglite/contrib/pg_trgm', () => ({ pg_trgm: { name: 'pg_trgm' } }));
   vi.doMock('@electric-sql/pglite/live', () => ({ live: { name: 'live' } }));
+  vi.doMock('pglite-cipher', () => {
+    mocks.cipherLoads++;
+    return {
+      EncryptedFs: class FakeEncryptedFs {
+        options: Record<string, unknown>;
+        constructor(options: Record<string, unknown>) {
+          this.options = options;
+        }
+        async syncToFs(relaxed?: boolean) {
+          mocks.flushLog.push(`sync:${relaxed}`);
+        }
+      },
+      IndexedDbBackend: { pair: (name: string) => [`${name}.a`, `${name}.b`] },
+    };
+  });
   await import('../lib/db/pglite-worker');
   if (!captured) throw new Error('pglite-worker did not register an init callback');
   return captured;
@@ -100,6 +117,39 @@ describe('pglite worker init', () => {
 
     expect((mocks.pgliteArgs[0].fs as { dataDir: string }).dataDir).toBe('journal-db-pg18');
     expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'journal-boot-mark', step: 'db-open' }));
+    // The PWA's plain database never loads the encryption package (#1361).
+    expect(mocks.cipherLoads).toBe(0);
+  });
+
+  it("opens the desktop app's encrypted store with the page's key, relaxed, without a data dir (#1361)", async () => {
+    const init = await loadWorkerInit();
+    const key = { type: 'secret' } as CryptoKey;
+
+    await init({ key });
+
+    expect(mocks.cipherLoads).toBe(1);
+    expect(mocks.pgliteArgs[0].dataDir).toBeUndefined();
+    expect(mocks.pgliteArgs[0].relaxedDurability).toBe(true);
+    expect((mocks.pgliteArgs[0].fs as { options: unknown }).options).toEqual({
+      backend: ['journal-data.a', 'journal-data.b'],
+      key,
+      mode: 'open-or-create',
+    });
+  });
+
+  it('answers a flush request with a strict sync of the encrypted store (#1361)', async () => {
+    const init = await loadWorkerInit();
+    const onMessage = vi.mocked(addEventListener).mock.calls.find(([type]) => type === 'message')![1] as unknown as (event: { data: unknown }) => void;
+    await init({ key: { type: 'secret' } as CryptoKey });
+    await Promise.resolve();
+
+    const answer = new Promise((resolve) => vi.mocked(postMessage).mockImplementation((message) => {
+      if ((message as { type: string }).type === 'journal-flushed') resolve(message);
+    }));
+    onMessage({ data: { type: 'journal-flush', id: 3 } });
+
+    expect(await answer).toEqual({ type: 'journal-flushed', id: 3 });
+    expect(mocks.flushLog).toEqual(['sync:false']);
   });
 
   it('runs IndexedDB flushes one at a time, and answers a flush request once its flush is done (#833)', async () => {

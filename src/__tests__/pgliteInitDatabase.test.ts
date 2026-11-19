@@ -26,6 +26,8 @@ const mocks = {
   skipped: false,
   preserveOk: true,
   skipOk: true,
+  // The desktop app's database_key answer (#1361).
+  keyAnswer: { key: Array<number>(32).fill(7) } as { key: number[] } | 'missing',
 };
 
 /** Fake PGliteWorker instance: records the steps the migration depends on. */
@@ -105,6 +107,16 @@ async function loadDatabaseModule() {
     markBoot: (step: string, startTime?: number) => void mocks.marks.push({ step, startTime }),
   }));
   vi.doMock('../lib/homebase', () => ({ MAIN_FOLDER_ID: '06cf9262-4eae-4276-b0d1-8ca3cf5be6f4' }));
+  vi.doMock('@tauri-apps/api/core', () => ({
+    invoke: async (command: string) => {
+      mocks.events.push(`invoke:${command}`);
+      return mocks.keyAnswer;
+    },
+  }));
+  vi.doMock('pglite-cipher', async (importOriginal) => {
+    mocks.events.push('cipher-loaded');
+    return importOriginal();
+  });
   return import('../lib/db/pglite');
 }
 
@@ -129,6 +141,7 @@ beforeEach(() => {
   mocks.skipped = false;
   mocks.preserveOk = true;
   mocks.skipOk = true;
+  mocks.keyAnswer = { key: Array<number>(32).fill(7) };
   // pglite.ts constructs a Worker before PGliteWorker.create sees it.
   page = new EventTarget();
   vi.stubGlobal('addEventListener', page.addEventListener.bind(page));
@@ -468,5 +481,64 @@ describe('boot timing (#901)', () => {
     mocks.worker!.dispatchEvent(new MessageEvent('message', { data: { type: 'leader-now' } }));
 
     expect(mocks.marks.filter((m) => m.startTime !== undefined)).toEqual([{ step: 'db-idb-loaded', startTime: 1234 }]);
+  });
+});
+
+describe('desktop app encryption (#1361)', () => {
+  const onDesktop = () => vi.stubGlobal('window', { __JOURNAL_NATIVE__: { platform: 'macos' }, __TAURI_INTERNALS__: {} });
+
+  it('never asks for a key or loads pglite-cipher on the web', async () => {
+    mocks.dump = null;
+    const { getDatabase } = await loadDatabaseModule();
+
+    await getDatabase();
+
+    expect(mocks.workerOptions[0].dataDir).toBe('idb://journal-db-pg18');
+    expect(mocks.workerOptions[0].key).toBeUndefined();
+    expect(mocks.events.some((event) => event.startsWith('invoke:'))).toBe(false);
+    expect(mocks.events).not.toContain('cipher-loaded');
+  });
+
+  it('stays plain when only the platform is faked, without Tauri (the e2e platform specs)', async () => {
+    mocks.dump = null;
+    vi.stubGlobal('window', { __JOURNAL_NATIVE__: { platform: 'macos' } });
+    const { getDatabase } = await loadDatabaseModule();
+
+    await getDatabase();
+
+    expect(mocks.workerOptions[0].dataDir).toBe('idb://journal-db-pg18');
+    expect(mocks.events.some((event) => event.startsWith('invoke:'))).toBe(false);
+  });
+
+  it.each(['0.4', '0.5'])(
+    'opens the encrypted store with the keychain key and leaves the plain databases alone (stamp %s)',
+    async (stamp) => {
+      onDesktop();
+      mocks.storedVersion = stamp;
+      const { getDatabase } = await loadDatabaseModule();
+
+      await getDatabase();
+
+      expect(mocks.events).toContain('invoke:plugin:journal-db-key|database_key');
+      const { key, dataDir } = mocks.workerOptions[0] as { key: CryptoKey; dataDir?: string };
+      expect(dataDir).toBeUndefined();
+      expect(key).toBeInstanceOf(CryptoKey);
+      expect(key.extractable).toBe(false);
+      expect([...key.usages].sort()).toEqual(['unwrapKey', 'wrapKey']);
+      // Nothing plain is migrated, cleaned up or stamped: older native builds' data is #1362's.
+      for (const step of ['dump', 'cleanup', 'restore']) expect(mocks.events).not.toContain(step);
+      expect(stamped()).toBe(false);
+    },
+  );
+
+  it('fails the boot without opening a database when the key is missing', async () => {
+    onDesktop();
+    mocks.keyAnswer = 'missing';
+    const { getDatabase } = await loadDatabaseModule();
+
+    await expect(getDatabase()).rejects.toThrow('missing from the system keychain');
+
+    expect(mocks.workerOptions).toEqual([]);
+    expect(mocks.events).toContain('boot-error');
   });
 });
