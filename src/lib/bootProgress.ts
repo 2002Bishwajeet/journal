@@ -18,9 +18,44 @@ export const PHASE_PROGRESS: Record<BootPhase, number> = {
 };
 
 let progress = 0;
+let openProgress: OpenProgress | null = null;
 let bootError: Error | null = null;
 let bootFailures = 0;
 const listeners = new Set<() => void>();
+
+/** How far an encrypted database's open has got, and when it began (#1365). */
+export interface OpenProgress {
+    startedAt: number;
+    percent: number;
+}
+
+/** The splash shows the open's progress only past this, so a fast open doesn't flash it. */
+export const OPEN_PROGRESS_DELAY_MS = 300;
+
+/** pglite-cipher's blocks read as a whole percent; a store with no blocks counts as done. */
+export function openPercent(done: number, total: number): number {
+    if (total <= 0) return 100;
+    return Math.min(100, Math.max(0, Math.round((done / total) * 100)));
+}
+
+/** An encrypted open begins: its progress starts at 0 and its delay clock starts now. */
+export function startOpenProgress(): void {
+    openProgress = { startedAt: Date.now(), percent: 0 };
+    listeners.forEach((listener) => listener());
+}
+
+/** Monotonic like the boot bar. Ignored unless an open has begun. */
+export function reportOpenProgress(done: number, total: number): void {
+    if (!openProgress) return;
+    const percent = openPercent(done, total);
+    if (percent <= openProgress.percent) return;
+    openProgress = { ...openProgress, percent };
+    listeners.forEach((listener) => listener());
+}
+
+export function getOpenProgress(): OpenProgress | null {
+    return openProgress;
+}
 
 /**
  * A boot timing mark, `journal-boot:<step>` in `performance.getEntriesByType('mark')`,

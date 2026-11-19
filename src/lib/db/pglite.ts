@@ -2,7 +2,8 @@ import { PGliteWorker } from '@electric-sql/pglite/worker';
 import type { PGliteInterface } from '@electric-sql/pglite';
 import { live } from '@electric-sql/pglite/live';
 import type { PGliteWithLive } from '@electric-sql/pglite/live';
-import { reportBootPhase, reportBootError, clearBootError, markBoot } from '../bootProgress';
+import { reportBootPhase, reportBootError, clearBootError, markBoot, startOpenProgress, reportOpenProgress } from '../bootProgress';
+import { nativePlatform } from '../native';
 import {
   databaseExists,
   dumpLegacyDatabase,
@@ -234,6 +235,13 @@ async function createWorkerInstance(relaxedDurability = true, key: CryptoKey | n
     document.addEventListener('freeze', onFreeze);
   }
   currentWorker = new Worker(new URL('./pglite-worker.ts', import.meta.url), { type: 'module' });
+  // Android's encrypted open can take seconds on a large account: the splash shows how far it is (#1365).
+  if (key && nativePlatform() === 'android') {
+    startOpenProgress();
+    currentWorker.addEventListener('message', (event: MessageEvent<{ type?: string; done: number; total: number }>) => {
+      if (event.data?.type === 'journal-open-progress') reportOpenProgress(event.data.done, event.data.total);
+    });
+  }
   // The worker's boot timing marks (#901): reading the data dir from IndexedDB, and Postgres up.
   currentWorker.addEventListener('message', (event: MessageEvent<{ type?: string; step: string; at: number }>) => {
     if (event.data?.type === 'journal-boot-mark') markBoot(event.data.step, event.data.at - performance.timeOrigin);
