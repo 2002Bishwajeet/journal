@@ -1,3 +1,16 @@
+## [2.73.16](https://github.com/2002Bishwajeet/journal/compare/v2.73.15...v2.73.16) (2026-11-19)
+
+
+### Bug Fixes
+
+* **lock:** Unlock opens the note in a production build ([#1427](https://github.com/2002Bishwajeet/journal/issues/1427)) ([9adae2b](https://github.com/2002Bishwajeet/journal/commit/9adae2b0f48c63dbcd4a7e4f97b2a619db4a6def))
+* **sync:** keep an unpushed folder lock over a pull ([#1427](https://github.com/2002Bishwajeet/journal/issues/1427)) ([0c604e7](https://github.com/2002Bishwajeet/journal/commit/0c604e72db504f02384e3df5f8f44acfd81f60be))
+* **sync:** keep an unpushed note lock or Remove lock over a pull ([#1427](https://github.com/2002Bishwajeet/journal/issues/1427)) ([3bc609d](https://github.com/2002Bishwajeet/journal/commit/3bc609db1a2a539ab6be756acea5c126176cd7ec))
+
+
+### Features
+
+* **native:** lock a note or a folder behind Touch ID / Face ID ([#1427](https://github.com/2002Bishwajeet/journal/issues/1427)) ([a9c084d](https://github.com/2002Bishwajeet/journal/commit/a9c084d50d5cb8d83225bdca3e293f1c86771aa1))
 ## [2.73.15](https://github.com/2002Bishwajeet/journal/compare/v2.73.14...v2.73.15) (2026-11-19)
 
 
