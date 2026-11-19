@@ -23,9 +23,9 @@ import { loadDatabaseKey, PassphraseNeededError, usesEncryptedDatabase, usesPass
 // older engines left at 'idb://journal-db'. Using a new dir lets the legacy DB
 // survive until its data has been restored here (see initDatabase).
 const DATA_DIR = 'idb://journal-db-pg18';
-// DATA_DIR's IndexedDB database. In the desktop app it is a plain one an older build left (#1362).
+// DATA_DIR's IndexedDB database. In the native app it is a plain one an older build left (#1362).
 export const PLAIN_DATABASE = '/pglite/journal-db-pg18';
-// The Postgres 17 database of builds older than PGlite 0.5. The desktop app deletes it unread (#1362).
+// The Postgres 17 database of builds older than PGlite 0.5. The native app deletes it unread (#1362).
 export const LEGACY_DATABASE = '/pglite/journal-db';
 const PGLITE_VERSION = '0.5';
 // Marks this data dir as already carrying the legacy data. The version stamp
@@ -45,11 +45,11 @@ let currentWorker: Worker | null = null;
 // open engine, so without this a damaged encrypted store (#1362) would hold the splash forever.
 let workerOpenFailed: Promise<never> = new Promise(() => {});
 
-// Set when this desktop launch runs on the plain database an older build left (#1362).
+// Set when this native app launch runs on the plain database an older build left (#1362).
 let leftoverSession = false;
 
 /**
- * Whether this desktop launch runs on the plain database an older build left, because it
+ * Whether this native app launch runs on the plain database an older build left, because it
  * has changes that never synced (#1362): this launch's syncs send them, and the first
  * launch that finds it all synced deletes it and opens the encrypted database.
  */
@@ -216,7 +216,7 @@ export function flushToIndexedDb(): Promise<void> {
  * be lost in a crash. Pass false for a launch that cannot afford that.
  */
 async function createWorkerInstance(relaxedDurability = true, key: CryptoKey | null = null): Promise<PGliteInterface> {
-  // The desktop app's database is encrypted (#1361): the worker opens its own store with
+  // The native app's database is encrypted (#1361, #1364): the worker opens its own store with
   // this key instead of DATA_DIR.
   const options: Record<string, unknown> = {
     ...(key ? { key } : { dataDir: DATA_DIR }),
@@ -361,7 +361,7 @@ async function openWorkerDatabase(key: CryptoKey | null): Promise<PGliteInterfac
 }
 
 /**
- * The desktop app's database (#1361, #1362). A plain database an older build left is
+ * The native app's database, desktop and phone (#1361, #1362, #1364). A plain database an older build left is
  * deleted once the encrypted one is open, and so is the older Postgres 17 one, unread. If it has changes that never synced, this launch
  * runs on it instead, so the sync sends them first (isLeftoverSession). Its data is never
  * copied into the encrypted database, which starts empty and syncs from Homebase.

@@ -1,6 +1,8 @@
-//! The app lock's check that the owner is at the computer (#1363): Touch ID or the account
-//! password through LocalAuthentication on macOS, Windows Hello on Windows. Linux has no
-//! biometric API, so the lock isn't offered there. db_key.rs asks before it hands out the key.
+//! The app lock's check that the owner is at the device (#1363, #1364): Touch ID or the account
+//! password through LocalAuthentication on macOS, Windows Hello on Windows, and on the phone
+//! Face ID / Touch ID (iOS) or BiometricPrompt (Android) through tauri-plugin-biometric, with the
+//! passcode or screen lock as the fallback. Linux has no biometric API, so the lock isn't
+//! offered there. db_key.rs asks before it hands out the key.
 
 use serde::Serialize;
 
@@ -9,7 +11,7 @@ use serde::Serialize;
 #[serde(rename_all = "lowercase")]
 pub enum Refusal {
     /// They closed the prompt, or the system did.
-    #[cfg_attr(not(any(target_os = "macos", target_os = "windows")), allow(dead_code))]
+    #[cfg_attr(target_os = "linux", allow(dead_code))]
     Cancelled,
     /// Wrong finger or password too often, or the check couldn't run.
     Failed,
@@ -23,6 +25,7 @@ pub trait Authenticator: Send + Sync {
     fn authenticate(&self, reason: &str, window: isize) -> Result<(), Refusal>;
 }
 
+#[cfg(desktop)]
 pub struct OsAuthenticator;
 
 #[cfg(target_os = "macos")]
@@ -111,7 +114,7 @@ impl Authenticator for OsAuthenticator {
     }
 }
 
-#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+#[cfg(target_os = "linux")]
 impl Authenticator for OsAuthenticator {
     fn available(&self) -> bool {
         false
@@ -119,6 +122,53 @@ impl Authenticator for OsAuthenticator {
 
     fn authenticate(&self, _reason: &str, _window: isize) -> Result<(), Refusal> {
         Err(Refusal::Failed)
+    }
+}
+
+/// The phone's check, through the biometric plugin (registered in lib.rs).
+#[cfg(mobile)]
+pub struct MobileAuthenticator<R: tauri::Runtime>(pub tauri::AppHandle<R>);
+
+#[cfg(mobile)]
+impl<R: tauri::Runtime> Authenticator for MobileAuthenticator<R> {
+    /// Face ID, Touch ID or a fingerprint or face is set up, so the lock is offered.
+    fn available(&self) -> bool {
+        use tauri_plugin_biometric::BiometricExt;
+        self.0
+            .biometric()
+            .status()
+            .is_ok_and(|status| status.is_available)
+    }
+
+    /// The passcode or screen lock is the fallback, so the lock never shuts out a phone whose
+    /// fingerprints or face were removed.
+    fn authenticate(&self, reason: &str, _window: isize) -> Result<(), Refusal> {
+        use tauri::plugin::mobile::PluginInvokeError;
+        use tauri_plugin_biometric::{AuthOptions, BiometricExt, Error};
+
+        let options = AuthOptions {
+            allow_device_credential: true,
+            // The prompt's title on Android; iOS shows the app's name itself.
+            title: Some(self.0.package_info().name.clone()),
+            ..Default::default()
+        };
+        match self.0.biometric().authenticate(reason.to_owned(), options) {
+            Ok(()) => Ok(()),
+            Err(Error::PluginInvoke(PluginInvokeError::InvokeRejected(rejected))) => {
+                Err(refusal(rejected.code.as_deref()))
+            }
+            Err(_) => Err(Refusal::Failed),
+        }
+    }
+}
+
+/// The biometric plugin's rejection code: LAError on iOS, BiometricPrompt's on Android, which
+/// the plugin names alike.
+#[cfg(any(mobile, test))]
+fn refusal(code: Option<&str>) -> Refusal {
+    match code {
+        Some("userCancel" | "systemCancel" | "appCancel") => Refusal::Cancelled,
+        _ => Refusal::Failed,
     }
 }
 
@@ -130,5 +180,27 @@ pub fn parent_window<R: tauri::Runtime>(window: &tauri::Window<R>) -> isize {
     {
         let _ = window;
         0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_closed_phone_prompt_is_a_cancel_and_anything_else_a_failure() {
+        for code in ["userCancel", "systemCancel", "appCancel"] {
+            assert_eq!(refusal(Some(code)), Refusal::Cancelled, "{code}");
+        }
+        // Too many tries, no passcode, a prompt that couldn't show, or no code at all.
+        for code in [
+            Some("biometryLockout"),
+            Some("authenticationFailed"),
+            Some("passcodeNotSet"),
+            Some("invalidContext"),
+            None,
+        ] {
+            assert_eq!(refusal(code), Refusal::Failed, "{code:?}");
+        }
     }
 }

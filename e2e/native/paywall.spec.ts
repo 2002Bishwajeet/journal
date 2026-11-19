@@ -40,6 +40,8 @@ async function openNativeApp(
             if (cmd === 'plugin:journal-license|save') device.store = args.state as Device['store'];
             if (cmd === 'plugin:journal-license|hostname') return 'e2e-host';
             if (cmd === 'plugin:journal-mirror|state') return { root: null, files: {} };
+            // The encrypted database's key on every platform (src-tauri/src/db_key.rs, #1364).
+            if (cmd === 'plugin:journal-db-key|database_key') return { key: Array<number>(32).fill(7) };
             if (cmd === 'plugin:journal-iap|products') return [{ id: 'journal.unlock', displayName: 'Journal', displayPrice: PRICE }];
             if (cmd === 'plugin:journal-iap|entitlements' || cmd === 'plugin:journal-iap|restore') return { entitlements: device.owned };
             if (cmd === 'plugin:journal-iap|purchase') {

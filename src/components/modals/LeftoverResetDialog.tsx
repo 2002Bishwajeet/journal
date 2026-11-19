@@ -2,7 +2,7 @@ import ConfirmDialog from './ConfirmDialog';
 import { useLeftoverReset } from '@/hooks/useLeftoverReset';
 
 /**
- * The desktop app runs on the plain database an older build left until its changes sync
+ * The native app runs on the plain database an older build left until its changes sync
  * (#1362). When a sync can't send them, this offers the reset, which loses them.
  */
 export default function LeftoverResetDialog() {

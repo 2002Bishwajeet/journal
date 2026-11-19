@@ -140,7 +140,7 @@ export async function checkBridgeIdentity(identity: string): Promise<void> {
 }
 
 export const SHOW_NOTES_OUTSIDE_APP_KEY = 'journal-show-notes-outside-app';
-/** The desktop app lock (#1363) as the page last set it. The key command reads its own copy (db_key.rs). */
+/** The app lock (#1363, #1364) as the page last set it. The key command reads its own copy (db_key.rs). */
 export const APP_LOCK_KEY = 'journal-app-lock';
 const visibilityListeners = new Set<() => void>();
 
@@ -160,8 +160,8 @@ export function getShowNotesOutsideApp(): boolean {
 /**
  * Whether note titles and snippets may appear outside the app. The only thing that decides
  * redaction: `buildBridgeSnapshot` takes its value. False while the app lock is on, unless
- * "Show notes outside the app" is on. Encryption alone changes nothing: the desktop app is
- * always encrypted (#1361).
+ * "Show notes outside the app" is on. Encryption alone changes nothing: the native app is
+ * always encrypted (#1361, #1364).
  */
 export function notesVisibleOutsideApp(): boolean {
     return getShowNotesOutsideApp();

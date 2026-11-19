@@ -37,9 +37,7 @@ mod premium {
     pub fn set_skipped_update(_app: &tauri::AppHandle, _version: Option<String>) {}
 }
 
-#[cfg(desktop)]
 mod app_lock;
-#[cfg(desktop)]
 mod db_key;
 mod ios_keyboard;
 #[cfg(any(target_os = "ios", target_os = "macos", target_os = "linux", test))]
@@ -888,12 +886,15 @@ pub fn run() {
         // journal.cloudx.run links (iOS Universal Links, Android App Links) and
         // journal:// links (desktop) open the app; useDeepLinks routes them.
         .plugin(tauri_plugin_deep_link::init())
-        .plugin(system_bars_plugin());
+        .plugin(system_bars_plugin())
+        .plugin(db_key::plugin());
     #[cfg(desktop)]
     let builder = builder
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(updater_events())
-        .plugin(db_key::plugin());
+        .plugin(updater_events());
+    // Face ID / Touch ID and BiometricPrompt for the app lock (app_lock.rs, #1364).
+    #[cfg(mobile)]
+    let builder = builder.plugin(tauri_plugin_biometric::init());
     #[cfg(target_os = "macos")]
     let builder = builder.menu(app_menu).on_menu_event(|app, event| {
         if event.id() == CHECK_FOR_UPDATES_MENU_ID {

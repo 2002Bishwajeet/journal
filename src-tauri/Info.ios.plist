@@ -20,5 +20,8 @@
 	     The photo library side uses PHPicker, which needs no permission. -->
 	<key>NSCameraUsageDescription</key>
 	<string>Journal uses the camera when you take a photo to add to a note.</string>
+	<!-- The app lock (#1364, src-tauri/src/app_lock.rs). Without it Face ID never shows. -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>Journal uses Face ID to unlock your notes when the app lock is on.</string>
 </dict>
 </plist>

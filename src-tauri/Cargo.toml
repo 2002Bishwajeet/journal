@@ -33,6 +33,11 @@ rustls = { version = "0.23", default-features = false, features = ["ring"] }
 # #1316): the updater's own date type, already in the tree through it. Not desktop-only:
 # license.rs compiles on every platform.
 time = { version = "0.3", features = ["parsing"] }
+# The database key (db_key.rs, #1361, #1364), made from the OS's random source on every platform
+# and kept through keyring-core: keyring's entry type on the desktop, and the iOS and Android
+# stores below on the phone. Both are in the tree already, through keyring.
+getrandom = "0.4"
+keyring-core = "1"
 
 # Native error dialog when the asset server can't bind (lib.rs). Same library
 # and GTK backend tauri-plugin-dialog uses, without that plugin's tauri bump and
@@ -51,13 +56,19 @@ tauri-plugin-global-shortcut = "2"
 # External links and the macOS sign-in open in the default browser (src/lib/native.ts).
 tauri-plugin-opener = "2"
 # The database key (db_key.rs, #1361): kept in the macOS Keychain, Windows Credential Manager or
-# Linux Secret Service, made from the OS's random source (getrandom is in the tree already).
+# Linux Secret Service.
 keyring = "4"
-getrandom = "0.4"
 
 # External links and the sign-in open in an in-app browser (plugins/browser, #1188).
 [target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
 tauri-plugin-browser = { path = "plugins/browser" }
+# The app lock's Face ID / Touch ID and BiometricPrompt (app_lock.rs, #1364), called from Rust.
+tauri-plugin-biometric = "2"
+
+# A SharedPreferences file encrypted with an Android Keystore key. Tauri already sets up the
+# ndk-context it reads.
+[target.'cfg(target_os = "android")'.dependencies]
+android-native-keyring-store = "1"
 
 # Objective-C runtime calls for hide_form_accessory_bar() and
 # allow_swipe_navigation() in lib.rs. Already in the tree through wry; listed so
@@ -87,6 +98,9 @@ windows-future = "0.3"
 # Already in the tree through wry.
 [target.'cfg(target_os = "ios")'.dependencies]
 block2 = "0.6"
+# The database key (db_key.rs, #1364) in the data protection keychain, which has the
+# "this device only, after first unlock" access policy.
+apple-native-keyring-store = { version = "1", features = ["protected"] }
 
 # WebKitGTK's web-process-terminated signal (webview_recovery.rs, #1368). Already in the tree
 # through wry, which turns on a later version than v2_20.

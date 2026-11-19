@@ -11,7 +11,7 @@ export async function deleteLocalDatabase(name: string): Promise<void> {
 }
 
 /**
- * "Reset local data and sync again" (#1362), only ever the user's choice: deletes the desktop
+ * "Reset local data and sync again" (#1362), only ever the user's choice: deletes the native
  * app's encrypted database and the plain ones older builds left, then makes a new keychain
  * key if the old one is gone. The caller reloads, and the empty database syncs from Homebase.
  * Changes on this device that never synced are lost.

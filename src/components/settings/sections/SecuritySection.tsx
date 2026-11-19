@@ -3,18 +3,26 @@ import { Switch } from "@/components/ui/switch";
 import { useSecuritySettings } from "@/hooks/useAppLock";
 import { useShowNotesOutsideApp } from "@/hooks/useNativeBridge";
 import { LOCK_AFTER_MINUTES } from "@/lib/appLock";
-import { nativePlatform } from "@/lib/native";
+import { nativePlatform, type NativePlatform } from "@/lib/native";
 import { SettingsRow } from "../SettingsRow";
 import { SettingsSelect } from "../SettingsSelect";
 
 const minutesLabel = (minutes: number) =>
   minutes === 60 ? "1 hour" : `${minutes} minute${minutes === 1 ? "" : "s"}`;
 
-/** Native app only. Encryption and the app lock only on the desktop (#1363). */
+/** What the app lock asks for (src-tauri/src/app_lock.rs). A Mac otherwise. */
+const UNLOCK_WITH: Partial<Record<NativePlatform, string>> = {
+  windows: "Windows Hello",
+  ios: "Face ID, Touch ID or your passcode",
+  android: "your fingerprint, face or screen lock",
+};
+
+/** Native app only. Encryption and the app lock only in the Tauri app, desktop and phone (#1363, #1364). */
 export default function SecuritySection() {
   const { on, setOn } = useShowNotesOutsideApp();
   const { encrypted, status, changingLock, setLockOn, lockAfter, setLockAfter, lockNow } = useSecuritySettings();
-  const unlockWith = nativePlatform() === "windows" ? "Windows Hello" : "Touch ID or your password";
+  const platform = nativePlatform();
+  const unlockWith = (platform && UNLOCK_WITH[platform]) ?? "Touch ID or your password";
 
   return (
     <div className="space-y-6">
@@ -26,7 +34,9 @@ export default function SecuritySection() {
               <p className="text-xs leading-relaxed text-muted-foreground text-pretty">
                 {status?.passphrase
                   ? "This computer has no keychain (Secret Service), so your passphrase protects the key. Journal asks for it each time it opens."
-                  : "The key is in the system keychain."}
+                  : platform === "android"
+                    ? "The key is protected by the Android Keystore."
+                    : "The key is in the system keychain."}
               </p>
             </div>
           </div>

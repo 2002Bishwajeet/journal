@@ -16,7 +16,7 @@ import { appLockOn, subscribeNotesVisibility } from '@/lib/native/bridge';
 const SECURITY_STATUS_KEY = ['security-status'];
 const MINUTE = 60_000;
 
-/** Settings -> Security on the desktop app (#1363): encryption, the app lock and its timeout. */
+/** Settings -> Security in the native app (#1363, #1364): encryption, the app lock and its timeout. */
 export function useSecuritySettings() {
     const encrypted = usesEncryptedDatabase();
     const queryClient = useQueryClient();

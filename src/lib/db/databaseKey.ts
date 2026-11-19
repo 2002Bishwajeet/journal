@@ -1,14 +1,13 @@
 import { nativePlatform } from '../native';
 
 /**
- * The desktop app opens its database through pglite-cipher (#1361), always, in its own
- * IndexedDB store. The web stays plain, and mobile follows in #1364. A page that only
- * claims a desktop platform (e2e fakes it with __JOURNAL_NATIVE__) has no Tauri to ask for the key.
+ * The native app, desktop (#1361) and phone (#1364), opens its database through pglite-cipher,
+ * always, in its own IndexedDB store. The web stays plain. A page that only claims a native
+ * platform (e2e fakes it with __JOURNAL_NATIVE__) has no Tauri to ask for the key.
  */
 export function usesEncryptedDatabase(): boolean {
   if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) return false;
-  const platform = nativePlatform();
-  return platform === 'macos' || platform === 'windows' || platform === 'linux';
+  return nativePlatform() !== null;
 }
 
 /**
@@ -29,7 +28,7 @@ export class DatabaseKeyMissingError extends Error {
 }
 
 /**
- * The app lock is on (#1363): `cancelled` or `failed` when Touch ID or Windows Hello didn't
+ * The app lock is on (#1363): `cancelled` or `failed` when Touch ID, Windows Hello, Face ID or a fingerprint didn't
  * confirm the owner, `locked` after Lock now or the lock timeout, before anyone asked.
  */
 export class DatabaseLockedError extends Error {
@@ -88,7 +87,7 @@ type KeyAnswer = { key: number[] } | 'missing' | { passphrase: number[] } | { lo
  * The database's key from the OS keychain (src-tauri/src/db_key.rs), imported as a
  * non-extractable key for the PGlite worker. Null where the database is plain; there
  * neither Tauri nor pglite-cipher is loaded. With the app lock on, the keychain answers
- * only after Touch ID or Windows Hello.
+ * only after Touch ID, Windows Hello, Face ID or a fingerprint.
  */
 export async function loadDatabaseKey(): Promise<CryptoKey | null> {
   if (!usesEncryptedDatabase()) return null;

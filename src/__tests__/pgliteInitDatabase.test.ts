@@ -572,6 +572,18 @@ describe('desktop app encryption (#1361)', () => {
     },
   );
 
+  it.each(['ios', 'android'])('opens the encrypted store with the %s keychain key, as the desktop does (#1364)', async (platform) => {
+    vi.stubGlobal('window', { __JOURNAL_NATIVE__: { platform }, __TAURI_INTERNALS__: {} });
+    const { getDatabase } = await loadDatabaseModule();
+
+    await getDatabase();
+
+    expect(mocks.events).toContain('invoke:plugin:journal-db-key|database_key');
+    const { key, dataDir } = mocks.workerOptions[0] as { key: CryptoKey; dataDir?: string };
+    expect(dataDir).toBeUndefined();
+    expect(key).toBeInstanceOf(CryptoKey);
+  });
+
   it('fails the boot without opening a database when the key is missing', async () => {
     onDesktop();
     mocks.keyAnswer = 'missing';

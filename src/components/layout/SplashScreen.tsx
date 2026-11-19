@@ -50,7 +50,7 @@ export function BootErrorScreen() {
   // Only the migration's own failures are escapable — LegacyMigrationError is
   // thrown solely when a legacy database exists and could not be dumped.
   const isLegacyFailure = error.name === 'LegacyMigrationError';
-  // The desktop app's encrypted database can't be opened (#1362): its keychain key is
+  // The native app's encrypted database can't be opened (#1362): its keychain key is
   // gone, or the store is damaged. Retry can't fix either; a reset can.
   const keyMissing = error.name === 'DatabaseKeyMissingError';
   const offersReset = keyMissing || error.name === 'CorruptStoreError';
@@ -92,7 +92,7 @@ export function BootErrorScreen() {
       await resetLocalData();
     });
 
-  // Unlock asks Touch ID or Windows Hello through the key command again.
+  // Unlock asks Touch ID, Windows Hello, Face ID or a fingerprint through the key command again.
   const handleUnlock = () =>
     attempt(async () => {
       const { clearLockedSession } = await import('@/lib/appLock');

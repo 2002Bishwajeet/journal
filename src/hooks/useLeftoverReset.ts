@@ -6,7 +6,7 @@ import type { SyncContextType } from '@/hooks/useSyncService';
 type SyncState = Pick<SyncContextType, 'syncStatus' | 'lastSyncResult' | 'pendingCount'>;
 
 /**
- * Whether a sync couldn't send the unsynced changes of the plain database an older desktop
+ * Whether a sync couldn't send the unsynced changes of the plain database an older native
  * build left (#1362): it failed, or finished with errors or with changes it stopped retrying,
  * and changes are still left.
  */
@@ -17,7 +17,7 @@ export function leftoverPushFailed({ syncStatus, lastSyncResult, pendingCount }:
 }
 
 /**
- * The desktop app's reset prompt for a launch on that plain database: shown once a sync
+ * The native app's reset prompt for a launch on that plain database: shown once a sync
  * couldn't send its changes, until dismissed. The database is kept unless the user resets.
  */
 export function useLeftoverReset() {

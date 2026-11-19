@@ -1,14 +1,16 @@
 // @vitest-environment happy-dom
 /**
- * #1363: Settings -> Security in each state, and the lock screen. The phone and a desktop
- * page without Tauri show only "Show notes outside the app"; the desktop app shows that its
- * notes are encrypted, and the lock where Touch ID or Windows Hello can confirm the owner.
+ * #1363, #1364: Settings -> Security in each state, and the lock screen. A page that only
+ * claims a native platform, without Tauri, shows only "Show notes outside the app"; the app,
+ * desktop or phone, shows that its notes are encrypted, and the lock where Touch ID, Windows
+ * Hello, Face ID or a fingerprint can confirm the owner.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createElement as h, act, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { SecurityStatus } from '@/lib/appLock';
+import type { NativePlatform } from '@/lib/native';
 
 const { invoke, retryDatabase } = vi.hoisted(() => ({
     invoke: vi.fn<(cmd: string, args?: Record<string, unknown>) => Promise<unknown>>(),
@@ -38,7 +40,7 @@ async function render(element: ReactElement) {
     await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
 }
 
-function desktop(platform: 'macos' | 'windows' | 'linux') {
+function nativeApp(platform: NativePlatform) {
     window.__JOURNAL_NATIVE__ = { platform, plugins: [] };
     (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__ = {};
 }
@@ -67,7 +69,7 @@ afterEach(async () => {
 });
 
 describe('Settings -> Security', () => {
-    it('the phone shows only "Show notes outside the app"', async () => {
+    it('a page without Tauri shows only "Show notes outside the app"', async () => {
         window.__JOURNAL_NATIVE__ = { platform: 'ios', plugins: [] };
         await render(h(SecuritySection));
         expect(control('security-notes-outside-app')).not.toBeNull();
@@ -77,7 +79,7 @@ describe('Settings -> Security', () => {
     });
 
     it('the Mac says its notes are encrypted and offers the lock, off', async () => {
-        desktop('macos');
+        nativeApp('macos');
         await render(h(SecuritySection));
         expect(text()).toContain('Notes on this device are encrypted');
         expect(text()).toContain('The key is in the system keychain.');
@@ -88,7 +90,7 @@ describe('Settings -> Security', () => {
     });
 
     it('with the lock on: Lock after (Never by default) and Lock now', async () => {
-        desktop('windows');
+        nativeApp('windows');
         status.lockOn = true;
         await render(h(SecuritySection));
         expect(text()).toContain('Ask for Windows Hello');
@@ -103,7 +105,7 @@ describe('Settings -> Security', () => {
     });
 
     it('turning the lock on asks the key command, then shows it on', async () => {
-        desktop('macos');
+        nativeApp('macos');
         await render(h(SecuritySection));
         invoke.mockImplementation(async (cmd) => {
             if (cmd === 'plugin:journal-db-key|set_app_lock') status.lockOn = true;
@@ -119,11 +121,34 @@ describe('Settings -> Security', () => {
     });
 
     it('Linux: no lock, and a passphrase where there is no keychain', async () => {
-        desktop('linux');
+        nativeApp('linux');
         status = { lockAvailable: false, lockOn: false, passphrase: true };
         await render(h(SecuritySection));
         expect(text()).toContain('Notes on this device are encrypted');
         expect(text()).toContain('This computer has no keychain (Secret Service), so your passphrase protects the key.');
+        expect(control('security-app-lock')).toBeNull();
+    });
+
+    it.each([
+        ['ios', 'The key is in the system keychain.', 'Ask for Face ID, Touch ID or your passcode before Journal shows your notes.'],
+        ['android', 'The key is protected by the Android Keystore.', 'Ask for your fingerprint, face or screen lock before Journal shows your notes.'],
+    ] as const)('the %s app says its notes are encrypted and offers the same lock', async (platform, key, lock) => {
+        nativeApp(platform);
+        status.lockOn = true;
+        await render(h(SecuritySection));
+        expect(text()).toContain('Notes on this device are encrypted');
+        expect(text()).toContain(key);
+        expect(text()).toContain(lock);
+        expect(control('security-app-lock')?.getAttribute('aria-checked')).toBe('true');
+        expect(control('security-lock-after')).not.toBeNull();
+        expect(control('security-lock-now')).not.toBeNull();
+    });
+
+    it('a phone without Face ID or a fingerprint set up is encrypted, with no lock', async () => {
+        nativeApp('android');
+        status.lockAvailable = false;
+        await render(h(SecuritySection));
+        expect(text()).toContain('Notes on this device are encrypted');
         expect(control('security-app-lock')).toBeNull();
     });
 });
