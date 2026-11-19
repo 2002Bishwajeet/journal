@@ -1,5 +1,6 @@
 import { APP_LOCK_KEY, appLockOn, changeNotesVisibility } from './native/bridge';
 import { LOCKED_SESSION_KEY } from './db/databaseKey';
+import { relockNotes } from './noteLock';
 
 /**
  * The app lock (#1363, #1364). Its switch lives in the key command (src-tauri/src/db_key.rs):
@@ -64,8 +65,10 @@ export function subscribeLockAfter(listener: () => void): () => void {
 /**
  * Lock now, or the timeout: the key command forgets the key, and the page reloads into the
  * lock screen, so the key leaves with the database worker and no note stays on screen.
+ * Every unlocked note and folder (#1427) locks again.
  */
 export async function lockApp(): Promise<void> {
+    relockNotes();
     await invokeKey('lock_database');
     sessionStorage.setItem(LOCKED_SESSION_KEY, '1');
     window.location.reload();

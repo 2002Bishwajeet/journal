@@ -1,7 +1,7 @@
 /**
  * `ReadDeps` over the app's local PGlite database, for the in-app agent (#697). Every
- * folder is granted 'write', so `resolveAccess` still hides `excludeFromAI` notes; trashed
- * notes are left out here.
+ * folder is granted 'write', so `resolveAccess` still hides `excludeFromAI` and locked notes
+ * (#1427); trashed notes are left out here.
  */
 import { matchesSearchFilters, type NoteSummary, type ReadDeps } from '@/lib/agent/tools/read';
 import type { AgentGrants } from '@/lib/agent/grants';
@@ -9,13 +9,14 @@ import { toMarkdown } from '@/lib/agent/editEngine';
 import { getDatabase } from '@/lib/db/pglite';
 import { getAllFolders } from '@/lib/db/queries/folders';
 import { advancedSearch } from '@/lib/db/queries/search';
+import { LOCKED_NOTE } from '@/lib/db/queries/shared';
 import { loadLocalYDoc } from '@/lib/yjs/loadDoc';
 import type { DocumentMetadata } from '@/types';
 
 const TRASHED = 2;
 const SNIPPET_LENGTH = 300;
 
-function toSummary(docId: string, title: string, metadata: DocumentMetadata): NoteSummary {
+function toSummary(docId: string, title: string, metadata: DocumentMetadata, locked: boolean): NoteSummary {
     return {
         id: docId,
         title,
@@ -23,7 +24,15 @@ function toSummary(docId: string, title: string, metadata: DocumentMetadata): No
         tags: metadata.tags ?? [],
         modified: metadata.timestamps.modified,
         excludeFromAI: metadata.excludeFromAI,
+        locked,
     };
+}
+
+/** The ids of every locked note: locked itself or in a locked folder (#1427). */
+async function lockedNoteIds(): Promise<Set<string>> {
+    const db = await getDatabase();
+    const { rows } = await db.query<{ doc_id: string }>(`SELECT doc_id FROM search_index WHERE ${LOCKED_NOTE}`);
+    return new Set(rows.map((row) => row.doc_id));
 }
 
 const isTrashed = (metadata: DocumentMetadata) => metadata.archivalStatus === TRASHED;
@@ -34,14 +43,14 @@ const toSnippet = (highlight: string | undefined) =>
 /** One note's summary, metadata and Yjs doc; null when it is missing, trashed or has no stored updates. */
 export async function loadLocalNote(id: string) {
     const db = await getDatabase();
-    const { rows } = await db.query<{ title: string; metadata: DocumentMetadata }>(
-        'SELECT title, metadata FROM search_index WHERE doc_id = $1',
+    const { rows } = await db.query<{ title: string; metadata: DocumentMetadata; locked: boolean }>(
+        `SELECT title, metadata, ${LOCKED_NOTE} AS locked FROM search_index WHERE doc_id = $1`,
         [id]
     );
     if (rows.length === 0 || isTrashed(rows[0].metadata)) return null;
     const doc = await loadLocalYDoc(id);
     if (!doc) return null;
-    return { summary: toSummary(id, rows[0].title, rows[0].metadata), metadata: rows[0].metadata, doc };
+    return { summary: toSummary(id, rows[0].title, rows[0].metadata, rows[0].locked), metadata: rows[0].metadata, doc };
 }
 
 export function createLocalDeps(): ReadDeps {
@@ -57,11 +66,11 @@ export function createLocalDeps(): ReadDeps {
 
         async listNotes() {
             const db = await getDatabase();
-            const { rows } = await db.query<{ doc_id: string; title: string; metadata: DocumentMetadata }>(
-                `SELECT doc_id, title, metadata FROM search_index
+            const { rows } = await db.query<{ doc_id: string; title: string; metadata: DocumentMetadata; locked: boolean }>(
+                `SELECT doc_id, title, metadata, ${LOCKED_NOTE} AS locked FROM search_index
                  WHERE COALESCE((metadata->>'archivalStatus')::int, 0) <> ${TRASHED}`
             );
-            return rows.map((row) => toSummary(row.doc_id, row.title, row.metadata));
+            return rows.map((row) => toSummary(row.doc_id, row.title, row.metadata, row.locked));
         },
 
         async getNote(id, targets) {
@@ -70,8 +79,9 @@ export function createLocalDeps(): ReadDeps {
         },
 
         async searchNotes(query, _limit, filters = {}) {
+            const locked = await lockedNoteIds();
             const hits = (await advancedSearch(query, { includeArchived: true })).map((hit) => ({
-                summary: toSummary(hit.docId, hit.title, hit.metadata),
+                summary: toSummary(hit.docId, hit.title, hit.metadata, locked.has(hit.docId)),
                 snippet: toSnippet(hit.contentHighlight ?? hit.titleHighlight),
             }));
             // advancedSearch looks at the text, not the tags: a query that is exactly a tag also finds its notes.
@@ -85,7 +95,7 @@ export function createLocalDeps(): ReadDeps {
                 );
                 const found = new Set(hits.map((hit) => hit.summary.id));
                 for (const row of rows) {
-                    if (!found.has(row.doc_id)) hits.push({ summary: toSummary(row.doc_id, row.title, row.metadata), snippet: '' });
+                    if (!found.has(row.doc_id)) hits.push({ summary: toSummary(row.doc_id, row.title, row.metadata, locked.has(row.doc_id)), snippet: '' });
                 }
             }
             return hits.filter((hit) => matchesSearchFilters(hit.summary, filters));

@@ -5,6 +5,8 @@ import {
   FileText,
   FolderInput,
   ListX,
+  Lock,
+  LockOpen,
   Pin,
   PinOff,
   Share2,
@@ -23,6 +25,8 @@ export interface NoteMenuHandlers {
   onTrash: (docId: string) => void;
   /** Shows the note, for an action that needs it on screen (Export to PDF from a list row). */
   onOpen?: (docId: string) => void;
+  /** Lock note / Remove lock (#1427). Given only where the owner can be confirmed. */
+  onToggleLock?: (note: NoteListEntry) => void;
 }
 
 /**
@@ -31,6 +35,7 @@ export interface NoteMenuHandlers {
  * Share or Move, and "Remove from my list" in their place. `extra` items (the note screen's
  * Find, Contents and Version history) go after Move to folder. Without `canEdit` (the native
  * trial ended, #1176) only reading and export are left: the extras, both exports and Owner Console.
+ * A locked note (#1427) has no Share and no exports.
  */
 export function buildNoteMenuItems(
   note: NoteListEntry,
@@ -48,7 +53,29 @@ export function buildNoteMenuItems(
     canEdit?: boolean;
   },
 ): ContextMenuItemConfig[] {
-  const { onTogglePin, onShare, onMoveToFolder, onRemoveFromList, onArchive, onTrash, onOpen } = handlers;
+  const { onTogglePin, onShare, onMoveToFolder, onRemoveFromList, onArchive, onTrash, onOpen, onToggleLock } = handlers;
+  const locked = note.locked === true;
+  const exports: ContextMenuItemConfig[] = locked
+    ? []
+    : [
+        {
+          label: "Export to Markdown",
+          icon: Download,
+          action: () =>
+            void import("@/lib/importexport/exportNoteMarkdown").then((m) =>
+              m.exportNoteAsMarkdown(note.docId, note.title || "Untitled"),
+            ),
+        },
+        // The print dialog saves the note as it is drawn, so it has to be open (#520)
+        {
+          label: "Export to PDF",
+          icon: FileText,
+          action: () =>
+            void import("@/lib/importexport/printNote").then((m) =>
+              m.printNote(note.docId, note.title, onOpen),
+            ),
+        },
+      ];
   const items: (ContextMenuItemConfig & { write?: true })[] = [
     {
       label: note.metadata.isPinned ? "Unpin" : "Pin",
@@ -58,7 +85,7 @@ export function buildNoteMenuItems(
     },
     // One item for sharing with people and the public link (#682). Notes from other
     // people aren't ours to share or to file: they have neither.
-    ...(isPeerNote ? [] : [{ label: "Share…", icon: Share2, action: () => onShare(note), write: true as const }]),
+    ...(isPeerNote || locked ? [] : [{ label: "Share…", icon: Share2, action: () => onShare(note), write: true as const }]),
     ...(isPeerNote || !onMoveToFolder
       ? []
       : [
@@ -69,24 +96,18 @@ export function buildNoteMenuItems(
             write: true as const,
           },
         ]),
+    ...(isPeerNote || !onToggleLock
+      ? []
+      : [
+          {
+            label: note.metadata.locked ? "Remove lock" : "Lock note",
+            icon: note.metadata.locked ? LockOpen : Lock,
+            action: () => onToggleLock(note),
+            write: true as const,
+          },
+        ]),
     ...extra,
-    {
-      label: "Export to Markdown",
-      icon: Download,
-      action: () =>
-        void import("@/lib/importexport/exportNoteMarkdown").then((m) =>
-          m.exportNoteAsMarkdown(note.docId, note.title || "Untitled"),
-        ),
-    },
-    // The print dialog saves the note as it is drawn, so it has to be open (#520)
-    {
-      label: "Export to PDF",
-      icon: FileText,
-      action: () =>
-        void import("@/lib/importexport/printNote").then((m) =>
-          m.printNote(note.docId, note.title, onOpen),
-        ),
-    },
+    ...exports,
     {
       label: "Open in Owner Console",
       icon: ExternalLink,

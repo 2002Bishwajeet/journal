@@ -93,7 +93,8 @@ beforeAll(async () => {
       id UUID PRIMARY KEY,
       name TEXT NOT NULL,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-      is_public BOOLEAN NOT NULL DEFAULT FALSE
+      is_public BOOLEAN NOT NULL DEFAULT FALSE,
+      locked BOOLEAN NOT NULL DEFAULT FALSE
     );
     CREATE TABLE IF NOT EXISTS sync_records (
       local_id UUID PRIMARY KEY,

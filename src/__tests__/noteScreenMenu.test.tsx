@@ -13,6 +13,7 @@ import type { NoteListEntry } from '@/types';
 const togglePin = vi.fn();
 vi.mock('@/components/auth', () => ({ useDotYouClientContext: () => ({ getRoot: () => 'me.example' }) }));
 vi.mock('@/hooks/useNotes', () => ({ useNotes: () => ({ togglePin: { mutate: togglePin } }) }));
+vi.mock('@/hooks/useNoteLock', () => ({ useNoteLockActions: () => undefined }));
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 

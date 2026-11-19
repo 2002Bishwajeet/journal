@@ -62,6 +62,8 @@ beforeAll(async () => {
       metadata JSONB NOT NULL DEFAULT '{}',
       updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
+    -- NOTE_LIST_SELECT reads the folder's lock (#1427)
+    CREATE TABLE IF NOT EXISTS folders (id UUID PRIMARY KEY, locked BOOLEAN NOT NULL DEFAULT FALSE);
   `);
 });
 afterAll(async () => { await db.close(); });

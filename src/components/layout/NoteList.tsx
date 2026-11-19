@@ -12,6 +12,7 @@ import {
   ArrowUpDown,
   ChevronLeft,
   Bot,
+  Lock,
   Rss,
 } from "lucide-react";
 import { useDotYouClientContext } from "@/components/auth";
@@ -41,6 +42,7 @@ import { useLargeTitle } from "@/hooks/useLargeTitle";
 import { useSwipeRow } from "@/hooks/useSwipeRow";
 import { useCanEdit } from "@/hooks/useCanEdit";
 import { useStableHandlers } from "@/hooks/useStableHandlers";
+import { useNoteLockActions } from "@/hooks/useNoteLock";
 import { BarTitle, LargeTitle } from "./LargeTitle";
 import { FILL_EMPTY_VIEWPORT, largeTitleBarClass } from "./largeTitleClasses";
 
@@ -74,6 +76,8 @@ interface NoteListProps {
   trailing?: ReactNode;
   /** Phone (#1162): the sync pill, in the bar's middle above the large title. */
   barStatus?: ReactNode;
+  /** Above the notes: a locked folder's Unlock (#1427). */
+  notice?: ReactNode;
 }
 
 export default function NoteList({
@@ -96,6 +100,7 @@ export default function NoteList({
   backLabel = "Back to notes",
   trailing,
   barStatus,
+  notice,
 }: NoteListProps) {
   const largeTitle = useLargeTitle(!!title);
   // Read-only (#1176): no New, no row actions but export; rows still open.
@@ -107,6 +112,7 @@ export default function NoteList({
   );
   const { sync } = useSyncService();
   const { togglePin } = useNotes();
+  const lockActions = useNoteLockActions();
   // One swiped-open row at a time; it closes on scroll and on a tap outside it.
   const [openRowId, setOpenRowId] = useState<string | null>(null);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
@@ -157,6 +163,7 @@ export default function NoteList({
     onRemoveFromList,
     onArchive,
     onTogglePin: (id: string, isPinned: boolean) => togglePin.mutate({ docId: id, isPinned }),
+    onToggleLock: lockActions?.toggleNote,
   });
 
   const groupedNotes = useMemo(() => {
@@ -318,6 +325,7 @@ export default function NoteList({
         <PullToRefresh onRefresh={handleRefresh} className="w-full overflow-x-clip">
           <div className="flex h-full flex-col">
           {title && <LargeTitle titleRef={largeTitle.ref}>{title}</LargeTitle>}
+          {notice}
           {isLoading ? (
             <div className="flex items-center justify-center h-32">
               <span className="text-sm text-muted-foreground">Loading...</span>
@@ -370,6 +378,7 @@ export default function NoteList({
                           onTogglePin={rowHandlers.onTogglePin}
                           onRemoveFromList={rowHandlers.onRemoveFromList}
                           onArchive={rowHandlers.onArchive}
+                          onToggleLock={rowHandlers.onToggleLock}
                           canEdit={canEdit}
                         />
                       ))}
@@ -415,6 +424,7 @@ const NoteItem = memo(function NoteItem({
   onTogglePin,
   onRemoveFromList,
   onArchive,
+  onToggleLock,
   canEdit,
 }: {
   note: NoteListEntry;
@@ -428,6 +438,7 @@ const NoteItem = memo(function NoteItem({
   onTogglePin: (id: string, isPinned: boolean) => void;
   onRemoveFromList?: (note: NoteListEntry) => void;
   onArchive?: (note: NoteListEntry) => void;
+  onToggleLock?: (note: NoteListEntry) => void;
   canEdit: boolean;
 }) {
   const dotYouClient = useDotYouClientContext();
@@ -450,7 +461,7 @@ const NoteItem = memo(function NoteItem({
     isPeerNote,
     canEdit,
     dotYouRoot: dotYouClient.getRoot(),
-    handlers: { onTogglePin, onShare: onShareNote, onMoveToFolder, onRemoveFromList, onArchive, onTrash: onDeleteNote, onOpen: onSelectNote },
+    handlers: { onTogglePin, onShare: onShareNote, onMoveToFolder, onRemoveFromList, onArchive, onTrash: onDeleteNote, onOpen: onSelectNote, onToggleLock },
   });
 
   return (
@@ -532,6 +543,9 @@ const NoteItem = memo(function NoteItem({
               >
                 {note.title || "Untitled"}
               </span>
+              {note.locked && (
+                <Lock aria-label="Locked" className="h-3 w-3 text-muted-foreground/70 shrink-0" />
+              )}
               {note.metadata.isPinned && (
                 <Pin className="h-3 w-3 text-muted-foreground/70 shrink-0" />
               )}
@@ -545,7 +559,7 @@ const NoteItem = memo(function NoteItem({
               )}
             </div>
             <p className="text-xs text-muted-foreground truncate mt-0.5 w-full pointer-coarse:col-start-2 pointer-coarse:row-start-2 pointer-coarse:text-[13px] pointer-coarse:leading-[18px]">
-              {note.preview || "No content"}
+              {note.locked ? "Locked" : note.preview || "No content"}
             </p>
             {(note.metadata.tags ?? []).length > 0 && (
               <div className="flex items-center gap-1 mt-1 overflow-hidden pointer-coarse:col-span-2 pointer-coarse:row-start-3 pointer-coarse:mt-1.5">

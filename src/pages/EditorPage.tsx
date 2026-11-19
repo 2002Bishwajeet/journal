@@ -18,6 +18,7 @@ import { LinkedMentions } from "@/components/editor/LinkedMentions";
 import { VoiceReviewBar } from "@/components/voice/VoiceNotes";
 import { NoteScreenMenu } from "@/components/editor/NoteScreenMenu";
 import HistoryModal from "@/components/modals/HistoryModal";
+import { LockedNotePanel } from "@/components/editor/LockedPanel";
 import { cn } from "@/lib/utils";
 import { useSyncService, useKeyboardShortcuts, useDeviceType, useDesktopControls } from "@/hooks";
 import { usePeerNoteWebsocket } from "@/hooks/usePeerNoteWebsocket";
@@ -40,6 +41,8 @@ import { useNoteScreenActions } from "@/hooks/useNoteScreenActions";
 import { isViewOnly } from "@/lib/homebase/shareTargets";
 import { useCanEdit } from "@/hooks/useCanEdit";
 import { useFindOnOpen } from "@/hooks/useFindOnOpen";
+import { useFolders } from "@/hooks/useFolders";
+import { useNoteLockState } from "@/hooks/useNoteLock";
 
 // EditorProvider auto-saves, so Cmd+S only needs swallowing. A module constant
 // keeps the handler's identity stable: every mounted tab rebinds the window
@@ -94,7 +97,8 @@ function EditorLayout({
     docId: noteId,
     isActive,
     editable: !!editor?.isEditable && selectedNoteMetadata?.archivalStatus !== 2,
-    excludeFromAI: selectedNoteMetadata?.excludeFromAI === true,
+    // A locked note (#1427) stays out of the AI tools while it is open, as excluded notes do.
+    excludeFromAI: selectedNoteMetadata?.excludeFromAI === true || selectedNote?.locked === true,
   });
 
   const host = useDotYouClientContext().getHostIdentity();
@@ -320,6 +324,10 @@ export default function EditorPage({
   const { syncNote, syncService } = useSyncService();
   const dotYouClient = useDotYouClientContext();
   const canEdit = useCanEdit();
+  const isDesktop = useDeviceType() === "desktop";
+  const {
+    get: { data: folders },
+  } = useFolders();
 
   // WebLLM for AI-powered features
   const { isReady: isAIReady } = useWebLLM();
@@ -328,6 +336,7 @@ export default function EditorPage({
   // Find the selected note metadata from the notes list
   const selectedNote = notes.find((n) => n.docId === noteId);
   const selectedNoteMetadata = selectedNote?.metadata;
+  const noteLock = useNoteLockState(selectedNote, folders);
   // A share notification's link: a note not here yet is pulled from its owner first (#745)
   const isPullingShare = useShareLinkPull(isActiveTab ? noteId : undefined, isNotesLoading, !!selectedNoteMetadata);
   // A link to your own note this device hasn't synced yet: wait for it, then fetch it (#1047)
@@ -435,6 +444,18 @@ export default function EditorPage({
 
   if (isPeerNote && !isPeerContentReady(peerContent.status)) {
     return <PeerNoteLoading />;
+  }
+
+  // Locked (#1427): the note is never loaded until Unlock.
+  if (noteLock.locked) {
+    return (
+      <LockedNotePanel
+        title={selectedNoteMetadata.title}
+        canUnlock={noteLock.canUnlock}
+        onUnlock={noteLock.unlock}
+        onBack={isDesktop ? undefined : handleBackToNotes}
+      />
+    );
   }
 
   return (

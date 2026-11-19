@@ -32,7 +32,7 @@ vi.mock('@/lib/homebase/NotesDriveProvider', () => ({
     },
 }));
 vi.mock('@/lib/homebase/FolderDriveProvider', () => ({
-    FolderDriveProvider: class FolderDriveProvider { constructor() {} },
+    FolderDriveProvider: class FolderDriveProvider { constructor() {} async queryFolders() { return { folders: [], cursor: '' }; } },
 }));
 vi.mock('@/lib/homebase/InboxProcessor', () => ({
     InboxProcessor: class InboxProcessor { constructor() {} },

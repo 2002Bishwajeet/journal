@@ -1,6 +1,6 @@
 import { getDatabase, ensureTrigramSearch } from '../pglite';
 import type { NoteListEntry, DocumentMetadata, AdvancedSearchResult } from '@/types';
-import { ACTIVE_NOTES_FILTER, NOTE_LIST_SELECT, MODIFIED_DESC } from './shared';
+import { ACTIVE_NOTES_FILTER, NOTE_LIST_SELECT, MODIFIED_DESC, LOCKED_NOTE, lockedNote } from './shared';
 import { toNoteListEntry, type NoteListRow } from './noteList';
 import { buildSearchPlan, type SearchPlan } from '@/lib/search/searchPlan';
 
@@ -10,8 +10,9 @@ import { buildSearchPlan, type SearchPlan } from '@/lib/search/searchPlan';
  * newest. Deliberately NOT advancedSearch — no ts_headline snippets, no
  * pg_trgm similarity, no 50-row scan; this path runs per keystroke on the
  * single-threaded PGlite and must stay cheap.
- * Excludes the current note (self-link) and archived/trashed notes. An empty
- * query returns the most-recently-modified active notes.
+ * Excludes the current note (self-link) and archived/trashed notes. A locked
+ * note (#1427) matches by its title only. An empty query returns the
+ * most-recently-modified active notes.
  */
 export async function searchNotesForPicker(
     query: string,
@@ -25,7 +26,7 @@ export async function searchNotesForPicker(
         const result = await db.query<NoteListRow>(
             `${NOTE_LIST_SELECT}
              WHERE (title ILIKE '%' || $1 || '%'
-                    OR search_vector @@ plainto_tsquery('journal', $1))
+                    OR (search_vector @@ plainto_tsquery('journal', $1) AND NOT ${LOCKED_NOTE}))
                AND ${ACTIVE_NOTES_FILTER}
                AND ($2::uuid IS NULL OR doc_id <> $2)
              ORDER BY (title ILIKE '%' || $1 || '%') DESC,
@@ -60,7 +61,8 @@ export async function getFrequentlyLinkedNotes(
 ): Promise<NoteListEntry[]> {
     const db = await getDatabase();
     const result = await db.query<NoteListRow>(
-        `SELECT t.doc_id, t.title, LEFT(t.plain_text_content, 150) as preview, t.metadata
+        `SELECT t.doc_id, t.title, CASE WHEN ${lockedNote('t')} THEN '' ELSE LEFT(t.plain_text_content, 150) END as preview,
+                t.metadata, ${lockedNote('t')} AS locked
          FROM (
              SELECT linked.id AS target_id, COUNT(*) AS links
              FROM search_index s,
@@ -111,6 +113,9 @@ const ENOUGH = 10;
  *    3+ characters: partial words longer than their stem (`meetin`), CJK, code.
  *    Waits for the lazy pg_trgm index build, which it uses.
  * 3. Typo-tolerant title match, when still fewer than 10 and 4+ characters.
+ *
+ * A locked note (#1427) is found by its title only: its body and tags are never
+ * matched and never shown in a snippet.
  */
 export async function advancedSearch(
     query: string,
@@ -120,12 +125,13 @@ export async function advancedSearch(
     if (!plan.text) return [];
     const db = await getDatabase();
     const visible = visibilityFilter(options.includeArchived);
+    const unlocked = `${visible} AND NOT ${lockedNote('s')}`;
     const results: AdvancedSearchResult[] = [];
     try {
-        results.push(...(await searchTitlesAndFullText(db, plan, visible)));
+        results.push(...(await searchTitlesAndFullText(db, plan, visible, unlocked)));
         if (results.length >= ENOUGH || plan.text.length < 3 || plan.kind === 'syntax') return results;
         await ensureTrigramSearch(db);
-        results.push(...(await searchBodySubstring(db, plan, visible, results)));
+        results.push(...(await searchBodySubstring(db, plan, unlocked, results)));
         if (results.length >= ENOUGH || plan.text.length < 4 || plan.kind !== 'words') return results;
         results.push(...(await searchFuzzyTitles(db, plan, visible, results)));
     } catch (error) {
@@ -152,7 +158,8 @@ async function fullTextQuery(db: Db, plan: SearchPlan): Promise<string> {
     return rows[0].tsq;
 }
 
-async function searchTitlesAndFullText(db: Db, plan: SearchPlan, visible: string): Promise<AdvancedSearchResult[]> {
+/** `unlocked`: `visible` without locked notes, for the full-text branch, which matches bodies and tags. */
+async function searchTitlesAndFullText(db: Db, plan: SearchPlan, visible: string, unlocked: string): Promise<AdvancedSearchResult[]> {
     const tsq = await fullTextQuery(db, plan);
     const titleBranch = plan.kind !== 'syntax';
     if (!tsq && !titleBranch) return [];
@@ -179,7 +186,7 @@ async function searchTitlesAndFullText(db: Db, plan: SearchPlan, visible: string
     const branch = (where: string, fts: boolean) =>
         `SELECT doc_id, ${tier} AS tier, ${fts} AS fts, modified
          FROM (SELECT s.doc_id, lower(unaccent(s.title)) AS t, s.search_vector, s.vector_version, ${MODIFIED} AS modified
-               FROM search_index s WHERE ${where} AND ${visible} OFFSET 0) b`;
+               FROM search_index s WHERE ${where} AND ${fts ? unlocked : visible} OFFSET 0) b`;
     const branches = [
         tsq && branch('s.search_vector @@ $1::tsquery', true),
         titleBranch && branch(`journal_unaccent(s.title) ILIKE '%' || journal_unaccent(${param(plan.like)}) || '%'`, false),
