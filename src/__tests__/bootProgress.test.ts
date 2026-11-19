@@ -75,5 +75,11 @@ describe('bootProgress', () => {
         expect(store.getOpenProgress()?.percent).toBe(40);
         // start, 40 %; the 10 % report moved nothing.
         expect(listener).toHaveBeenCalledTimes(2);
+
+        store.finishOpenProgress();
+        expect(store.getOpenProgress()).toBeNull();
+        expect(listener).toHaveBeenCalledTimes(3);
+        store.finishOpenProgress();
+        expect(listener).toHaveBeenCalledTimes(3);
     });
 });

@@ -132,6 +132,7 @@ async function loadDatabaseModule() {
     markBoot: (step: string, startTime?: number) => void mocks.marks.push({ step, startTime }),
     startOpenProgress: () => void mocks.events.push('open-start'),
     reportOpenProgress: (done: number, total: number) => void mocks.events.push(`open-progress:${done}/${total}`),
+    finishOpenProgress: () => void mocks.events.push('open-finish'),
   }));
   vi.doMock('../lib/homebase', () => ({ MAIN_FOLDER_ID: '06cf9262-4eae-4276-b0d1-8ca3cf5be6f4' }));
   vi.doMock('@tauri-apps/api/core', () => ({

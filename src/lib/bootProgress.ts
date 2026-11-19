@@ -53,6 +53,13 @@ export function reportOpenProgress(done: number, total: number): void {
     listeners.forEach((listener) => listener());
 }
 
+/** The open is over: the splash stops showing it, whatever the delay says. */
+export function finishOpenProgress(): void {
+    if (!openProgress) return;
+    openProgress = null;
+    listeners.forEach((listener) => listener());
+}
+
 export function getOpenProgress(): OpenProgress | null {
     return openProgress;
 }

@@ -52,6 +52,32 @@ describe('SplashScreen encrypted open progress', () => {
     await unmount();
   });
 
+  it('never shows it for an open that finishes inside the delay, even while boot carries on', async () => {
+    const { host, unmount } = await mountSplash();
+
+    await act(async () => store.startOpenProgress());
+    await act(async () => vi.advanceTimersByTime(100));
+    await act(async () => store.reportOpenProgress(100, 100));
+    await act(async () => store.finishOpenProgress());
+    await act(async () => vi.advanceTimersByTime(1_000));
+
+    expect(host.textContent).not.toContain('Opening your notes');
+    await unmount();
+  });
+
+  it('drops the label when a slow open finishes', async () => {
+    const { host, unmount } = await mountSplash();
+
+    await act(async () => store.startOpenProgress());
+    await act(async () => store.reportOpenProgress(60, 100));
+    await act(async () => vi.advanceTimersByTime(300));
+    expect(host.textContent).toContain('Opening your notes… 60%');
+
+    await act(async () => store.finishOpenProgress());
+    expect(host.textContent).not.toContain('Opening your notes');
+    await unmount();
+  });
+
   it('never shows it when no encrypted open reports progress (the web, desktop, a fast open)', async () => {
     const { host, unmount } = await mountSplash();
 

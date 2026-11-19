@@ -2,7 +2,7 @@ import { PGliteWorker } from '@electric-sql/pglite/worker';
 import type { PGliteInterface } from '@electric-sql/pglite';
 import { live } from '@electric-sql/pglite/live';
 import type { PGliteWithLive } from '@electric-sql/pglite/live';
-import { reportBootPhase, reportBootError, clearBootError, markBoot, startOpenProgress, reportOpenProgress } from '../bootProgress';
+import { reportBootPhase, reportBootError, clearBootError, markBoot, startOpenProgress, reportOpenProgress, finishOpenProgress } from '../bootProgress';
 import { nativePlatform } from '../native';
 import {
   databaseExists,
@@ -256,6 +256,7 @@ async function createWorkerInstance(relaxedDurability = true, key: CryptoKey | n
   // Handled where a boot waits on it; a failure nobody waits for must not be unhandled.
   workerOpenFailed.catch(() => {});
   return PGliteWorker.create(currentWorker, options).then((db) => {
+    finishOpenProgress();
     // WASM fetched + compiled and the worker leader elected — the slowest
     // step of a cold boot, reported for the splash progress bar.
     reportBootPhase('db-worker');
