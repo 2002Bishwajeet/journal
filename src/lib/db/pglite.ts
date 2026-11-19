@@ -25,6 +25,8 @@ import { loadDatabaseKey, usesEncryptedDatabase } from './databaseKey';
 const DATA_DIR = 'idb://journal-db-pg18';
 // DATA_DIR's IndexedDB database. In the desktop app it is a plain one an older build left (#1362).
 export const PLAIN_DATABASE = '/pglite/journal-db-pg18';
+// The Postgres 17 database of builds older than PGlite 0.5. The desktop app deletes it unread (#1362).
+export const LEGACY_DATABASE = '/pglite/journal-db';
 const PGLITE_VERSION = '0.5';
 // Marks this data dir as already carrying the legacy data. The version stamp
 // alone can't: anything that resets it (an old-build tab, a rollback, two new
@@ -360,7 +362,7 @@ async function openWorkerDatabase(key: CryptoKey | null): Promise<PGliteInterfac
 
 /**
  * The desktop app's database (#1361, #1362). A plain database an older build left is
- * deleted once the encrypted one is open. If it has changes that never synced, this launch
+ * deleted once the encrypted one is open, and so is the older Postgres 17 one, unread. If it has changes that never synced, this launch
  * runs on it instead, so the sync sends them first (isLeftoverSession). Its data is never
  * copied into the encrypted database, which starts empty and syncs from Homebase.
  */
@@ -388,6 +390,11 @@ async function openDesktopDatabase(): Promise<PGliteInterface> {
   if (leftover) {
     const { deleteLocalDatabase } = await import('./localReset');
     deleteLocalDatabase(PLAIN_DATABASE).catch((err) => console.warn('[DB] Could not delete the plain database:', err));
+  }
+  // Its notes are on Homebase and this engine can't open it, so it is deleted without a sync.
+  if (await databaseExists([LEGACY_DATABASE])) {
+    const { deleteLocalDatabase } = await import('./localReset');
+    deleteLocalDatabase(LEGACY_DATABASE).catch((err) => console.warn('[DB] Could not delete the legacy database:', err));
   }
   return db;
 }

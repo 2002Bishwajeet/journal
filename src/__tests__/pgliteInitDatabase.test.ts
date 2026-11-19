@@ -31,6 +31,8 @@ const mocks = {
   // The plain database an older desktop build left (#1362): absent, or its unsynced changes.
   plainUnsynced: null as number | null,
   plainUnreadable: false,
+  // The PG17 database of builds older than PGlite 0.5 is present.
+  legacyPresent: false,
   // What the worker's engine fails to open the encrypted store with.
   encryptedOpenError: null as string | null,
 };
@@ -97,7 +99,9 @@ async function loadDatabaseModule() {
       return mocks.skipOk;
     },
     legacyMigrationSkipped: () => mocks.skipped,
-    databaseExists: async (names: string[]) => names.includes('/pglite/journal-db-pg18') && mocks.plainUnsynced !== null,
+    databaseExists: async (names: string[]) =>
+      (names.includes('/pglite/journal-db-pg18') && mocks.plainUnsynced !== null) ||
+      (names.includes('/pglite/journal-db') && mocks.legacyPresent),
     getStoredPGliteVersion: () => mocks.storedVersion,
     setStoredPGliteVersion: (version: string) => {
       // Mirrors the real helper: the next read sees the new stamp.
@@ -160,6 +164,7 @@ beforeEach(() => {
   mocks.restoreError = null;
   mocks.schemaError = null;
   mocks.markerPresent = false;
+  mocks.legacyPresent = false;
   mocks.skipped = false;
   mocks.preserveOk = true;
   mocks.skipOk = true;
@@ -580,6 +585,7 @@ describe('desktop app encryption (#1361)', () => {
 describe('desktop recovery and the plain database an older build left (#1362)', () => {
   const onDesktop = () => vi.stubGlobal('window', { __JOURNAL_NATIVE__: { platform: 'macos' }, __TAURI_INTERNALS__: {} });
   const PLAIN = 'delete:/pglite/journal-db-pg18';
+  const LEGACY = 'delete:/pglite/journal-db';
   // Long enough for a fire-and-forget delete to have started.
   const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
 
@@ -634,6 +640,46 @@ describe('desktop recovery and the plain database an older build left (#1362)', 
     if (deletes) expect(mocks.events.indexOf('schema:encrypted')).toBeLessThan(mocks.events.indexOf(PLAIN));
   });
 
+  it('deletes the PG17 database unread once the encrypted one is open, without touching it first', async () => {
+    onDesktop();
+    mocks.legacyPresent = true;
+    const { getDatabase } = await loadDatabaseModule();
+
+    await getDatabase();
+    await settle();
+
+    expect(mocks.events).toContain(LEGACY);
+    expect(mocks.events).not.toContain('dump');
+    expect(mocks.events.indexOf('schema:encrypted')).toBeLessThan(mocks.events.indexOf(LEGACY));
+  });
+
+  it('leaves the PG17 database alone when there is none, and for a failed boot', async () => {
+    onDesktop();
+    const { getDatabase } = await loadDatabaseModule();
+    await getDatabase();
+    await settle();
+    expect(mocks.events).not.toContain(LEGACY);
+
+    mocks.legacyPresent = true;
+    mocks.keyAnswer = 'missing';
+    mocks.events.length = 0;
+    const failing = await loadDatabaseModule();
+    await failing.getDatabase().catch(() => {});
+    await settle();
+    expect(mocks.events).not.toContain(LEGACY);
+  });
+
+  it('does not touch the PG17 database in the PWA path, which still migrates it', async () => {
+    mocks.legacyPresent = true;
+    const { getDatabase } = await loadDatabaseModule();
+
+    await getDatabase();
+    await settle();
+
+    expect(mocks.events).not.toContain(LEGACY);
+    expect(mocks.events).toContain('dump');
+  });
+
   it('keeps a plain database whose changes it cannot count, and opens the encrypted one', async () => {
     onDesktop();
     mocks.plainUnsynced = 0;
@@ -659,7 +705,7 @@ describe('desktop recovery and the plain database an older build left (#1362)', 
     await resetLocalData();
 
     const deletes = mocks.events.filter((event) => event.startsWith('delete:'));
-    expect(deletes).toEqual(['delete:journal-data.a', 'delete:journal-data.b', PLAIN]);
+    expect(deletes).toEqual(['delete:journal-data.a', 'delete:journal-data.b', PLAIN, LEGACY]);
     expect(mocks.events.indexOf(PLAIN)).toBeLessThan(mocks.events.indexOf('invoke:plugin:journal-db-key|reset_database_key'));
 
     // The reload: an empty encrypted database with the new key, which the first sync fills.
