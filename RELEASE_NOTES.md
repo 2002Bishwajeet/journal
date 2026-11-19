@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.73.15 (2026-11-19)
+
+### Improved
+
+- On Android, a large account that takes a moment to open now shows how far the opening has got on the loading screen.
+
 ## 2.73.14 (2026-11-19)
 
 ### New

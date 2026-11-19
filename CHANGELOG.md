@@ -1,3 +1,14 @@
+## [2.73.15](https://github.com/2002Bishwajeet/journal/compare/v2.73.14...v2.73.15) (2026-11-19)
+
+
+### Bug Fixes
+
+* **boot:** clear the encrypted open progress when the open finishes ([#1365](https://github.com/2002Bishwajeet/journal/issues/1365)) ([e03f02b](https://github.com/2002Bishwajeet/journal/commit/e03f02b58f991f1a5ada00127391682608dd1178))
+
+
+### Features
+
+* **native:** Android splash shows progress while a slow encrypted database opens ([#1365](https://github.com/2002Bishwajeet/journal/issues/1365)) ([a233c7f](https://github.com/2002Bishwajeet/journal/commit/a233c7f5b1fbd481a0a6a6a600d786ba8cd84d1c))
 ## [2.73.14](https://github.com/2002Bishwajeet/journal/compare/v2.73.13...v2.73.14) (2026-11-19)
 
 
