@@ -212,9 +212,9 @@ export function useAgentSession(activeNoteId: string | undefined) {
           import("@/lib/agent/local/localWriteDeps"),
           import("@/lib/webllm"),
         ]);
-      // A note kept from AI is not even named to the model.
+      // A note kept from AI, or locked (#1427), is not even named to the model.
       const entry = activeNoteId ? await getSearchIndexEntry(activeNoteId) : null;
-      const context = entry && !entry.metadata.excludeFromAI ? `Open note: "${entry.title}" (id: ${entry.docId})\n` : "";
+      const context = entry && !entry.metadata.excludeFromAI && !entry.metadata.locked ? `Open note: "${entry.title}" (id: ${entry.docId})\n` : "";
 
       const writeDeps = createLocalWriteDeps();
       const answer = await runAgent(context + request, {

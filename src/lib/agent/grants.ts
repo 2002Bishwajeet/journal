@@ -30,15 +30,15 @@ function isAgentAccess(value: unknown): value is AgentAccess {
 }
 
 /**
- * Resolve what an agent may do with a note. `excludeFromAI` always wins. A note-level
- * override (including 'none') beats its folder's grant. Falling through everything, the
- * default is 'none'.
+ * Resolve what an agent may do with a note. `excludeFromAI` and a lock (#1427: the note's or
+ * its folder's) always win. A note-level override (including 'none') beats its folder's
+ * grant. Falling through everything, the default is 'none'.
  */
 export function resolveAccess(
     grants: AgentGrants,
-    { noteId, folderId, excludeFromAI }: { noteId: string; folderId: string; excludeFromAI?: boolean }
+    { noteId, folderId, excludeFromAI, locked }: { noteId: string; folderId: string; excludeFromAI?: boolean; locked?: boolean }
 ): AgentAccess {
-    if (excludeFromAI === true) return 'none';
+    if (excludeFromAI === true || locked === true) return 'none';
 
     const noteOverride = grants.notes[noteId];
     if (noteOverride !== undefined) return noteOverride;

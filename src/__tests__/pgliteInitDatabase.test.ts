@@ -130,6 +130,9 @@ async function loadDatabaseModule() {
     reportBootError: () => void mocks.events.push('boot-error'),
     clearBootError: () => {},
     markBoot: (step: string, startTime?: number) => void mocks.marks.push({ step, startTime }),
+    startOpenProgress: () => void mocks.events.push('open-start'),
+    reportOpenProgress: (done: number, total: number) => void mocks.events.push(`open-progress:${done}/${total}`),
+    finishOpenProgress: () => void mocks.events.push('open-finish'),
   }));
   vi.doMock('../lib/homebase', () => ({ MAIN_FOLDER_ID: '06cf9262-4eae-4276-b0d1-8ca3cf5be6f4' }));
   vi.doMock('@tauri-apps/api/core', () => ({
@@ -583,6 +586,21 @@ describe('desktop app encryption (#1361)', () => {
     const { key, dataDir } = mocks.workerOptions[0] as { key: CryptoKey; dataDir?: string };
     expect(dataDir).toBeUndefined();
     expect(key).toBeInstanceOf(CryptoKey);
+  });
+
+  it.each([
+    ['android', true],
+    ['ios', false],
+    ['macos', false],
+  ])("relays the encrypted open's progress to the splash on %s only (#1365)", async (platform, relayed) => {
+    vi.stubGlobal('window', { __JOURNAL_NATIVE__: { platform }, __TAURI_INTERNALS__: {} });
+    const { getDatabase } = await loadDatabaseModule();
+    await getDatabase();
+
+    mocks.worker!.dispatchEvent(new MessageEvent('message', { data: { type: 'journal-open-progress', done: 3, total: 9 } }));
+
+    expect(mocks.events.includes('open-start')).toBe(relayed);
+    expect(mocks.events.includes('open-progress:3/9')).toBe(relayed);
   });
 
   it('fails the boot without opening a database when the key is missing', async () => {

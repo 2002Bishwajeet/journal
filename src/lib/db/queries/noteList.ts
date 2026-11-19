@@ -4,7 +4,7 @@ import { proseOnly } from '@/lib/previewText';
 import { ACTIVE_NOTES_FILTER, NOTE_LIST_SELECT, MODIFIED_DESC } from './shared';
 import { COLLABORATIVE_FOLDER_ID, MAIN_FOLDER_ID } from '@/lib/homebase/config';
 
-export type NoteListRow = { doc_id: string; title: string; preview: string; metadata: DocumentMetadata };
+export type NoteListRow = { doc_id: string; title: string; preview: string; metadata: DocumentMetadata; locked?: boolean };
 
 // Stable-identity mapping for note-list rows. PGlite re-runs the whole query on
 // every write and returns fresh row objects, so a naive mapper would hand
@@ -20,7 +20,8 @@ const noteEntryCache = new Map<string, { sig: string; entry: NoteListEntry }>();
 
 export const toNoteListEntry = (row: NoteListRow): NoteListEntry => {
     const preview = proseOnly(row.preview || '');
-    const sig = JSON.stringify([row.title, preview, row.metadata]);
+    const locked = row.locked === true;
+    const sig = JSON.stringify([row.title, preview, row.metadata, locked]);
     const cached = noteEntryCache.get(row.doc_id);
     if (cached && cached.sig === sig) {
         // Unchanged row: refresh LRU position, return the identical reference.
@@ -33,6 +34,7 @@ export const toNoteListEntry = (row: NoteListRow): NoteListEntry => {
         title: row.title,
         preview,
         metadata: row.metadata,
+        locked,
     };
     noteEntryCache.set(row.doc_id, { sig, entry });
     if (noteEntryCache.size > NOTE_ENTRY_CACHE_LIMIT) {
@@ -47,13 +49,14 @@ export function clearNoteListEntryCache(): void {
     noteEntryCache.clear();
 }
 
-export type FolderRow = { id: string; name: string; created_at: Date; is_public: boolean };
+export type FolderRow = { id: string; name: string; created_at: Date; is_public: boolean; locked: boolean };
 
 export const toFolder = (row: FolderRow): Folder => ({
     id: row.id,
     name: row.name,
     createdAt: row.created_at,
     isPublic: row.is_public,
+    locked: row.locked,
 });
 
 const PINNED_THEN_MODIFIED = `ORDER BY (metadata->>'isPinned')::boolean DESC NULLS LAST, (metadata->'timestamps'->>'modified')::timestamp DESC NULLS LAST`;
@@ -100,7 +103,7 @@ export const NOTE_COUNTS_SQL = `
 
 export type NoteCountsRow = { trashed: number; archived: number; collaborative: number };
 
-export const FOLDERS_SQL = `SELECT id, name, created_at, is_public FROM folders ORDER BY name ASC`;
+export const FOLDERS_SQL = `SELECT id, name, created_at, is_public, locked FROM folders ORDER BY name ASC`;
 
 // Active notes' id → title/folder, for live-resolving internal-link titles.
 // Active-only: links to archived/trashed notes resolve as "broken" rather than

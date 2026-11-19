@@ -13,7 +13,13 @@ const content = {
 };
 
 vi.mock('../../mcp/client', () => ({ createClient: () => ({}) }));
-vi.mock('@/lib/homebase/FolderDriveProvider', () => ({ FolderDriveProvider: class {} }));
+vi.mock('@/lib/homebase/FolderDriveProvider', () => ({
+    FolderDriveProvider: class {
+        async queryFolders() {
+            return { folders: [], cursor: '' };
+        }
+    },
+}));
 vi.mock('@/lib/homebase/AgentGrantsDriveProvider', () => ({ AgentGrantsDriveProvider: class {} }));
 vi.mock('@/lib/homebase/NotesDriveProvider', () => ({
     NotesDriveProvider: class {

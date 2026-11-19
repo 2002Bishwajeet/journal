@@ -16,8 +16,8 @@ fn main() {
             .commands(&["set_style"])
             .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
     )
-    // The desktop database key (db_key.rs, #1361), its app lock (#1363) and the Homebase
-    // sign-in (#1429), granted at runtime to the app's origin only.
+    // The desktop database key (db_key.rs, #1361), its app lock (#1363), the locked notes'
+    // check (#1427) and the Homebase sign-in (#1429), granted at runtime to the app's origin only.
     .plugin(
         "journal-db-key",
         tauri_build::InlinedPlugin::new()
@@ -31,6 +31,7 @@ fn main() {
                 "set_auth_secret",
                 "clear_auth_secrets",
                 "close_flushed",
+                "confirm_owner",
             ])
             .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
     );

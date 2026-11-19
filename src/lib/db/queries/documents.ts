@@ -176,6 +176,8 @@ export async function updateSearchIndexMetadata(
     //    the writer omitted the key entirely — an explicit value (incl. false) wins.
     //  - `feedPostId` is never cleared on purpose: written from a snapshot read before
     //    Publish saved it, the next Update on feed published a second post (#1414).
+    //  - `locked` (#1427): a stale snapshot must never unlock a note. Only an explicit
+    //    `locked: false` (Remove lock) clears it.
     await db.query(
         `UPDATE search_index
          SET title = $2,
@@ -188,6 +190,9 @@ export async function updateSearchIndexMetadata(
                         ELSE '{}'::jsonb END)
                || (CASE WHEN metadata ? 'feedPostId' AND NOT ($3::jsonb ? 'feedPostId')
                         THEN jsonb_build_object('feedPostId', metadata->'feedPostId')
+                        ELSE '{}'::jsonb END)
+               || (CASE WHEN metadata ? 'locked' AND NOT ($3::jsonb ? 'locked')
+                        THEN jsonb_build_object('locked', metadata->'locked')
                         ELSE '{}'::jsonb END),
              search_vector = journal_search_vector($2, plain_text_content, $3::jsonb->'tags'),
              vector_version = 2,

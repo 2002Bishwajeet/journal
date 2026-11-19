@@ -7,7 +7,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import { PGlite } from '@electric-sql/pglite';
 import { createTestDatabase, closeTestDatabase, resetTestDatabase } from './testDb';
 import {
-    createFolder, upsertFolder, getFolderById, upsertSyncRecord, getSyncRecord,
+    createFolder, upsertFolder, getFolderById, upsertSyncRecord, getSyncRecord, setFolderLockedLocal,
 } from '@/lib/db/queries';
 import { fakeDotYouClient, fakeOnlineContext } from './fakes';
 
@@ -81,6 +81,35 @@ describe('SyncService.handleRemoteFolder', () => {
 
         expect((await getFolderById(F))?.name).toBe('New');
         expect((await getSyncRecord(F))?.versionTag).toBe('v2');
+    });
+
+    it.each([true, false])('keeps an unpushed local lock (%s) over a remote rename, still pending (#1427)', async (locked) => {
+        await upsertFolder(F, 'Old', false, !locked);
+        await setFolderLockedLocal(F, locked);
+        await upsertSyncRecord({
+            localId: F, entityType: 'folder', remoteFileId: 'folder-file-1', versionTag: 'v1',
+            lastSyncedAt: new Date().toISOString(), syncStatus: 'pending',
+        });
+        mockDsr.mockResolvedValue({ name: 'New', locked: !locked });
+
+        await new SyncService(fakeClient, fakeOnline).handleRemoteFolder(remoteFolder('v2'));
+
+        expect(await getFolderById(F)).toMatchObject({ name: 'New', locked });
+        expect(await getSyncRecord(F)).toMatchObject({ versionTag: 'v2', syncStatus: 'pending' });
+    });
+
+    it('applies a remote lock to a synced folder', async () => {
+        await createFolder(F, 'Old');
+        await upsertSyncRecord({
+            localId: F, entityType: 'folder', remoteFileId: 'folder-file-1', versionTag: 'v1',
+            lastSyncedAt: new Date().toISOString(), syncStatus: 'synced',
+        });
+        mockDsr.mockResolvedValue({ name: 'Old', locked: true });
+
+        await new SyncService(fakeClient, fakeOnline).handleRemoteFolder(remoteFolder('v2'));
+
+        expect((await getFolderById(F))?.locked).toBe(true);
+        expect((await getSyncRecord(F))?.syncStatus).toBe('synced');
     });
 
     it('creates a brand-new remote folder with a synced record', async () => {

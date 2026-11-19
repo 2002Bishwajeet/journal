@@ -16,6 +16,25 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.73.16 (2026-11-19)
+
+### New
+
+- In the Mac, Windows, iPhone, iPad and Android apps, you can lock a note or a folder. Use "Lock note" or "Lock folder" in its menu. A locked note shows only its title until you unlock it with Touch ID, Windows Hello, Face ID or your fingerprint. Search, the AI assistant, agents, export, widgets and the notes folder on disk do not show its text. Lock now locks it again.
+
+## 2.73.15 (2026-11-19)
+
+### Improved
+
+- On Android, a large account that takes a moment to open now shows how far the opening has got on the loading screen.
+
+## 2.73.14 (2026-11-19)
+
+### New
+
+- The iPhone, iPad and Android apps now encrypt the notes they keep on the device, with a key in the iOS Keychain or the Android Keystore that never leaves it. Settings → Security shows it.
+- An optional app lock on the phone: Journal asks for Face ID, Touch ID or your fingerprint (or your passcode) before it shows your notes, with the same Lock now and "Lock after" as the desktop app.
+
 ## 2.73.13 (2026-11-19)
 
 ### New

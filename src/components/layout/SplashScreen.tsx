@@ -2,6 +2,7 @@ import { useEffect, useState, useSyncExternalStore, type FormEvent } from 'react
 import { LockKeyhole } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getBootProgress, getBootError, getBootFailureCount, subscribeBootProgress } from '@/lib/bootProgress';
+import { useOpenProgress } from '@/hooks/useOpenProgress';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import logo from '@/assets/logo_withoutbg.png';
@@ -235,6 +236,8 @@ export function SplashScreen({ className }: SplashScreenProps) {
   // reportBootPhase. The bar never hits 100% here — the app replacing the
   // splash is the completion signal.
   const progress = useSyncExternalStore(subscribeBootProgress, getBootProgress);
+  // A slow encrypted open on Android (#1365): how many of its blocks are read.
+  const openPercent = useOpenProgress();
 
   useEffect(() => {
     const id = setInterval(() => setQuip((q) => q + 1), 2500);
@@ -318,13 +321,17 @@ export function SplashScreen({ className }: SplashScreenProps) {
         </div>
 
         {/* Rotating quip — key remount replays the fade on each change */}
-        <p
-          key={quip}
-          aria-hidden="true"
-          className="mt-4 h-4 text-xs text-muted-foreground animate-in fade-in duration-500"
-        >
-          {BOOT_QUIPS[quip % BOOT_QUIPS.length]}
-        </p>
+        {openPercent === null ? (
+          <p
+            key={quip}
+            aria-hidden="true"
+            className="mt-4 h-4 text-xs text-muted-foreground animate-in fade-in duration-500"
+          >
+            {BOOT_QUIPS[quip % BOOT_QUIPS.length]}
+          </p>
+        ) : (
+          <p className="mt-4 h-4 text-xs tabular-nums text-muted-foreground">Opening your notes… {openPercent}%</p>
+        )}
       </div>
     </div>
   );
