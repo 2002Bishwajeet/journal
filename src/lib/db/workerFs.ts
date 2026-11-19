@@ -52,7 +52,15 @@ export async function createWorkerFs(dataDir: string | undefined, key: CryptoKey
       markBoot('db-idb-loaded');
     }
   }
-  const fs = new TimedEncryptedFs({ backend: IndexedDbBackend.pair(ENCRYPTED_STORE), key, mode: 'open-or-create' });
+  const fs = new TimedEncryptedFs({
+    backend: IndexedDbBackend.pair(ENCRYPTED_STORE),
+    key,
+    mode: 'open-or-create',
+    // Reading the blocks is the slow part of a large store's open (#1365): tell the page how far it is.
+    onProgress: ({ phase, done, total }) => {
+      if (phase === 'blocks') postMessage({ type: 'journal-open-progress', done, total });
+    },
+  });
   // Strict: the engine's own syncs under relaxedDurability are relaxed ones.
   return { fs, flush: () => fs.syncToFs(false) };
 }
