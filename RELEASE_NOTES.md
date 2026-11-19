@@ -16,6 +16,14 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.73.11 (2026-11-19)
+
+### Fixed
+
+- Find in a note now moves the view to the match. It does this when you type, and when you use Enter or the arrows, also with only one result. It opens a closed toggle and scrolls a code block sideways to the match.
+- The Find bar stays in the visible part of the note, also when you scroll down a long note.
+- The next and previous match scroll to the middle of the note, so the Find bar does not cover them.
+
 ## 2.73.10 (2026-11-18)
 
 ### New

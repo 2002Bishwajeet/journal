@@ -1,3 +1,11 @@
+## [2.73.11](https://github.com/2002Bishwajeet/journal/compare/v2.73.10...v2.73.11) (2026-11-19)
+
+
+### Bug Fixes
+
+* **editor:** Find in note scrolls to the match on typing, next and previous ([#1417](https://github.com/2002Bishwajeet/journal/issues/1417)) ([f543d74](https://github.com/2002Bishwajeet/journal/commit/f543d745c809eeec01fdaa9e5d595ccf1b1c2ab2))
+* **editor:** open a closed toggle after the find transaction; updateSearch uses the command's tr ([#1417](https://github.com/2002Bishwajeet/journal/issues/1417)) ([b1ad495](https://github.com/2002Bishwajeet/journal/commit/b1ad4955a6609775c4df56ef901fb9854b511b91))
+* **editor:** pin the Find bar in the visible note and centre matches ([#1419](https://github.com/2002Bishwajeet/journal/issues/1419)) ([dfd6ac6](https://github.com/2002Bishwajeet/journal/commit/dfd6ac67f4184dc9839109845200f45ffa94433e))
 ## [2.73.10](https://github.com/2002Bishwajeet/journal/compare/v2.73.9...v2.73.10) (2026-11-18)
 
 
