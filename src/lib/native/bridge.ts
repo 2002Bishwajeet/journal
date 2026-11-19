@@ -140,17 +140,28 @@ export async function checkBridgeIdentity(identity: string): Promise<void> {
 }
 
 export const SHOW_NOTES_OUTSIDE_APP_KEY = 'journal-show-notes-outside-app';
+/** The desktop app lock (#1363) as the page last set it. The key command reads its own copy (db_key.rs). */
+export const APP_LOCK_KEY = 'journal-app-lock';
 const visibilityListeners = new Set<() => void>();
 
-/** Settings -> Security "Show notes outside the app": on unless turned off. Device-local. */
+export function appLockOn(): boolean {
+    return localStorage.getItem(APP_LOCK_KEY) === 'true';
+}
+
+/**
+ * Settings -> Security "Show notes outside the app". Device-local. Until it is turned on or
+ * off, it is off while the app lock is on and on otherwise.
+ */
 export function getShowNotesOutsideApp(): boolean {
-    return localStorage.getItem(SHOW_NOTES_OUTSIDE_APP_KEY) !== 'false';
+    const stored = localStorage.getItem(SHOW_NOTES_OUTSIDE_APP_KEY);
+    return stored === null ? !appLockOn() : stored !== 'false';
 }
 
 /**
  * Whether note titles and snippets may appear outside the app. The only thing that decides
- * redaction: `buildBridgeSnapshot` takes its value. #1017 adds the app lock and encryption
- * (false while either is on, unless the toggle is on).
+ * redaction: `buildBridgeSnapshot` takes its value. False while the app lock is on, unless
+ * "Show notes outside the app" is on. Encryption alone changes nothing: the desktop app is
+ * always encrypted (#1361).
  */
 export function notesVisibleOutsideApp(): boolean {
     return getShowNotesOutsideApp();
@@ -161,10 +172,17 @@ export function subscribeNotesVisibility(listener: () => void): () => void {
     return () => visibilityListeners.delete(listener);
 }
 
-/** Turning it off hides the notes, so the bridge purges at once. */
-export function setShowNotesOutsideApp(on: boolean): void {
+/**
+ * Makes a change to what decides visibility and tells subscribers. When the notes turn
+ * hidden, the bridge purges at once.
+ */
+export function changeNotesVisibility(change: () => void): void {
     const before = notesVisibleOutsideApp();
-    localStorage.setItem(SHOW_NOTES_OUTSIDE_APP_KEY, String(on));
+    change();
     visibilityListeners.forEach((listener) => listener());
     if (before && !notesVisibleOutsideApp()) void emitBridgePurge('hidden');
+}
+
+export function setShowNotesOutsideApp(on: boolean): void {
+    changeNotesVisibility(() => localStorage.setItem(SHOW_NOTES_OUTSIDE_APP_KEY, String(on)));
 }

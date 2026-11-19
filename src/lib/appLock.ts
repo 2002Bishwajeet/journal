@@ -1,0 +1,77 @@
+import { APP_LOCK_KEY, appLockOn, changeNotesVisibility } from './native/bridge';
+import { LOCKED_SESSION_KEY } from './db/databaseKey';
+
+/**
+ * The desktop app lock (#1363). Its switch lives in the key command (src-tauri/src/db_key.rs):
+ * with it on, the database key comes only after Touch ID or Windows Hello. The page keeps a
+ * copy for what it decides on its own: notes outside the app, and the timeout.
+ */
+
+/** What Settings -> Security shows (db_key.rs `security_status`). */
+export interface SecurityStatus {
+    /** Touch ID or Windows Hello can confirm the owner, so the lock is offered (never on Linux). */
+    lockAvailable: boolean;
+    lockOn: boolean;
+    /** The key comes from a passphrase: this Linux has no keychain. */
+    passphrase: boolean;
+}
+
+async function invokeKey<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+    const { invoke } = await import('@tauri-apps/api/core');
+    return invoke<T>(`plugin:journal-db-key|${command}`, args);
+}
+
+export async function getSecurityStatus(): Promise<SecurityStatus> {
+    const status = await invokeKey<SecurityStatus>('security_status');
+    // The key command's copy wins, so a cleared localStorage can't show notes outside a locked app.
+    if (status.lockOn !== appLockOn()) changeNotesVisibility(() => localStorage.setItem(APP_LOCK_KEY, String(status.lockOn)));
+    return status;
+}
+
+/**
+ * Turns the lock on (after Touch ID or Windows Hello) or off. Turning it on hides the notes
+ * outside the app unless "Show notes outside the app" is on, and the bridge purges once.
+ */
+export async function setAppLock(on: boolean): Promise<'done' | 'cancelled' | 'failed'> {
+    const refusal = await invokeKey<'cancelled' | 'failed' | null>('set_app_lock', { on });
+    if (refusal) return refusal;
+    changeNotesVisibility(() => localStorage.setItem(APP_LOCK_KEY, String(on)));
+    return 'done';
+}
+
+export const LOCK_AFTER_KEY = 'journal-app-lock-after';
+/** The "Lock after" choices, in minutes hidden. */
+export const LOCK_AFTER_MINUTES = [1, 5, 15, 60] as const;
+const lockAfterListeners = new Set<() => void>();
+
+/** Minutes hidden before the app locks itself, or null (the default) for never. Device-local. */
+export function getLockAfterMinutes(): number | null {
+    const minutes = Number(localStorage.getItem(LOCK_AFTER_KEY));
+    return minutes > 0 ? minutes : null;
+}
+
+export function setLockAfterMinutes(minutes: number | null): void {
+    if (minutes === null) localStorage.removeItem(LOCK_AFTER_KEY);
+    else localStorage.setItem(LOCK_AFTER_KEY, String(minutes));
+    lockAfterListeners.forEach((listener) => listener());
+}
+
+export function subscribeLockAfter(listener: () => void): () => void {
+    lockAfterListeners.add(listener);
+    return () => lockAfterListeners.delete(listener);
+}
+
+/**
+ * Lock now, or the timeout: the key command forgets the key, and the page reloads into the
+ * lock screen, so the key leaves with the database worker and no note stays on screen.
+ */
+export async function lockApp(): Promise<void> {
+    await invokeKey('lock_database');
+    sessionStorage.setItem(LOCKED_SESSION_KEY, '1');
+    window.location.reload();
+}
+
+/** The lock screen's Unlock: the next key request asks Touch ID or Windows Hello. */
+export function clearLockedSession(): void {
+    sessionStorage.removeItem(LOCKED_SESSION_KEY);
+}

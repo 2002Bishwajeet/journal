@@ -181,6 +181,8 @@ beforeEach(() => {
       return request;
     },
   });
+  // loadDatabaseKey reads the app-lock flag from sessionStorage, which older Node versions lack.
+  vi.stubGlobal('sessionStorage', { getItem: () => null });
   // pglite.ts constructs a Worker before PGliteWorker.create sees it.
   page = new EventTarget();
   vi.stubGlobal('addEventListener', page.addEventListener.bind(page));

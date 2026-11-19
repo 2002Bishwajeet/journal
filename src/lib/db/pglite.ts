@@ -17,7 +17,7 @@ import {
 } from './pglite-migrate';
 import { initializeSchema, TRIGRAM_SEARCH_SQL } from './schema';
 import { reloadPage } from '../reloadReason';
-import { loadDatabaseKey, usesEncryptedDatabase } from './databaseKey';
+import { loadDatabaseKey, PassphraseNeededError, usesEncryptedDatabase, usesPassphrase } from './databaseKey';
 
 // PGlite 0.5 runs Postgres 18, which can't open the Postgres 17 data dir the
 // older engines left at 'idb://journal-db'. Using a new dir lets the legacy DB
@@ -386,7 +386,11 @@ async function openDesktopDatabase(): Promise<PGliteInterface> {
     }
     await plain?.close().catch(() => {});
   }
-  const db = await openWorkerDatabase(await loadDatabaseKey());
+  const db = await openWorkerDatabase(await loadDatabaseKey()).catch((err: unknown) => {
+    // A wrong passphrase (#1363) asks again.
+    if (usesPassphrase() && err instanceof Error && err.name === 'WrongKeyError') throw new PassphraseNeededError(false, true);
+    throw err;
+  });
   if (leftover) {
     const { deleteLocalDatabase } = await import('./localReset');
     deleteLocalDatabase(PLAIN_DATABASE).catch((err) => console.warn('[DB] Could not delete the plain database:', err));

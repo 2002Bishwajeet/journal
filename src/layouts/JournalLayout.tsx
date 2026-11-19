@@ -79,6 +79,7 @@ import { useSearchReindex } from "@/hooks/useSearchReindex";
 import { useNotesMirror } from "@/hooks/useNotesMirror";
 import { useDailyReminder } from "@/hooks/useDailyReminder";
 import { useNativeBridge } from "@/hooks/useNativeBridge";
+import { useAppLockGate, useLockWhenHidden } from "@/hooks/useAppLock";
 import { useUserActivity } from "@/hooks/useUserActivity";
 import { useDockMenu } from "@/hooks/useDockMenu";
 import { useMacServices } from "@/hooks/useMacServices";
@@ -100,6 +101,7 @@ export default function JournalLayout() {
   useDailyReminder();
   // #301's licence state replaces NO_LICENSE.
   useNativeBridge(NO_LICENSE);
+  useLockWhenHidden();
   useMacServices();
   const whatsNew = useAutoWhatsNew();
 
@@ -320,7 +322,9 @@ export default function JournalLayout() {
     openNoteId ? openNote?.title || "Untitled" : currentViewLabel,
   );
 
-  const booting = isNotesLoading || isFolderLoading;
+  // With the app lock on, no note shows before the database opens (#1363).
+  const locking = useAppLockGate();
+  const booting = isNotesLoading || isFolderLoading || locking;
   // Boot timing mark (#901): the splash gave way to the app. The iOS check times a reload with
   // it on the page's own clock, as its polls can stall while Safari swaps the page.
   useEffect(() => {

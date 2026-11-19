@@ -38,6 +38,8 @@ mod premium {
 }
 
 #[cfg(desktop)]
+mod app_lock;
+#[cfg(desktop)]
 mod db_key;
 mod ios_keyboard;
 #[cfg(any(target_os = "ios", target_os = "macos", target_os = "linux", test))]

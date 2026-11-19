@@ -1,7 +1,9 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore, type FormEvent } from 'react';
+import { LockKeyhole } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getBootProgress, getBootError, getBootFailureCount, subscribeBootProgress } from '@/lib/bootProgress';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import logo from '@/assets/logo_withoutbg.png';
 import { APP_NAME } from '@/lib/native';
 
@@ -52,6 +54,9 @@ export function BootErrorScreen() {
   // gone, or the store is damaged. Retry can't fix either; a reset can.
   const keyMissing = error.name === 'DatabaseKeyMissingError';
   const offersReset = keyMissing || error.name === 'CorruptStoreError';
+  // The app lock (#1363), and a Linux without a keychain: neither shows a note.
+  const locked = error.name === 'DatabaseLockedError';
+  const needsPassphrase = error.name === 'PassphraseNeededError';
 
   const attempt = async (run: () => Promise<unknown>) => {
     setBusy(true);
@@ -86,6 +91,80 @@ export function BootErrorScreen() {
       const { resetLocalData } = await import('@/lib/db/localReset');
       await resetLocalData();
     });
+
+  // Unlock asks Touch ID or Windows Hello through the key command again.
+  const handleUnlock = () =>
+    attempt(async () => {
+      const { clearLockedSession } = await import('@/lib/appLock');
+      clearLockedSession();
+      const { retryDatabase } = await import('@/lib/db');
+      await retryDatabase();
+    });
+
+  if (locked) {
+    return (
+      <div
+        role="alert"
+        className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background px-6 text-center"
+      >
+        <LockKeyhole aria-hidden="true" className="size-10 text-muted-foreground" />
+        <div className="space-y-1">
+          <h1 className="text-base font-medium">{APP_NAME} is locked</h1>
+          {'reason' in error && error.reason === 'failed' && (
+            <p className="max-w-xs text-xs text-muted-foreground">Couldn't confirm it's you. Try again.</p>
+          )}
+        </div>
+        <Button onClick={handleUnlock} disabled={busy} size="sm">
+          {busy ? 'Unlocking…' : 'Unlock'}
+        </Button>
+      </div>
+    );
+  }
+
+  if (needsPassphrase) {
+    const isNew = 'isNew' in error && error.isNew === true;
+    const wrong = 'wrong' in error && error.wrong === true;
+    const submit = (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      const value = new FormData(event.currentTarget).get('passphrase');
+      if (typeof value !== 'string' || !value) return;
+      void attempt(async () => {
+        const { setPassphrase } = await import('@/lib/db/databaseKey');
+        setPassphrase(value);
+        const { retryDatabase } = await import('@/lib/db');
+        await retryDatabase();
+      });
+    };
+    return (
+      <div
+        role="alert"
+        className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-background px-6 text-center"
+      >
+        <LockKeyhole aria-hidden="true" className="size-10 text-muted-foreground" />
+        <div className="space-y-1">
+          <h1 className="text-base font-medium">{isNew ? 'Choose a passphrase' : 'Enter your passphrase'}</h1>
+          <p className="max-w-xs text-xs text-muted-foreground">
+            This computer has no keychain, so a passphrase protects the notes {APP_NAME} keeps on it.
+            {isNew && " It can't be recovered: if you forget it, reset the local data and sync again."}
+          </p>
+          {wrong && (
+            <p className="max-w-xs text-xs text-destructive dark:text-red-400">That passphrase didn't open your notes.</p>
+          )}
+        </div>
+        <form onSubmit={submit} className="flex w-full max-w-xs flex-col gap-2">
+          <Input name="passphrase" type="password" aria-label="Passphrase" autoComplete={isNew ? 'new-password' : 'current-password'} autoFocus />
+          <Button type="submit" disabled={busy} size="sm">
+            {busy ? 'Opening…' : 'Unlock'}
+          </Button>
+        </form>
+        {wrong && (
+          <Button onClick={handleReset} disabled={busy} size="sm" variant="ghost">
+            Reset local data and sync again
+          </Button>
+        )}
+      </div>
+    );
+  }
 
   if (offersReset) {
     return (

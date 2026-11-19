@@ -75,6 +75,13 @@ block2 = "0.6"
 objc2-core-foundation = { version = "0.3", default-features = false, features = ["std", "objc2", "CFCGTypes"] }
 objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSBundle", "NSCalendar", "NSDictionary", "NSError", "NSObject", "NSSet", "NSString", "NSURL", "NSUserActivity"] }
 objc2-user-notifications = { version = "0.3", default-features = false, features = ["std", "bitflags", "block2", "UNNotification", "UNNotificationAction", "UNNotificationCategory", "UNNotificationContent", "UNNotificationRequest", "UNNotificationResponse", "UNNotificationSettings", "UNNotificationSound", "UNNotificationTrigger", "UNUserNotificationCenter"] }
+# The app lock's Touch ID, or the account password (app_lock.rs, #1363).
+objc2-local-authentication = { version = "0.3", default-features = false, features = ["std", "block2", "LAContext", "LAError"] }
+
+# The app lock's Windows Hello (app_lock.rs, #1363). Already in the tree through tauri and wry.
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.62", features = ["Security_Credentials_UI", "Win32_Foundation", "Win32_System_WinRT"] }
+windows-future = "0.3"
 
 # The completion handler of WKWebView's takeSnapshot (webview_recovery.rs).
 # Already in the tree through wry.
