@@ -101,6 +101,20 @@ describe('openFind(term)', () => {
         expect(editor.storage.searchAndReplace.isOpen).toBe(true);
         expect(editor.storage.searchAndReplace.isReplaceOpen).toBe(false);
     });
+
+    it('openFind, openReplace and closeSearch run inside a chain after a doc change', () => {
+        const editor = mkEditor('<p>foo bar</p>');
+        const run = (command: 'openFind' | 'openReplace' | 'closeSearch') => () =>
+            editor.chain().insertContentAt(1, 'x')[command]().run();
+
+        expect(run('openFind')).not.toThrow();
+        expect(editor.storage.searchAndReplace.isOpen).toBe(true);
+        expect(run('openReplace')).not.toThrow();
+        expect(editor.storage.searchAndReplace.isReplaceOpen).toBe(true);
+        expect(run('closeSearch')).not.toThrow();
+        expect(editor.storage.searchAndReplace.isOpen).toBe(false);
+        expect(editor.getText()).toBe('xxxfoo bar');
+    });
 });
 
 // The reveal opens toggles in a microtask, then scrolls on the next frame.

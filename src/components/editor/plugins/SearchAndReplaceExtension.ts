@@ -265,35 +265,41 @@ export const SearchAndReplace = Extension.create({
 
     addCommands() {
         return {
+            // These set meta on the command's own `tr`: a dispatch of their own inside a chain
+            // makes the chain's final dispatch throw "Applying a mismatched transaction".
             openFind:
                 (term) =>
-                ({ editor }) => {
-                    editor.storage.searchAndReplace.isOpen = true;
-                    editor.storage.searchAndReplace.isReplaceOpen = false;
-                    if (term) editor.storage.searchAndReplace.pendingTerm = term;
-                    editor.view.dispatch(editor.state.tr);
+                ({ editor, tr, dispatch }) => {
+                    if (dispatch) {
+                        editor.storage.searchAndReplace.isOpen = true;
+                        editor.storage.searchAndReplace.isReplaceOpen = false;
+                        if (term) editor.storage.searchAndReplace.pendingTerm = term;
+                        tr.setMeta('searchBar', 'open');
+                    }
                     return true;
                 },
 
             openReplace:
                 () =>
-                ({ editor }) => {
-                    editor.storage.searchAndReplace.isOpen = true;
-                    // A read-only note can be searched but not replaced in.
-                    editor.storage.searchAndReplace.isReplaceOpen = editor.isEditable;
-                    editor.view.dispatch(editor.state.tr);
+                ({ editor, tr, dispatch }) => {
+                    if (dispatch) {
+                        editor.storage.searchAndReplace.isOpen = true;
+                        // A read-only note can be searched but not replaced in.
+                        editor.storage.searchAndReplace.isReplaceOpen = editor.isEditable;
+                        tr.setMeta('searchBar', 'open');
+                    }
                     return true;
                 },
 
             closeSearch:
                 () =>
-                ({ editor }) => {
-                    editor.storage.searchAndReplace.isOpen = false;
-                    editor.storage.searchAndReplace.isReplaceOpen = false;
-                    editor.storage.searchAndReplace.pendingTerm = null;
-                    editor.view.dispatch(
-                        editor.state.tr.setMeta(searchPluginKey, { type: 'clear' } as SearchMeta),
-                    );
+                ({ editor, tr, dispatch }) => {
+                    if (dispatch) {
+                        editor.storage.searchAndReplace.isOpen = false;
+                        editor.storage.searchAndReplace.isReplaceOpen = false;
+                        editor.storage.searchAndReplace.pendingTerm = null;
+                        tr.setMeta(searchPluginKey, { type: 'clear' } as SearchMeta);
+                    }
                     return true;
                 },
 

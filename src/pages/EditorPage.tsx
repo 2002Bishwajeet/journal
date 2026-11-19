@@ -234,13 +234,16 @@ function EditorLayout({
       </div>
 
       <div className="flex-1 flex min-h-0 w-full overflow-hidden">
-        {/* Touch layouts: the find bar stays put while the note scrolls under it (#825). */}
+        {/* The find bar stays put in the visible note while it scrolls under it (#825, #1419). */}
         <div className="relative flex min-w-0 flex-1">
-        {!isDesktop && !topToolbar && (
-          <div className="absolute inset-x-0 top-(--note-header-h) z-20">
-            <FindReplaceBar />
-          </div>
-        )}
+        <div
+          className={cn(
+            "absolute inset-x-0 z-20",
+            !isDesktop && !topToolbar ? "top-(--note-header-h)" : "top-0",
+          )}
+        >
+          <FindReplaceBar />
+        </div>
         {/* The container a `wide` live block takes its width from (src/index.css, "Live blocks").
             Touch layouts pad its top by the header, which the note scrolls under (#833). */}
         <div
@@ -250,7 +253,6 @@ function EditorLayout({
             !isDesktop && !topToolbar && "pt-(--note-header-h) scroll-pt-(--note-header-h)",
           )}
         >
-          {topToolbar && <FindReplaceBar />}
           <TipTapEditor
             noteId={noteId}
             metadata={selectedNoteMetadata!}
