@@ -1,5 +1,6 @@
 import { test, expect, waitForAppReady } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
+import { fakeKeychain } from '../support/fakeKeychain';
 import { activeEditor, activeTitleInput } from '../support/actions';
 
 // #1143: in the iOS app, AI shows only on a device that passed the check. The native shell is
@@ -39,6 +40,7 @@ for (const c of CASES) {
       };
       localStorage.setItem('journal-ai-settings', JSON.stringify({ _v: 2, enabled: true }));
     });
+    await fakeKeychain(app);
     await app.setViewportSize(c.size);
     await app.reload();
     await waitForAppReady(app);

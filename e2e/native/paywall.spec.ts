@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import type { Browser, Page } from '@playwright/test';
 import { test, expect, waitForAppReady, withFencedPage } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
+import { fakeKeychain } from '../support/fakeKeychain';
 import { screenshotInBothThemes } from '../support/actions';
 
 // #1177: the store build's trial screen, paywall and Settings → Purchase, and desktop's #301
@@ -59,6 +60,7 @@ async function openNativeApp(
                     (w.deviceIpc as (cmd: string, args: unknown) => Promise<unknown>)(cmd, args),
             };
         }, platform);
+        await fakeKeychain(page);
         await page.goto('/');
         await assertTestOrigin(page);
         await waitForAppReady(page);

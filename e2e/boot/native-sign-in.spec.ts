@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
+import { fakeKeychain } from '../support/fakeKeychain';
 
 // #1188: the web signs in by navigating to the identity's YouAuth page and back to
 // /auth/finalize, as before. The native app (here, the iOS flag and a stub of Tauri's
@@ -46,8 +47,6 @@ test('iOS app: sign-in runs in an auth session and external links open in the pl
     (window as unknown as { __TAURI_INTERNALS__: unknown }).__TAURI_INTERNALS__ = {
       invoke: async (cmd: string, args: Record<string, unknown>) => {
         await (window as unknown as { recordIpc: (cmd: string, args: unknown) => Promise<void> }).recordIpc(cmd, args);
-        // The keychain holds no sign-in on this fake device (#1429).
-        if (cmd === 'plugin:journal-db-key|auth_secrets') return 'unavailable';
         // The identity's redirect, as ASWebAuthenticationSession hands it back.
         if (cmd === 'plugin:browser|authenticate') {
           return { url: 'journal://auth/finalize?identity=alice.homebase.test&public_key=pk&salt=s&state=%2F' };
@@ -56,6 +55,8 @@ test('iOS app: sign-in runs in an auth session and external links open in the pl
       },
     };
   });
+  // The keychain holds no sign-in on this fake device (#1429).
+  await fakeKeychain(page);
 
   await page.goto('/welcome');
   // The welcome step's sign-up button (#1282) opens in the in-app browser, as links do.

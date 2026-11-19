@@ -104,27 +104,33 @@ async function loadKeyBytes(): Promise<Uint8Array<ArrayBuffer>> {
   return Uint8Array.from(answer.key);
 }
 
-/** The store key of loadDatabaseKey's latest attempt; before its first, one that waits for it. */
-let storeKey!: Promise<CryptoKey>;
-let settleStoreKey!: (key: Promise<CryptoKey>) => void;
+/** The keys of the web view's other stores, from loadDatabaseKey's latest attempt; before its first, ones that wait for it. */
+type LocalKeys = { store: CryptoKey; authSecrets: CryptoKey };
+let localKeys!: Promise<LocalKeys>;
+let settleLocalKeys!: (keys: Promise<LocalKeys>) => void;
 function awaitNextStoreKey(): void {
-  storeKey = new Promise((resolve) => { settleStoreKey = resolve; });
+  localKeys = new Promise((resolve) => { settleLocalKeys = resolve; });
   // Its error reaches whoever waits; nobody waiting is fine.
-  storeKey.catch(() => {});
+  localKeys.catch(() => {});
 }
 awaitNextStoreKey();
 
-/** The AES-GCM key of the web view's other stores (#1429), kept apart from the database's by HKDF. */
-async function deriveStoreKey(bytes: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
+/** An AES-GCM key from the database's key bytes (#1429), kept apart from the database's by HKDF's `info`. */
+async function deriveKey(bytes: Uint8Array<ArrayBuffer>, info: string): Promise<CryptoKey> {
   const material = await crypto.subtle.importKey('raw', bytes, 'HKDF', false, ['deriveKey']);
   return crypto.subtle.deriveKey(
-    { name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info: new TextEncoder().encode('journal-local-stores') },
+    { name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(32), info: new TextEncoder().encode(info) },
     material,
     { name: 'AES-GCM', length: 256 },
     false,
     ['encrypt', 'decrypt'],
   );
 }
+
+const deriveLocalKeys = async (bytes: Uint8Array<ArrayBuffer>): Promise<LocalKeys> => ({
+  store: await deriveKey(bytes, 'journal-local-stores'),
+  authSecrets: await deriveKey(bytes, 'journal-auth-secrets'),
+});
 
 /**
  * The database's key from the OS keychain (src-tauri/src/db_key.rs), imported as a
@@ -135,10 +141,10 @@ async function deriveStoreKey(bytes: Uint8Array<ArrayBuffer>): Promise<CryptoKey
 export async function loadDatabaseKey(): Promise<CryptoKey | null> {
   if (!usesEncryptedDatabase()) return null;
   const bytes = loadKeyBytes();
-  const derived = bytes.then(deriveStoreKey);
+  const derived = bytes.then(deriveLocalKeys);
   derived.catch(() => {});
-  settleStoreKey(derived);
-  storeKey = derived;
+  settleLocalKeys(derived);
+  localKeys = derived;
   await derived;
   const { importKek } = await import('pglite-cipher');
   // importKek zeroes the bytes once it has the key.
@@ -151,5 +157,14 @@ export async function loadDatabaseKey(): Promise<CryptoKey | null> {
  * Windows Hello prompt: it waits for the database's loadDatabaseKey and fails with it.
  */
 export function loadStoreKey(): Promise<CryptoKey> {
-  return storeKey;
+  return localKeys.then((keys) => keys.store);
+}
+
+/**
+ * The key that seals the Homebase sign-in on a Linux without a keychain (#1429,
+ * secureStorage.ts), from the passphrase's key like the store key. Like it, it waits for the
+ * database's loadDatabaseKey and fails with it.
+ */
+export function loadAuthSecretsKey(): Promise<CryptoKey> {
+  return localKeys.then((keys) => keys.authSecrets);
 }

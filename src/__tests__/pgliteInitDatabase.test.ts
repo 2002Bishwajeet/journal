@@ -27,7 +27,7 @@ const mocks = {
   preserveOk: true,
   skipOk: true,
   // The desktop app's database_key answer (#1361).
-  keyAnswer: { key: Array<number>(32).fill(7) } as { key: number[] } | 'missing',
+  keyAnswer: { key: Array<number>(32).fill(7) } as { key: number[] } | { passphrase: number[] } | 'missing',
   // The plain database an older desktop build left (#1362): absent, or its unsynced changes.
   plainUnsynced: null as number | null,
   plainUnreadable: false,
@@ -740,6 +740,25 @@ describe('desktop recovery and the plain database an older build left (#1362)', 
     const reloaded = await loadDatabaseModule();
     await reloaded.getDatabase();
     expect((mocks.workerOptions.at(-1) as { key?: CryptoKey }).key).toBeInstanceOf(CryptoKey);
+  });
+
+  it('with a passphrase, also deletes the sealed sign-in, which a new passphrase could not open (#1429)', async () => {
+    // The sign-in's keys come from the Homebase config, which reads the page's location.
+    vi.stubGlobal('window', { __JOURNAL_NATIVE__: { platform: 'linux' }, __TAURI_INTERNALS__: {}, location: new URL('https://journal.test/') });
+    mocks.keyAnswer = { passphrase: Array<number>(16).fill(3) };
+    const { getDatabase } = await loadDatabaseModule();
+    await expect(getDatabase()).rejects.toThrow('Enter the passphrase');
+
+    const items = new Map([['APSS', 'sealed:AAAA'], ['BX0900', 'sealed:BBBB'], ['identity', 'sam.dotyou.cloud']]);
+    vi.stubGlobal('localStorage', {
+      get length() { return items.size; },
+      key: (i: number) => [...items.keys()][i] ?? null,
+      getItem: (key: string) => items.get(key) ?? null,
+      removeItem: (key: string) => void items.delete(key),
+    });
+    const { resetLocalData } = await import('../lib/db/localReset');
+    await resetLocalData();
+    expect([...items.keys()]).toEqual(['identity']);
   });
 
   it('closes the open database for good before the reset deletes it', async () => {

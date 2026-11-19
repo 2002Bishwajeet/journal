@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import type { Browser, Page } from '@playwright/test';
 import { test, expect, waitForAppReady, withFencedPage } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
+import { fakeKeychain } from '../support/fakeKeychain';
 import { screenshotInBothThemes, settingsPanel } from '../support/actions';
 
 // #301: the native app's license key, trial and paywall. The app is forced native through the
@@ -67,6 +68,7 @@ async function openNativeApp(
                 },
             };
         }, { platform, worker: WORKER });
+        await fakeKeychain(page);
         // The Worker has no answer unless a test gives one (a later page.route wins).
         await page.route(`${WORKER}/**`, (route) => route.fulfill({ status: 502, json: { error: 'no answer' } }));
         await page.goto('/');

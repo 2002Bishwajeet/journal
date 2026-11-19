@@ -58,12 +58,13 @@ export function BootErrorScreen() {
   const locked = error.name === 'DatabaseLockedError';
   const needsPassphrase = error.name === 'PassphraseNeededError';
 
-  const attempt = async (run: () => Promise<unknown>) => {
+  const attempt = async (run: () => Promise<unknown>, reload = true) => {
     setBusy(true);
     try {
       await run();
       // Reload rather than patch state: every query that failed needs re-running.
-      window.location.reload();
+      if (reload) window.location.reload();
+      else setBusy(false);
     } catch {
       // The new error is already published — stay on this screen.
       setBusy(false);
@@ -133,7 +134,8 @@ export function BootErrorScreen() {
         setPassphrase(value);
         const { retryDatabase } = await import('@/lib/db');
         await retryDatabase();
-      });
+        // No reload, which would forget the passphrase: the app renders once the database is open (nativeBoot.ts).
+      }, false);
     };
     return (
       <div

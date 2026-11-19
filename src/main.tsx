@@ -65,7 +65,8 @@ if (import.meta.env.MODE === 'e2e') {
   void import('./lib/e2e/testHooks');
 }
 
-const render = () => createRoot(document.getElementById('root')!).render(
+const root = createRoot(document.getElementById('root')!)
+const render = () => root.render(
   <StrictMode>
     <App />
   </StrictMode>,
@@ -73,9 +74,10 @@ const render = () => createRoot(document.getElementById('root')!).render(
 
 // Native app: the Homebase sign-in is in the OS keychain, read before anything asks for it (#1429).
 if (usesEncryptedDatabase()) {
+  const showBootError = () => root.render(<BootErrorScreen />)
   import('./lib/native/nativeBoot')
-    .then(({ prepareNativeBoot }) => prepareNativeBoot())
-    .then((ready) => ready ? render() : createRoot(document.getElementById('root')!).render(<BootErrorScreen />));
+    .then(({ prepareNativeBoot }) => prepareNativeBoot(showBootError))
+    .then((ready) => ready ? render() : showBootError());
 } else {
   render();
 }

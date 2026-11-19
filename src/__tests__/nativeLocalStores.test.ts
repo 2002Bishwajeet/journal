@@ -321,12 +321,124 @@ describe('the Homebase sign-in in the keychain', () => {
         await vi.waitFor(() => expect(localStorage.getItem('APSS')).toBeNull());
     });
 
-    it('leaves localStorage as it was on a Linux without a keychain', async () => {
+    it('leaves localStorage to the sealed storage on a Linux without a keychain', async () => {
         keychain.available = false;
         localStorage.setItem('APSS', 'shared-secret');
-        await install();
+        const storage = await import('@/lib/native/secureStorage');
+        expect(await storage.installSecureStorage()).toBe('passphrase');
         expect(Storage.prototype.getItem).toBe(getItem);
         expect(raw(localStorage, 'APSS')).toBe('shared-secret');
+    });
+});
+
+describe('the sealed sign-in on a Linux without a keychain', () => {
+    const SALT = Array<number>(16).fill(3);
+    beforeEach(() => {
+        keychain.available = false;
+        databaseKey = { passphrase: SALT };
+    });
+
+    /** A launch: the database opens with the passphrase, then the sign-in is unsealed. */
+    const launch = async (passphrase = 'correct horse') => {
+        const keys = await import('@/lib/db/databaseKey');
+        keys.setPassphrase(passphrase);
+        await keys.loadDatabaseKey();
+        const storage = await import('@/lib/native/secureStorage');
+        await storage.installSealedStorage();
+        return storage;
+    };
+    /** A later launch, on what this one left in localStorage. */
+    const relaunch = () => {
+        Object.assign(MemoryStorage.prototype, { getItem, setItem, removeItem });
+        vi.resetModules();
+    };
+
+    it('round-trips: a sign-in is stored sealed and the next launch reads it', async () => {
+        const { flushSecureStorage } = await launch();
+        localStorage.setItem('APSS', MARKER);
+        localStorage.setItem('BX0900', 'auth-token');
+        await flushSecureStorage();
+        expect(raw(localStorage, 'APSS')).toMatch(/^sealed:/);
+        expect(raw(localStorage, 'BX0900')).toMatch(/^sealed:/);
+        expect(storedText()).not.toContain(MARKER);
+        expect(invoke.mock.calls.filter(([cmd]) => cmd.endsWith('set_auth_secret'))).toHaveLength(0);
+
+        relaunch();
+        await launch();
+        expect(localStorage.getItem('APSS')).toBe(MARKER);
+        expect(localStorage.getItem('BX0900')).toBe('auth-token');
+    });
+
+    it('seals the plaintext an older build left in its place, and peer tokens go to memory', async () => {
+        localStorage.setItem('APSS', MARKER);
+        localStorage.setItem('odin_peer_token_frodo.dotyou.cloud', `{"sharedSecret":"${MARKER}"}`);
+        localStorage.setItem('identity', 'sam.dotyou.cloud');
+        await launch();
+        expect(raw(localStorage, 'APSS')).toMatch(/^sealed:/);
+        expect(raw(localStorage, 'odin_peer_token_frodo.dotyou.cloud')).toBeNull();
+        expect(raw(localStorage, 'identity')).toBe('sam.dotyou.cloud');
+        expect(storedText()).not.toContain(MARKER);
+        expect(localStorage.getItem('APSS')).toBe(MARKER);
+        expect(localStorage.getItem('odin_peer_token_frodo.dotyou.cloud')).toBe(`{"sharedSecret":"${MARKER}"}`);
+    });
+
+    it('fails closed: no key, nothing served; another passphrase\'s key, signed out', async () => {
+        const { flushSecureStorage } = await launch();
+        localStorage.setItem('APSS', 'shared-secret');
+        await flushSecureStorage();
+        const sealed = raw(localStorage, 'APSS');
+
+        relaunch();
+        databaseKey = 'missing';
+        await (await import('@/lib/db/databaseKey')).loadDatabaseKey().catch(() => {});
+        const storage = await import('@/lib/native/secureStorage');
+        await expect(storage.installSealedStorage()).rejects.toThrow('missing from the system keychain');
+        expect(localStorage.getItem('APSS')).toBeNull();
+
+        relaunch();
+        databaseKey = { passphrase: SALT };
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        await launch('another one');
+        expect(localStorage.getItem('APSS')).toBeNull();
+        expect(raw(localStorage, 'APSS')).toBe(sealed);
+        warn.mockRestore();
+    });
+
+    it('writes nothing back for a sign-out that came while a seal ran', async () => {
+        const { clearSecureStorage, flushSecureStorage } = await launch();
+        localStorage.setItem('APSS', 'shared-secret');
+        localStorage.setItem('BX0900', 'auth-token');
+        localStorage.removeItem('APSS');
+        clearSecureStorage();
+        await flushSecureStorage();
+        expect(raw(localStorage, 'APSS')).toBeNull();
+        expect(raw(localStorage, 'BX0900')).toBeNull();
+        expect(localStorage.getItem('BX0900')).toBeNull();
+    });
+
+    it('boots behind the passphrase screen: nothing renders before the database opens', async () => {
+        const getDatabase = vi.fn().mockRejectedValueOnce(Object.assign(new Error('Enter the passphrase'), { name: 'PassphraseNeededError' }));
+        const first = await launch();
+        localStorage.setItem('APSS', 'shared-secret');
+        await first.flushSecureStorage();
+        relaunch();
+        vi.doMock('@/lib/db/pglite', () => ({ getDatabase, isLeftoverSession: () => false }));
+
+        const showBootError = vi.fn();
+        const { prepareNativeBoot } = await import('@/lib/native/nativeBoot');
+        let ready: boolean | undefined;
+        void prepareNativeBoot(showBootError).then((value) => { ready = value; });
+        await vi.waitFor(() => expect(showBootError).toHaveBeenCalledOnce());
+        expect(ready).toBeUndefined();
+
+        // The screen's Unlock: the passphrase, then the database opens.
+        const keys = await import('@/lib/db/databaseKey');
+        keys.setPassphrase('correct horse');
+        await keys.loadDatabaseKey();
+        (await import('@/lib/bootProgress')).reportBootPhase('db-ready');
+        await vi.waitFor(() => expect(ready).toBe(true));
+        expect(localStorage.getItem('APSS')).toBe('shared-secret');
+        vi.doUnmock('@/lib/db/pglite');
     });
 });
 
@@ -470,7 +582,7 @@ describe('the native boot', () => {
         });
         vi.spyOn(console, 'error').mockImplementation(() => {});
         const { prepareNativeBoot } = await import('@/lib/native/nativeBoot');
-        expect(await prepareNativeBoot()).toBe(false);
+        expect(await prepareNativeBoot(() => {})).toBe(false);
         const { getBootError } = await import('@/lib/bootProgress');
         expect(getBootError()?.message).toContain('the keychain is locked');
     });
@@ -479,7 +591,7 @@ describe('the native boot', () => {
         localStorage.setItem('journal-recent-searches', JSON.stringify({ _v: 1, items: [MARKER] }));
         keychain.secrets.set('APSS', 'from-keychain');
         const { prepareNativeBoot } = await import('@/lib/native/nativeBoot');
-        expect(await prepareNativeBoot()).toBe(true);
+        expect(await prepareNativeBoot(() => {})).toBe(true);
         expect(localStorage.getItem('APSS')).toBe('from-keychain');
         expect(raw(localStorage, 'journal-recent-searches')).toBeNull();
         await vi.waitFor(() => expect(events.has('journal://flush-before-close')).toBe(true));
