@@ -485,7 +485,7 @@ describe('boot timing (#901)', () => {
 });
 
 describe('desktop app encryption (#1361)', () => {
-  const onDesktop = () => vi.stubGlobal('window', { __JOURNAL_NATIVE__: { platform: 'macos' } });
+  const onDesktop = () => vi.stubGlobal('window', { __JOURNAL_NATIVE__: { platform: 'macos' }, __TAURI_INTERNALS__: {} });
 
   it('never asks for a key or loads pglite-cipher on the web', async () => {
     mocks.dump = null;
@@ -497,6 +497,17 @@ describe('desktop app encryption (#1361)', () => {
     expect(mocks.workerOptions[0].key).toBeUndefined();
     expect(mocks.events.some((event) => event.startsWith('invoke:'))).toBe(false);
     expect(mocks.events).not.toContain('cipher-loaded');
+  });
+
+  it('stays plain when only the platform is faked, without Tauri (the e2e platform specs)', async () => {
+    mocks.dump = null;
+    vi.stubGlobal('window', { __JOURNAL_NATIVE__: { platform: 'macos' } });
+    const { getDatabase } = await loadDatabaseModule();
+
+    await getDatabase();
+
+    expect(mocks.workerOptions[0].dataDir).toBe('idb://journal-db-pg18');
+    expect(mocks.events.some((event) => event.startsWith('invoke:'))).toBe(false);
   });
 
   it.each(['0.4', '0.5'])(

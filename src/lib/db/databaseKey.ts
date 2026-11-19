@@ -2,9 +2,11 @@ import { nativePlatform } from '../native';
 
 /**
  * The desktop app opens its database through pglite-cipher (#1361), always, in its own
- * IndexedDB store. The web stays plain, and mobile follows in #1364.
+ * IndexedDB store. The web stays plain, and mobile follows in #1364. A page that only
+ * claims a desktop platform (e2e fakes it with __JOURNAL_NATIVE__) has no Tauri to ask for the key.
  */
 export function usesEncryptedDatabase(): boolean {
+  if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) return false;
   const platform = nativePlatform();
   return platform === 'macos' || platform === 'windows' || platform === 'linux';
 }
