@@ -35,7 +35,7 @@ const mocks = {
   legacyPresent: false,
   // What the worker's engine fails to open the encrypted store with.
   encryptedOpenError: null as string | null,
-  // Android with encryption paused (#1435): the encrypted store an earlier build left, and its unsynced changes.
+  // Android with encryption off (#1435): the encrypted store it left, and its unsynced changes.
   encryptedPresent: false,
   encryptedUnsynced: 0,
   encryptedUnreadable: false,
@@ -626,7 +626,7 @@ describe('desktop app encryption (#1361)', () => {
     ['macos', false],
   ])("relays the encrypted open's progress to the splash on %s only (#1365)", async (platform, relayed) => {
     vi.stubGlobal('window', { __JOURNAL_NATIVE__: { platform }, __TAURI_INTERNALS__: {} });
-    // Android opens one only for the changes the store an earlier build left still has to send (#1435).
+    // Android, not opted in, opens one only for the changes the store it left still has to send (#1435).
     if (platform === 'android') {
       stubLocalStorage();
       mocks.encryptedPresent = true;
@@ -833,7 +833,7 @@ describe('desktop recovery and the plain database an older build left (#1362)', 
   });
 });
 
-describe('Android with encryption paused (#1435)', () => {
+describe('Android: encryption off by default, an experimental opt-in (#1435)', () => {
   const onPlatform = (platform: string) => vi.stubGlobal('window', { __JOURNAL_NATIVE__: { platform }, __TAURI_INTERNALS__: {} });
   const STORE = ['delete:journal-data.a', 'delete:journal-data.b'];
   const invoked = () => mocks.events.filter((event) => event.startsWith('invoke:'));
@@ -843,14 +843,47 @@ describe('Android with encryption paused (#1435)', () => {
     mocks.dump = null;
   });
 
-  it('is one switch: off, Android is plain while iOS and the desktop stay encrypted', async () => {
-    const { ANDROID_ENCRYPTION, usesEncryptedDatabase, inTauriApp } = await import('../lib/db/databaseKey');
-    expect(ANDROID_ENCRYPTION).toBe(false);
-    for (const [platform, encrypted] of [['android', false], ['ios', true], ['macos', true], ['windows', true], ['linux', true]] as const) {
-      onPlatform(platform);
-      expect(usesEncryptedDatabase()).toBe(encrypted);
-      // The sign-in stays in the keychain and locked notes keep working everywhere.
-      expect(inTauriApp()).toBe(true);
+  it('Android is plain by default and encrypted once opted in; iOS and the desktop always are', async () => {
+    const { ANDROID_ENCRYPTION_DEFAULT, ANDROID_ENCRYPTION_KEY, usesEncryptedDatabase, inTauriApp } = await import('../lib/db/databaseKey');
+    expect(ANDROID_ENCRYPTION_DEFAULT).toBe(false);
+    const items = stubLocalStorage();
+    for (const optedIn of [false, true]) {
+      if (optedIn) items.set(ANDROID_ENCRYPTION_KEY, 'true');
+      for (const [platform, encrypted] of [['android', optedIn], ['ios', true], ['macos', true], ['windows', true], ['linux', true]] as const) {
+        onPlatform(platform);
+        expect(usesEncryptedDatabase()).toBe(encrypted);
+        // The sign-in stays in the keychain and locked notes keep working everywhere.
+        expect(inTauriApp()).toBe(true);
+      }
+    }
+    items.set(ANDROID_ENCRYPTION_KEY, 'false');
+    onPlatform('android');
+    expect(usesEncryptedDatabase()).toBe(false);
+  });
+
+  it.each([
+    [0, 'the encrypted store, and deletes the plain database'],
+    [3, 'the plain database to sync its changes first'],
+  ])('opted in, with %s unsynced changes in the plain database: opens %s', async (unsynced) => {
+    onPlatform('android');
+    stubLocalStorage([['journal-android-encryption', 'true']]);
+    mocks.plainUnsynced = unsynced;
+    const { getDatabase, isLeftoverSession } = await loadDatabaseModule();
+
+    await getDatabase();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    const last = mocks.workerOptions.at(-1) as { key?: CryptoKey; dataDir?: string };
+    // Nothing is copied: the encrypted store starts empty and fills from Homebase.
+    expect(mocks.events).not.toContain('restore');
+    if (unsynced === 0) {
+      expect(last.key).toBeInstanceOf(CryptoKey);
+      expect(mocks.events).toContain('delete:/pglite/journal-db-pg18');
+      expect(isLeftoverSession()).toBe(false);
+    } else {
+      expect(last.dataDir).toBe('idb://journal-db-pg18');
+      expect(mocks.events).not.toContain('delete:/pglite/journal-db-pg18');
+      expect(isLeftoverSession()).toBe(true);
     }
   });
 

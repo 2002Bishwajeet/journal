@@ -101,11 +101,13 @@ test('Lock now shows the lock screen and no note; Unlock opens the app again', a
     });
 });
 
-// #1435: Android's encryption is paused, so its Settings -> Security shows neither the
-// encrypted line nor the app lock, even with a fingerprint set up, and the app never asks for
-// the database key. The sign-in still comes from the keychain (fakeKeychain).
-test('Settings -> Security on Android at 390px: no encrypted line, no app lock', async ({ browser }) => {
-    test.setTimeout(90_000);
+// #1435: on Android, encryption is an experimental switch, off by default. Off, Settings ->
+// Security shows neither the encrypted line nor the app lock, even with a fingerprint set up,
+// and the app never asks for the database key. Turning it on asks first, syncs, restarts and
+// opens the encrypted store (the fake key command hands out a fixed key). The sign-in comes
+// from the keychain (fakeKeychain) either way.
+test('Settings -> Security on Android at 390px: the Experimental switch off, then on', async ({ browser }) => {
+    test.setTimeout(120_000);
     await withFencedPage(browser, { storageState: 'e2e/fixtures/hermetic-auth.json' }, async (page) => {
         await page.addInitScript(() => {
             const w = window as unknown as Record<string, unknown>;
@@ -113,7 +115,10 @@ test('Settings -> Security on Android at 390px: no encrypted line, no app lock',
             w.__TAURI_INTERNALS__ = {
                 transformCallback: () => 0,
                 invoke: async (cmd: string) => {
-                    if (cmd === 'plugin:journal-db-key|database_key') localStorage.setItem('e2e-key-asked', 'true');
+                    if (cmd === 'plugin:journal-db-key|database_key') {
+                        localStorage.setItem('e2e-key-asked', 'true');
+                        return { key: Array<number>(32).fill(7) };
+                    }
                     if (cmd === 'plugin:journal-db-key|security_status') return { lockAvailable: true, lockOn: false, passphrase: false };
                     return null;
                 },
@@ -125,16 +130,30 @@ test('Settings -> Security on Android at 390px: no encrypted line, no app lock',
         await assertTestOrigin(page);
         await waitForAppReady(page);
 
-        await page.getByRole('button', { name: 'Settings', exact: true }).click();
-        const dialog = page.getByRole('dialog', { name: 'Settings' });
-        await expect(dialog).toBeVisible();
-        await openSettingsSection(dialog, 'Security');
-        await settle(page);
-        const panel = settingsPanel(dialog);
+        let panel = await openSecurity(page);
+        const encryption = () => panel.getByRole('switch', { name: /Encrypt notes on this device/ });
+        await expect(encryption()).not.toBeChecked();
+        await expect(panel.getByText('Experimental')).toBeVisible();
+        await expect(panel.getByText('Slower to open on large accounts.')).toBeVisible();
         await expect(panel.getByRole('switch', { name: 'Show notes outside the app' })).toBeVisible();
         await expect(panel.getByText(/encrypted/)).toHaveCount(0);
         await expect(panel.getByRole('switch', { name: 'App lock' })).toHaveCount(0);
         expect(await page.evaluate(() => localStorage.getItem('e2e-key-asked'))).toBeNull();
-        await shoot(page, 'security-android', '390');
+        await shoot(page, 'security-android-encryption-off', '390');
+
+        await encryption().click();
+        const confirm = page.getByRole('dialog', { name: 'Encrypt notes on this device?' });
+        await expect(confirm).toBeVisible();
+        await shoot(page, 'security-android-encryption-confirm', '390');
+        await Promise.all([page.waitForEvent('load'), confirm.getByRole('button', { name: 'Encrypt' }).click()]);
+        await waitForAppReady(page);
+        expect(await page.evaluate(() => localStorage.getItem('e2e-key-asked'))).toBe('true');
+
+        panel = await openSecurity(page);
+        await expect(encryption()).toBeChecked();
+        await expect(panel.getByText('Notes on this device are encrypted')).toBeVisible();
+        await expect(panel.getByText('The key is protected by the Android Keystore.')).toBeVisible();
+        await expect(panel.getByRole('switch', { name: 'App lock' })).not.toBeChecked();
+        await shoot(page, 'security-android-encryption-on', '390');
     });
 });

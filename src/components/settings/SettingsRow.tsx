@@ -21,7 +21,7 @@ export function SettingsRow({
   stacked,
 }: {
   id: string;
-  label: string;
+  label: ReactNode;
   description?: ReactNode;
   control: ReactNode;
   /** On a phone the control takes its own full-width line under the text. */

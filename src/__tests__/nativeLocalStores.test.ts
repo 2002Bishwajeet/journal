@@ -597,7 +597,7 @@ describe('the native boot', () => {
         await vi.waitFor(() => expect(events.has('journal://flush-before-close')).toBe(true));
     });
 
-    it('Android with encryption paused (#1435): the sign-in stays in the keychain, the rest plain, no key asked', async () => {
+    it('Android with encryption off (#1435): the sign-in stays in the keychain, the rest plain, no key asked', async () => {
         window.__JOURNAL_NATIVE__ = { platform: 'android' };
         localStorage.setItem('APSS', 'shared-secret');
         localStorage.setItem('journal-recent-searches', JSON.stringify({ _v: 1, items: ['a search'] }));

@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -8,19 +8,26 @@ import {
     setAppLock,
     setLockAfterMinutes,
     subscribeLockAfter,
+    switchAndroidEncryption,
 } from '@/lib/appLock';
 import { getBootProgress, PHASE_PROGRESS, subscribeBootProgress } from '@/lib/bootProgress';
-import { usesEncryptedDatabase } from '@/lib/db/databaseKey';
+import { onAndroid, usesEncryptedDatabase } from '@/lib/db/databaseKey';
+import { useSyncService } from '@/hooks/useSyncService';
 import { appLockOn, subscribeNotesVisibility } from '@/lib/native/bridge';
 import { relockNotes } from '@/lib/noteLock';
 
 const SECURITY_STATUS_KEY = ['security-status'];
 const MINUTE = 60_000;
 
-/** Settings -> Security in the native app (#1363, #1364): encryption, the app lock and its timeout. */
+/**
+ * Settings -> Security in the native app (#1363, #1364): encryption, the app lock and its
+ * timeout. On Android, encryption is an experimental switch, confirmed before it turns on (#1435).
+ */
 export function useSecuritySettings() {
     const encrypted = usesEncryptedDatabase();
     const queryClient = useQueryClient();
+    const { sync } = useSyncService();
+    const [confirmingEncryption, setConfirmingEncryption] = useState(false);
     const { data: status } = useQuery({
         queryKey: SECURITY_STATUS_KEY,
         queryFn: getSecurityStatus,
@@ -39,9 +46,25 @@ export function useSecuritySettings() {
         },
         onSettled: () => queryClient.invalidateQueries({ queryKey: SECURITY_STATUS_KEY }),
     });
+    const encryption = useMutation({
+        mutationFn: (on: boolean) => switchAndroidEncryption(on, sync),
+        onSuccess: (result) => {
+            if (result === 'failed') toast.error("Couldn't confirm it's you, so encryption stays on");
+        },
+        onError: (err) => {
+            console.error('[useSecuritySettings] Encryption did not change:', err);
+            toast.error("Couldn't change encryption");
+        },
+    });
 
     return {
         encrypted,
+        android: onAndroid(),
+        changingEncryption: encryption.isPending,
+        confirmingEncryption,
+        setEncryptionOn: (on: boolean) => (on ? setConfirmingEncryption(true) : encryption.mutate(false)),
+        confirmEncryption: () => encryption.mutate(true),
+        cancelEncryption: () => setConfirmingEncryption(false),
         status,
         changingLock: toggle.isPending,
         setLockOn: (on: boolean) => toggle.mutate(on),

@@ -1,5 +1,5 @@
 import { APP_LOCK_KEY, appLockOn, changeNotesVisibility } from './native/bridge';
-import { LOCKED_SESSION_KEY } from './db/databaseKey';
+import { LOCKED_SESSION_KEY, setAndroidEncryption } from './db/databaseKey';
 import { relockNotes } from './noteLock';
 
 /**
@@ -37,6 +37,27 @@ export async function setAppLock(on: boolean): Promise<'done' | 'cancelled' | 'f
     const refusal = await invokeKey<'cancelled' | 'failed' | null>('set_app_lock', { on });
     if (refusal) return refusal;
     changeNotesVisibility(() => localStorage.setItem(APP_LOCK_KEY, String(on)));
+    return 'done';
+}
+
+/**
+ * Android's "Encrypt notes on this device" (#1435). Turning it off turns the app lock off first,
+ * as the lock gates the database key. `pushUnsynced` (the sync) sends this device's unsynced
+ * changes, then the reload opens the other store, which starts empty and fills from Homebase
+ * (pglite.ts; nothing is copied). The boot keeps the old store for a launch while it still has
+ * changes the sync couldn't send.
+ */
+export async function switchAndroidEncryption(
+    on: boolean,
+    pushUnsynced: () => Promise<void>,
+): Promise<'done' | 'cancelled' | 'failed'> {
+    if (!on && appLockOn()) {
+        const refusal = await setAppLock(false);
+        if (refusal !== 'done') return refusal;
+    }
+    await pushUnsynced();
+    setAndroidEncryption(on);
+    window.location.reload();
     return 'done';
 }
 

@@ -18,7 +18,7 @@ import {
 } from './pglite-migrate';
 import { initializeSchema, TRIGRAM_SEARCH_SQL } from './schema';
 import { reloadPage } from '../reloadReason';
-import { ENCRYPTED_STORE, encryptionPaused, loadDatabaseKey, PassphraseNeededError, usesEncryptedDatabase, usesPassphrase } from './databaseKey';
+import { ENCRYPTED_STORE, encryptionOff, loadDatabaseKey, PassphraseNeededError, usesEncryptedDatabase, usesPassphrase } from './databaseKey';
 
 // PGlite 0.5 runs Postgres 18, which can't open the Postgres 17 data dir the
 // older engines left at 'idb://journal-db'. Using a new dir lets the legacy DB
@@ -53,7 +53,7 @@ let leftoverSession = false;
  * Whether this native app launch runs on the plain database an older build left, because it
  * has changes that never synced (#1362): this launch's syncs send them, and the first
  * launch that finds it all synced deletes it and opens the encrypted database. On Android
- * with encryption paused (#1435), the same for the encrypted store an older build left.
+ * with encryption off (#1435), the same for the encrypted store it left.
  */
 export function isLeftoverSession(): boolean {
   return leftoverSession;
@@ -417,9 +417,9 @@ async function openDesktopDatabase(): Promise<PGliteInterface> {
 const UNOPENABLE = ['DatabaseKeyMissingError', 'CorruptStoreError', 'WrongKeyError'];
 
 /**
- * Android with encryption paused (#1435), #1362 in reverse. The app lock goes first, quietly:
- * it gates the database key. The encrypted store an older build left is opened once with its
- * key and its unsynced changes counted. With none, it is deleted with the sealed query cache
+ * Android with encryption off (#1435), #1362 in reverse: after opting out, or on a v2.73.14-17
+ * install that never opted in. The app lock goes first, quietly: it gates the database key.
+ * The encrypted store left behind is opened once with its key and its unsynced changes counted. With none, it is deleted with the sealed query cache
  * and the sealed unload copies of edits, and the plain database opens and fills through the
  * first sync. With some, this launch runs on it (isLeftoverSession), so the sync sends them.
  * A missing key or a store that won't open is deleted too; one whose changes can't be
@@ -440,17 +440,17 @@ async function leaveEncryptedStore(): Promise<PGliteInterface | null> {
     const { countUnsyncedChanges } = await import('./queries/syncRecords');
     const unsynced = await countUnsyncedChanges(encrypted);
     if (unsynced > 0) {
-      console.warn(`[DB] The encrypted store an older build left has ${unsynced} unsynced changes; opening it to sync them`);
+      console.warn(`[DB] The encrypted store left behind has ${unsynced} unsynced changes; opening it to sync them`);
       leftoverSession = true;
       return encrypted;
     }
   } catch (err) {
     if (!(err instanceof Error && UNOPENABLE.includes(err.name))) {
-      console.warn('[DB] Could not count the changes in the encrypted store an older build left; keeping it:', err);
+      console.warn('[DB] Could not count the changes in the encrypted store left behind; keeping it:', err);
       await encrypted?.close().catch(() => {});
       return null;
     }
-    console.warn('[DB] The encrypted store an older build left can\'t be opened; deleting it:', err);
+    console.warn('[DB] The encrypted store left behind can\'t be opened; deleting it:', err);
   }
   await encrypted?.close().catch(() => {});
   try {
@@ -463,14 +463,14 @@ async function leaveEncryptedStore(): Promise<PGliteInterface | null> {
     removeSealedCopies();
   } catch (err) {
     // A later launch tries again.
-    console.warn('[DB] Could not delete the encrypted store an older build left:', err);
+    console.warn('[DB] Could not delete the encrypted store left behind:', err);
   }
   return null;
 }
 
 async function initDatabase(): Promise<PGliteInterface> {
   if (usesEncryptedDatabase()) return openDesktopDatabase();
-  if (encryptionPaused()) {
+  if (encryptionOff()) {
     const leftover = await leaveEncryptedStore();
     if (leftover) return leftover;
   }

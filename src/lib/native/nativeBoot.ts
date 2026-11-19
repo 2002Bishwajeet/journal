@@ -19,7 +19,7 @@ export async function prepareNativeBoot(showBootError: () => void): Promise<bool
         reportBootError(err instanceof Error ? err : new Error(`Couldn't read the sign-in from the system keychain: ${String(err)}`));
         return false;
     }
-    // Android with encryption paused (#1435) keeps the sign-in in the keychain, the rest plain.
+    // Android with encryption off (#1435) keeps the sign-in in the keychain, the rest plain.
     if (!usesEncryptedDatabase()) return true;
     try {
         removePlaintextLeftovers();

@@ -59,7 +59,7 @@ export async function sealPlaintextCopies(): Promise<void> {
     }));
 }
 
-/** Android, once encryption is paused (#1435): the sealed copies, whose key goes with the encrypted store. */
+/** Android, once encryption is off (#1435): the sealed copies, whose key goes with the encrypted store. */
 export function removeSealedCopies(): void {
     for (const docId of unsavedEditDocIds()) {
         if (readString(KEY_PREFIX + docId)?.startsWith(SEALED_PREFIX)) removeKey(KEY_PREFIX + docId);
