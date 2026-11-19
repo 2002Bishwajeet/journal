@@ -16,11 +16,12 @@ fn main() {
             .commands(&["set_style"])
             .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
     )
-    // The desktop database key (db_key.rs, #1361), granted at runtime to the app's origin only.
+    // The desktop database key (db_key.rs, #1361) and its app lock (#1363), granted at runtime
+    // to the app's origin only.
     .plugin(
         "journal-db-key",
         tauri_build::InlinedPlugin::new()
-            .commands(&["database_key", "reset_database_key"])
+            .commands(&["database_key", "reset_database_key", "security_status", "set_app_lock", "lock_database"])
             .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
     );
     let mut names = Vec::new();
