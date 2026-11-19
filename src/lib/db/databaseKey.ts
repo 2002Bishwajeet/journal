@@ -75,7 +75,7 @@ let passphraseDevice = false;
 export function setPassphrase(value: string): void {
   passphrase = value;
   // What a wrong passphrase's key sealed isn't for this one.
-  storeKey = null;
+  awaitNextStoreKey();
 }
 
 /** This device's key comes from a passphrase, so the worker's WrongKeyError means a wrong one. */
@@ -104,8 +104,15 @@ async function loadKeyBytes(): Promise<Uint8Array<ArrayBuffer>> {
   return Uint8Array.from(answer.key);
 }
 
-/** Set with the database's key, for the rest of this page. */
-let storeKey: CryptoKey | null = null;
+/** The store key of loadDatabaseKey's latest attempt; before its first, one that waits for it. */
+let storeKey!: Promise<CryptoKey>;
+let settleStoreKey!: (key: Promise<CryptoKey>) => void;
+function awaitNextStoreKey(): void {
+  storeKey = new Promise((resolve) => { settleStoreKey = resolve; });
+  // Its error reaches whoever waits; nobody waiting is fine.
+  storeKey.catch(() => {});
+}
+awaitNextStoreKey();
 
 /** The AES-GCM key of the web view's other stores (#1429), kept apart from the database's by HKDF. */
 async function deriveStoreKey(bytes: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
@@ -127,23 +134,22 @@ async function deriveStoreKey(bytes: Uint8Array<ArrayBuffer>): Promise<CryptoKey
  */
 export async function loadDatabaseKey(): Promise<CryptoKey | null> {
   if (!usesEncryptedDatabase()) return null;
-  const bytes = await loadKeyBytes();
-  storeKey = await deriveStoreKey(bytes);
+  const bytes = loadKeyBytes();
+  const derived = bytes.then(deriveStoreKey);
+  derived.catch(() => {});
+  settleStoreKey(derived);
+  storeKey = derived;
+  await derived;
   const { importKek } = await import('pglite-cipher');
   // importKek zeroes the bytes once it has the key.
-  return importKek(bytes);
+  return importKek(await bytes);
 }
 
 /**
  * The key that seals the query cache and the unload copies of edits (#1429, sealed.ts), from
- * the same keychain key. Without `askKeychain` (the app lock is on) it never asks the owner
- * itself: it refuses until the database's unlock.
+ * the same keychain key. It never asks the keychain itself, so the owner sees one Touch ID or
+ * Windows Hello prompt: it waits for the database's loadDatabaseKey and fails with it.
  */
-export async function loadStoreKey(askKeychain: boolean): Promise<CryptoKey> {
-  if (storeKey) return storeKey;
-  if (!askKeychain) throw new DatabaseLockedError('locked');
-  const bytes = await loadKeyBytes();
-  storeKey = await deriveStoreKey(bytes);
-  bytes.fill(0);
+export function loadStoreKey(): Promise<CryptoKey> {
   return storeKey;
 }

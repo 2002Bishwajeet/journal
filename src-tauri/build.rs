@@ -29,6 +29,8 @@ fn main() {
                 "lock_database",
                 "auth_secrets",
                 "set_auth_secret",
+                "clear_auth_secrets",
+                "close_flushed",
             ])
             .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
     );

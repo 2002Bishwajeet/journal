@@ -716,8 +716,18 @@ describe('desktop recovery and the plain database an older build left (#1362)', 
     const { getDatabase } = await loadDatabaseModule();
     await expect(getDatabase()).rejects.toThrow('missing from the system keychain');
 
+    const items = new Map([['journal-unsaved-edits:note-1', 'sealed:AAAA'], ['journal-theme-preference', 'dark']]);
+    vi.stubGlobal('localStorage', {
+      get length() { return items.size; },
+      key: (i: number) => [...items.keys()][i] ?? null,
+      getItem: (key: string) => items.get(key) ?? null,
+      removeItem: (key: string) => void items.delete(key),
+    });
     const { resetLocalData } = await import('../lib/db/localReset');
     await resetLocalData();
+    // The unload copies, sealed with the old key, go too; other settings stay (#1429).
+    expect(localStorage.getItem('journal-unsaved-edits:note-1')).toBeNull();
+    expect(localStorage.getItem('journal-theme-preference')).toBe('dark');
 
     const deletes = mocks.events.filter((event) => event.startsWith('delete:'));
     expect(deletes).toEqual(['delete:journal-data.a', 'delete:journal-data.b', PLAIN, LEGACY]);

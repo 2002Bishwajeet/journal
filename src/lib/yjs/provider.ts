@@ -59,21 +59,30 @@ export class PGliteProvider {
     }
 
     private handlePageHide = (): void => {
-        this.saveUnsavedEdits();
+        void this.saveUnsavedEdits();
         void this.flush();
     };
 
     private handleVisibilityChange = (): void => {
         if (document.visibilityState !== 'hidden') return;
-        this.saveUnsavedEdits();
+        void this.saveUnsavedEdits();
         void this.flush();
     };
 
-    private saveUnsavedEdits(): void {
-        if (this.sessionUpdates.length === 0) return;
+    private saveUnsavedEdits(): Promise<void> {
+        if (this.sessionUpdates.length === 0) return Promise.resolve();
         this.sessionUpdates = [Y.mergeUpdates(this.sessionUpdates)];
-        saveUnsavedEdits(this.docId, this.sessionUpdates[0]);
         this.hasUnsavedCopy = true;
+        return saveUnsavedEdits(this.docId, this.sessionUpdates[0]);
+    }
+
+    /** A desktop window is closing (#1429, closeFlush.ts): every open note's unload copy is written. */
+    static async saveAllBeforeClose(): Promise<void> {
+        await Promise.all([...PGliteProvider.live].map((provider) => {
+            const saved = provider.saveUnsavedEdits();
+            void provider.flush();
+            return saved;
+        }));
     }
 
     /**

@@ -19,22 +19,44 @@ const SEALED_PREFIX = 'sealed:';
 let discarded = false;
 
 /**
- * The native app seals the copy, which takes a moment: it lands when the app goes to the
- * background (visibilitychange), and may miss a window closing at once.
+ * Each note's latest save or removal. A seal that finishes after a newer one started (or
+ * after the copy was removed) writes nothing.
  */
-export function saveUnsavedEdits(docId: string, update: Uint8Array): void {
+const generations = new Map<string, number>();
+const nextGeneration = (key: string) => {
+    const generation = (generations.get(key) ?? 0) + 1;
+    generations.set(key, generation);
+    return generation;
+};
+
+/**
+ * The native app seals the copy, which takes a moment: it lands when the app goes to the
+ * background (visibilitychange), and a closing desktop window waits for it (closeFlush.ts).
+ * Resolves once the copy is written, or wasn't (logged).
+ */
+export async function saveUnsavedEdits(docId: string, update: Uint8Array): Promise<void> {
     if (discarded) return;
     const key = KEY_PREFIX + docId;
     if (!usesEncryptedDatabase()) {
         writeString(key, uint8ArrayToBase64(update));
         return;
     }
-    import('@/lib/db/sealed')
-        .then(({ seal }) => seal(update as Uint8Array<ArrayBuffer>, key))
-        .then((sealed) => {
-            if (!discarded) writeString(key, SEALED_PREFIX + uint8ArrayToBase64(sealed));
-        })
-        .catch((err: unknown) => console.warn('[unsavedEdits] Could not seal the unload copy:', err));
+    const generation = nextGeneration(key);
+    try {
+        const { seal } = await import('@/lib/db/sealed');
+        const sealed = await seal(update as Uint8Array<ArrayBuffer>, key);
+        if (!discarded && generations.get(key) === generation) writeString(key, SEALED_PREFIX + uint8ArrayToBase64(sealed));
+    } catch (err) {
+        console.warn('[unsavedEdits] Could not seal the unload copy:', err);
+    }
+}
+
+/** The native app: seals the plaintext copies an older build left (#1429), once the database's key is in. */
+export async function sealPlaintextCopies(): Promise<void> {
+    await Promise.all(unsavedEditDocIds().map((docId) => {
+        const stored = readString(KEY_PREFIX + docId);
+        return stored && !stored.startsWith(SEALED_PREFIX) ? saveUnsavedEdits(docId, base64ToUint8Array(stored)) : undefined;
+    }));
 }
 
 /** Null too for a sealed copy the store key can't open (the app is locked). */
@@ -53,6 +75,7 @@ export async function removeUnsavedEdits(docId: string, copy?: Uint8Array): Prom
         const stored = await readUnsavedEdits(docId);
         if (!stored || uint8ArrayToBase64(stored) !== uint8ArrayToBase64(copy)) return;
     }
+    nextGeneration(KEY_PREFIX + docId);
     removeKey(KEY_PREFIX + docId);
 }
 

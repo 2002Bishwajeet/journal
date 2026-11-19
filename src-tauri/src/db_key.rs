@@ -8,17 +8,23 @@
 //! instead, and the page derives the key from a passphrase.
 //!
 //! The Homebase sign-in (the app's shared secret and token) is in a second entry (#1429):
-//! `auth_secrets` and `set_auth_secret`, read at boot by src/lib/native/secureStorage.ts in
-//! place of localStorage.
+//! `auth_secrets`, `set_auth_secret` and `clear_auth_secrets`, read at boot by
+//! src/lib/native/secureStorage.ts in place of localStorage.
+//!
+//! Closing a desktop window waits up to `CLOSE_FLUSH_TIMEOUT` for its page to seal its unload
+//! copies of edits (#1429): `close_flushed` is the page's answer.
 
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::mpsc;
 use std::sync::Mutex;
+use std::time::Duration;
 
 use serde::Serialize;
 use tauri::plugin::{Builder, TauriPlugin};
-use tauri::{AppHandle, Manager, Runtime};
+use tauri::{AppHandle, Emitter, Manager, Runtime};
 
 use crate::app_lock::{parent_window, Authenticator, Refusal};
 
@@ -70,6 +76,8 @@ trait Keychain: Send + Sync {
     /// The stored key, or `None` when there is no entry.
     fn get(&self) -> Result<Option<Vec<u8>>, KeychainError>;
     fn set(&self, key: &[u8]) -> Result<(), String>;
+    /// Deletes the entry; no entry is fine.
+    fn delete(&self) -> Result<(), String>;
 }
 
 /// An OS keychain entry of the app identifier.
@@ -139,6 +147,13 @@ impl Keychain for OsKeychain {
             .map_err(|e| e.to_string())?
             .set_secret(key)
             .map_err(|e| e.to_string())
+    }
+
+    fn delete(&self) -> Result<(), String> {
+        match self.entry().map_err(|e| e.to_string())?.delete_credential() {
+            Ok(()) | Err(keyring_core::Error::NoEntry) => Ok(()),
+            Err(e) => Err(e.to_string()),
+        }
     }
 }
 
@@ -235,6 +250,7 @@ struct KeyState {
     answer: Mutex<Option<DatabaseKey>>,
     /// The sign-in's entry, and the lock for its read-modify-write (two windows can write).
     secrets: Mutex<Box<dyn Keychain>>,
+    closing: CloseGate,
 }
 
 /// `database_key`: with the app lock on, the owner confirms before the keychain is read.
@@ -339,11 +355,28 @@ enum AuthSecrets {
     Unavailable,
 }
 
+/// The only keys the entry keeps: Journal's STORAGE_KEY_SHARED_SECRET and STORAGE_KEY_AUTH_TOKEN
+/// (src/lib/homebase/config.ts). odin-js's peer tokens stay in the page's memory: they grow
+/// with every collaborator, and Windows refuses an entry over 2560 bytes.
+const SIGN_IN_KEYS: [&str; 2] = ["APSS", "BX0900"];
+/// The longest value kept. Both are a few dozen characters; with this cap the entry stays far
+/// under Windows' 2560 bytes.
+const MAX_SECRET_LEN: usize = 512;
+
+/// A map an older build wrote with other keys keeps only the sign-in's. One that isn't JSON
+/// at all reads as empty, and the next write replaces it: an error here would sign the user
+/// out for good.
 fn read_secrets(keychain: &dyn Keychain) -> Result<AuthSecrets, String> {
     match keychain.get() {
-        Ok(Some(json)) => serde_json::from_slice(&json)
-            .map(AuthSecrets::Secrets)
-            .map_err(|e| e.to_string()),
+        Ok(Some(json)) => {
+            let mut secrets: BTreeMap<String, String> = serde_json::from_slice(&json)
+                .unwrap_or_else(|e| {
+                    eprintln!("the sign-in in the keychain isn't JSON, so it's dropped: {e}");
+                    BTreeMap::new()
+                });
+            secrets.retain(|key, _| SIGN_IN_KEYS.contains(&key.as_str()));
+            Ok(AuthSecrets::Secrets(secrets))
+        }
         Ok(None) => Ok(AuthSecrets::Secrets(BTreeMap::new())),
         Err(KeychainError::Unavailable) => Ok(AuthSecrets::Unavailable),
         Err(e) => Err(e.to_string()),
@@ -352,6 +385,15 @@ fn read_secrets(keychain: &dyn Keychain) -> Result<AuthSecrets, String> {
 
 /// Sets one value, or removes it with `None`, keeping the others.
 fn write_secret(keychain: &dyn Keychain, key: String, value: Option<String>) -> Result<(), String> {
+    if !SIGN_IN_KEYS.contains(&key.as_str()) {
+        return Err(format!("{key} isn't kept in the keychain"));
+    }
+    if value
+        .as_ref()
+        .is_some_and(|value| value.len() > MAX_SECRET_LEN)
+    {
+        return Err(format!("{key} is too long for the keychain"));
+    }
     let AuthSecrets::Secrets(mut secrets) = read_secrets(keychain)? else {
         return Err(KeychainError::Unavailable.to_string());
     };
@@ -362,6 +404,10 @@ fn write_secret(keychain: &dyn Keychain, key: String, value: Option<String>) -> 
     keychain.set(&serde_json::to_vec(&secrets).map_err(|e| e.to_string())?)
 }
 
+/// What the other windows hear after a window changed the sign-in: that window's label. They
+/// read `auth_secrets` again (secureStorage.ts).
+const SECRETS_CHANGED: &str = "journal://auth-secrets-changed";
+
 /// Never behind the app lock: the page needs the sign-in to show the lock screen at all.
 #[tauri::command]
 async fn auth_secrets(state: tauri::State<'_, KeyState>) -> Result<AuthSecrets, String> {
@@ -369,20 +415,156 @@ async fn auth_secrets(state: tauri::State<'_, KeyState>) -> Result<AuthSecrets, 
 }
 
 #[tauri::command]
-async fn set_auth_secret(
+async fn set_auth_secret<R: Runtime>(
+    window: tauri::Window<R>,
     state: tauri::State<'_, KeyState>,
     key: String,
     value: Option<String>,
 ) -> Result<(), String> {
-    write_secret(state.secrets.lock().unwrap().as_ref(), key, value)
+    write_secret(state.secrets.lock().unwrap().as_ref(), key, value)?;
+    let _ = window.emit(SECRETS_CHANGED, window.label());
+    Ok(())
+}
+
+/// Sign-out: deletes the whole entry.
+#[tauri::command]
+async fn clear_auth_secrets<R: Runtime>(
+    window: tauri::Window<R>,
+    state: tauri::State<'_, KeyState>,
+) -> Result<(), String> {
+    state.secrets.lock().unwrap().delete()?;
+    let _ = window.emit(SECRETS_CHANGED, window.label());
+    Ok(())
+}
+
+/// How long closing a desktop window waits for its page to seal its unload copies of edits.
+#[cfg(desktop)]
+const CLOSE_FLUSH_TIMEOUT: Duration = Duration::from_millis(1500);
+/// What a closing window's page hears; it answers with `close_flushed`.
+#[cfg(desktop)]
+const FLUSH_BEFORE_CLOSE: &str = "journal://flush-before-close";
+
+/// The windows whose close waits for their page, by label.
+#[derive(Default)]
+struct CloseGate(Mutex<HashMap<String, Closing>>);
+
+enum Closing {
+    /// The page was asked to flush; this hears its answer.
+    Waiting(mpsc::Sender<()>),
+    /// The page answered, or the wait ran out: the next close request goes through.
+    Released,
+}
+
+/// What a close request does.
+#[cfg_attr(mobile, allow(dead_code))]
+enum CloseRequest {
+    /// Hold the close, ask the page, and close again once this hears back or times out.
+    Wait(mpsc::Receiver<()>),
+    /// A close is already waiting for the page: hold this one too.
+    Hold,
+    /// Let it close.
+    Go,
+}
+
+#[cfg_attr(mobile, allow(dead_code))]
+impl CloseGate {
+    fn requested(&self, label: &str) -> CloseRequest {
+        let mut windows = self.0.lock().unwrap();
+        match windows.remove(label) {
+            Some(Closing::Released) => CloseRequest::Go,
+            Some(waiting) => {
+                windows.insert(label.to_owned(), waiting);
+                CloseRequest::Hold
+            }
+            None => {
+                let (answer, heard) = mpsc::channel();
+                windows.insert(label.to_owned(), Closing::Waiting(answer));
+                CloseRequest::Wait(heard)
+            }
+        }
+    }
+
+    fn flushed(&self, label: &str) {
+        if let Some(Closing::Waiting(answer)) = self.0.lock().unwrap().get(label) {
+            let _ = answer.send(());
+        }
+    }
+
+    /// After the wait: the close that follows goes through.
+    fn release(&self, label: &str) {
+        self.0
+            .lock()
+            .unwrap()
+            .insert(label.to_owned(), Closing::Released);
+    }
+}
+
+/// Waits for the page's answer, at most `timeout`, so a page that never answers can't keep the
+/// window open.
+#[cfg(desktop)]
+fn wait_for_flush(heard: &mpsc::Receiver<()>, timeout: Duration) -> bool {
+    heard.recv_timeout(timeout).is_ok()
+}
+
+/// The page sealed its unload copies: its window can close.
+#[tauri::command]
+async fn close_flushed<R: Runtime>(
+    window: tauri::Window<R>,
+    state: tauri::State<'_, KeyState>,
+) -> Result<(), String> {
+    state.closing.flushed(window.label());
+    Ok(())
+}
+
+/// A window's close waits for its page (`CLOSE_FLUSH_TIMEOUT` at most), then closes again.
+/// Another plugin may still keep the window (the menu bar app hides it instead).
+#[cfg(desktop)]
+fn on_close_requested<R: Runtime>(app: &AppHandle<R>, label: &str, api: &tauri::CloseRequestApi) {
+    let Some(state) = app.try_state::<KeyState>() else {
+        return;
+    };
+    let heard = match state.closing.requested(label) {
+        CloseRequest::Go => return,
+        CloseRequest::Hold => {
+            api.prevent_close();
+            return;
+        }
+        CloseRequest::Wait(heard) => heard,
+    };
+    api.prevent_close();
+    let _ = app.emit_to(
+        tauri::EventTarget::webview_window(label),
+        FLUSH_BEFORE_CLOSE,
+        (),
+    );
+    let app = app.clone();
+    let label = label.to_owned();
+    std::thread::spawn(move || {
+        wait_for_flush(&heard, CLOSE_FLUSH_TIMEOUT);
+        app.state::<KeyState>().closing.release(&label);
+        match app.get_webview_window(&label) {
+            Some(window) => {
+                let _ = window.close();
+            }
+            None => {
+                app.state::<KeyState>()
+                    .closing
+                    .0
+                    .lock()
+                    .unwrap()
+                    .remove(&label);
+            }
+        }
+    });
 }
 
 /// Only the app's own page, `http://localhost:{PORT}`, may ask for the key. A dev build also
 /// allows its dev server (`devUrl`, Tauri's local origin there); a release build allows no
-/// local origin at all.
+/// local origin at all. Every window may listen for events: the quick capture window has no
+/// other capability, and it hears the main window's sign-in changes and its own close.
 fn capability() -> String {
     format!(
-        r#"{{"identifier":"journal-db-key","windows":["*"],"local":{},"remote":{{"urls":["http://localhost:{}"]}},"permissions":["journal-db-key:default"]}}"#,
+        r#"{{"identifier":"journal-db-key","windows":["*"],"local":{},"remote":{{"urls":["http://localhost:{}"]}},"permissions":["journal-db-key:default","core:event:allow-listen","core:event:allow-unlisten"]}}"#,
         tauri::is_dev(),
         crate::PORT
     )
@@ -400,7 +582,9 @@ fn plugin_with<R: Runtime>(
             set_app_lock,
             lock_database,
             auth_secrets,
-            set_auth_secret
+            set_auth_secret,
+            clear_auth_secrets,
+            close_flushed
         ])
         .setup(move |app, _api| {
             app.manage(KeyState {
@@ -409,9 +593,21 @@ fn plugin_with<R: Runtime>(
                 files: Files::in_dir(app.path().app_data_dir()?),
                 answer: Mutex::new(None),
                 secrets: Mutex::new(keychain(&app.config().identifier, SECRETS_USER)),
+                closing: CloseGate::default(),
             });
             app.add_capability(capability())?;
             Ok(())
+        })
+        .on_event(|_app, _event| {
+            #[cfg(desktop)]
+            if let tauri::RunEvent::WindowEvent {
+                label,
+                event: tauri::WindowEvent::CloseRequested { api, .. },
+                ..
+            } = _event
+            {
+                on_close_requested(_app, label, api);
+            }
         })
         .build()
 }
@@ -470,6 +666,11 @@ mod tests {
             *self.entry.lock().unwrap() = Some(key.to_vec());
             Ok(())
         }
+
+        fn delete(&self) -> Result<(), String> {
+            *self.entry.lock().unwrap() = None;
+            Ok(())
+        }
     }
 
     /// Touch ID that answers `answer` and counts its prompts.
@@ -516,6 +717,10 @@ mod tests {
 
         fn set(&self, key: &[u8]) -> Result<(), String> {
             self.as_ref().set(key)
+        }
+
+        fn delete(&self) -> Result<(), String> {
+            self.as_ref().delete()
         }
     }
 
@@ -685,6 +890,7 @@ mod tests {
             files: scratch.files(),
             answer: Mutex::new(None),
             secrets: Mutex::new(Box::new(MockKeychain::default())),
+            closing: CloseGate::default(),
         }
     }
 
@@ -850,35 +1056,127 @@ mod tests {
         );
         assert!(ipc(&webview, "auth_secrets", "https://example.com/").is_err());
         assert!(ipc(&webview, "auth_secrets", "http://localhost:1234/").is_err());
+        assert!(ipc(&webview, "clear_auth_secrets", "https://example.com/").is_err());
+        assert!(ipc(&webview, "close_flushed", &own).is_ok());
+        assert!(ipc(&webview, "close_flushed", "https://example.com/").is_err());
+    }
+
+    fn secrets_of(keychain: &MockKeychain) -> BTreeMap<String, String> {
+        match read_secrets(keychain).unwrap() {
+            AuthSecrets::Secrets(secrets) => secrets,
+            other => panic!("expected secrets, got {other:?}"),
+        }
     }
 
     #[test]
     fn the_sign_in_secrets_are_set_and_removed_one_at_a_time() {
         let keychain = MockKeychain::default();
-        let secrets = |keychain: &MockKeychain| match read_secrets(keychain).unwrap() {
-            AuthSecrets::Secrets(secrets) => secrets,
-            other => panic!("expected secrets, got {other:?}"),
-        };
-        assert!(secrets(&keychain).is_empty());
+        assert!(secrets_of(&keychain).is_empty());
 
         write_secret(&keychain, "APSS".into(), Some("secret".into())).unwrap();
         write_secret(&keychain, "BX0900".into(), Some("token".into())).unwrap();
         assert_eq!(
-            secrets(&keychain),
+            secrets_of(&keychain),
             BTreeMap::from([
                 ("APSS".to_owned(), "secret".to_owned()),
                 ("BX0900".to_owned(), "token".to_owned())
             ])
         );
 
-        // Sign-out removes them; another key stays.
-        write_secret(&keychain, "odin_peer_token_a".into(), Some("{}".into())).unwrap();
+        // Sign-out removes them, and clearing deletes the entry itself.
         write_secret(&keychain, "APSS".into(), None).unwrap();
-        write_secret(&keychain, "BX0900".into(), None).unwrap();
         assert_eq!(
-            secrets(&keychain),
-            BTreeMap::from([("odin_peer_token_a".to_owned(), "{}".to_owned())])
+            secrets_of(&keychain),
+            BTreeMap::from([("BX0900".to_owned(), "token".to_owned())])
         );
+        keychain.delete().unwrap();
+        assert!(keychain.entry.lock().unwrap().is_none());
+        assert!(secrets_of(&keychain).is_empty());
+    }
+
+    /// Windows refuses a credential over 2560 bytes (CRED_MAX_CREDENTIAL_BLOB_SIZE), and every
+    /// write after that would fail: the entry keeps only the two sign-in values, each capped.
+    #[test]
+    fn the_sign_in_entry_stays_far_under_the_windows_limit() {
+        let keychain = MockKeychain::default();
+        // Peer tokens, one per collaborator, stay out.
+        assert!(write_secret(
+            &keychain,
+            "odin_peer_token_frodo.dotyou.cloud".into(),
+            Some("{}".into())
+        )
+        .is_err());
+        assert!(write_secret(
+            &keychain,
+            "APSS".into(),
+            Some("x".repeat(MAX_SECRET_LEN + 1))
+        )
+        .is_err());
+
+        for key in SIGN_IN_KEYS {
+            write_secret(&keychain, key.into(), Some("x".repeat(MAX_SECRET_LEN))).unwrap();
+        }
+        let stored = keychain.entry.lock().unwrap().clone().unwrap();
+        assert!(stored.len() < 2560 / 2, "{} bytes", stored.len());
+    }
+
+    #[test]
+    fn an_older_entry_keeps_only_the_sign_in_and_a_damaged_one_reads_as_empty() {
+        let keychain = MockKeychain {
+            entry: Mutex::new(Some(
+                br#"{"APSS":"secret","odin_peer_token_a":"{}"}"#.to_vec(),
+            )),
+            ..Default::default()
+        };
+        assert_eq!(
+            secrets_of(&keychain),
+            BTreeMap::from([("APSS".to_owned(), "secret".to_owned())])
+        );
+        write_secret(&keychain, "BX0900".into(), Some("token".into())).unwrap();
+        assert_eq!(
+            keychain.entry.lock().unwrap().clone().unwrap(),
+            br#"{"APSS":"secret","BX0900":"token"}"#.to_vec()
+        );
+
+        // Not JSON: empty, then overwritten by the next write.
+        *keychain.entry.lock().unwrap() = Some(b"\xff not json".to_vec());
+        assert!(secrets_of(&keychain).is_empty());
+        write_secret(&keychain, "APSS".into(), Some("new".into())).unwrap();
+        assert_eq!(
+            secrets_of(&keychain),
+            BTreeMap::from([("APSS".to_owned(), "new".to_owned())])
+        );
+    }
+
+    #[test]
+    fn a_close_waits_for_the_page_once_then_goes_through() {
+        let gate = CloseGate::default();
+        let CloseRequest::Wait(heard) = gate.requested("main") else {
+            panic!("the first close request waits for the page");
+        };
+        // A second click while it waits is held too.
+        assert!(matches!(gate.requested("main"), CloseRequest::Hold));
+        // Another window has its own wait.
+        assert!(matches!(gate.requested("capture"), CloseRequest::Wait(_)));
+
+        gate.flushed("main");
+        assert!(wait_for_flush(&heard, Duration::from_secs(5)));
+        gate.release("main");
+        assert!(matches!(gate.requested("main"), CloseRequest::Go));
+        // The next close (a window the menu bar app kept, shown again) waits again.
+        assert!(matches!(gate.requested("main"), CloseRequest::Wait(_)));
+    }
+
+    #[test]
+    fn a_page_that_never_answers_doesnt_keep_the_window_open() {
+        let gate = CloseGate::default();
+        let CloseRequest::Wait(heard) = gate.requested("main") else {
+            panic!("the first close request waits for the page");
+        };
+        let started = std::time::Instant::now();
+        assert!(!wait_for_flush(&heard, Duration::from_millis(50)));
+        assert!(started.elapsed() < Duration::from_secs(1));
+        assert!(CLOSE_FLUSH_TIMEOUT <= Duration::from_millis(1500));
     }
 
     #[test]

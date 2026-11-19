@@ -1,4 +1,4 @@
-import { RECENT_NOTES_KEY, RECENT_SEARCHES_KEY, readJson, removeKey, writeJson } from '@/lib/storage';
+import { RECENT_NOTES_KEY, RECENT_SEARCHES_KEY, readJson, writeJson } from '@/lib/storage';
 import { usesEncryptedDatabase } from '@/lib/db/databaseKey';
 
 export interface RecentNote {
@@ -27,14 +27,13 @@ const isRecentNote = (item: unknown): item is RecentNote =>
 const isString = (item: unknown): item is string => typeof item === 'string';
 
 // The native app keeps recent searches for this launch only: what you search for is note
-// text, and it writes none outside its encrypted database (#1429). An older build's go.
+// text, and it writes none outside its encrypted database (#1429). Boot deletes an older
+// build's (plaintextLeftovers.ts).
 let searchesThisLaunch: string[] = [];
 
 export const loadRecentNotes = () => load(RECENT_NOTES_KEY, isRecentNote);
 export function loadRecentSearches(): string[] {
-    if (!usesEncryptedDatabase()) return load(RECENT_SEARCHES_KEY, isString);
-    removeKey(RECENT_SEARCHES_KEY);
-    return searchesThisLaunch;
+    return usesEncryptedDatabase() ? searchesThisLaunch : load(RECENT_SEARCHES_KEY, isString);
 }
 
 export const saveRecentNotes = (items: RecentNote[]) =>

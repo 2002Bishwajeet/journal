@@ -16,6 +16,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import './styles/syntax.css'
 import App from './App.tsx'
+import { BootErrorScreen } from './components/layout/SplashScreen'
 
 // Vite fires this when a lazy-loaded chunk fails to fetch/import (stale deploy,
 // missing asset). Recover with a single reload instead of an unhandled rejection.
@@ -72,10 +73,9 @@ const render = () => createRoot(document.getElementById('root')!).render(
 
 // Native app: the Homebase sign-in is in the OS keychain, read before anything asks for it (#1429).
 if (usesEncryptedDatabase()) {
-  import('./lib/native/secureStorage')
-    .then(({ installSecureStorage }) => installSecureStorage())
-    .catch((err: unknown) => console.error('[boot] Could not read the sign-in from the keychain:', err))
-    .finally(render);
+  import('./lib/native/nativeBoot')
+    .then(({ prepareNativeBoot }) => prepareNativeBoot())
+    .then((ready) => ready ? render() : createRoot(document.getElementById('root')!).render(<BootErrorScreen />));
 } else {
   render();
 }

@@ -19,6 +19,8 @@ import { discardAllUnsavedEdits } from '@/lib/yjs/unsavedEdits';
 import { clearSessionHint, setSessionHint } from '@/lib/sessionHint';
 import { markSignedIn } from '@/lib/firstRun';
 import { usesEncryptedDatabase } from '@/lib/db/databaseKey';
+import { QUERY_CACHE_KEY } from '@/lib/queryCache';
+import { del } from 'idb-keyval';
 import { useVerifyToken } from './useVerifyToken';
 import { useOnlineContext } from '../useOnlineContext';
 
@@ -121,6 +123,12 @@ export function useAuth() {
         } catch {
             // Ignore cache errors
         }
+        // The note lists the next identity would otherwise restore (#1429).
+        try {
+            await del(QUERY_CACHE_KEY);
+        } catch (err) {
+            console.warn('[logout] Failed to clear the query cache:', err);
+        }
 
         localStorage.removeItem(STORAGE_KEY_SHARED_SECRET);
         localStorage.removeItem(STORAGE_KEY_AUTH_TOKEN);
@@ -133,8 +141,13 @@ export function useAuth() {
         discardResumeState();
         discardAllUnsavedEdits();
         clearSessionHint();
-        // The native app's keychain write of the removals must land before the reload (#1429).
-        if (usesEncryptedDatabase()) await (await import('@/lib/native/secureStorage')).flushSecureStorage();
+        // The native app deletes its keychain entry, which must be gone before the reload (#1429):
+        // when it can't be, this throws instead, as the reload would sign the revoked token in again.
+        if (usesEncryptedDatabase()) {
+            const { clearSecureStorage, flushSecureStorage } = await import('@/lib/native/secureStorage');
+            clearSecureStorage();
+            await flushSecureStorage();
+        }
 
         window.location.replace('/');
     }, [getDotYouClient]);
