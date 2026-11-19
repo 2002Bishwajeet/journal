@@ -70,6 +70,7 @@ import { useAuth } from "@/hooks/auth";
 import { overlayEntryOpen, useOverlayHistory } from "@/hooks/useOverlayHistory";
 import { useAutoWhatsNew } from "@/hooks/useWhatsNew";
 import WhatsNewDialog from "@/components/modals/WhatsNewDialog";
+import LeftoverResetDialog from "@/components/modals/LeftoverResetDialog";
 import { useFolders, isUnknownFolderRoute, findOrCreateFolderByName } from "@/hooks/useFolders";
 import { useThemePreference } from "@/hooks/useThemePreference";
 import { useEditorAppearance } from "@/hooks/useEditorAppearance";
@@ -573,6 +574,9 @@ export default function JournalLayout() {
 
       {/* Native app: a voice note cut off by a crash or kill is offered again (#1250). */}
       <VoiceDraftOffer />
+
+      {/* Desktop app: the plain database an older build left couldn't sync its changes (#1362). */}
+      <LeftoverResetDialog />
 
       {shareNote && canEdit && (
         <Suspense fallback={null}>

@@ -4,6 +4,7 @@ import { live } from '@electric-sql/pglite/live';
 import type { PGliteWithLive } from '@electric-sql/pglite/live';
 import { reportBootPhase, reportBootError, clearBootError, markBoot } from '../bootProgress';
 import {
+  databaseExists,
   dumpLegacyDatabase,
   retireLegacyDatabase,
   cleanUpLegacyDatabase,
@@ -22,6 +23,10 @@ import { loadDatabaseKey, usesEncryptedDatabase } from './databaseKey';
 // older engines left at 'idb://journal-db'. Using a new dir lets the legacy DB
 // survive until its data has been restored here (see initDatabase).
 const DATA_DIR = 'idb://journal-db-pg18';
+// DATA_DIR's IndexedDB database. In the desktop app it is a plain one an older build left (#1362).
+export const PLAIN_DATABASE = '/pglite/journal-db-pg18';
+// The Postgres 17 database of builds older than PGlite 0.5. The desktop app deletes it unread (#1362).
+export const LEGACY_DATABASE = '/pglite/journal-db';
 const PGLITE_VERSION = '0.5';
 // Marks this data dir as already carrying the legacy data. The version stamp
 // alone can't: anything that resets it (an old-build tab, a rollback, two new
@@ -36,6 +41,21 @@ let retryPromise: Promise<PGliteInterface> | null = null;
 
 // The database worker, stopped when Safari caches the page (see onPageHide).
 let currentWorker: Worker | null = null;
+// Rejects when the current worker's engine could not open its database. Queries wait for an
+// open engine, so without this a damaged encrypted store (#1362) would hold the splash forever.
+let workerOpenFailed: Promise<never> = new Promise(() => {});
+
+// Set when this desktop launch runs on the plain database an older build left (#1362).
+let leftoverSession = false;
+
+/**
+ * Whether this desktop launch runs on the plain database an older build left, because it
+ * has changes that never synced (#1362): this launch's syncs send them, and the first
+ * launch that finds it all synced deletes it and opens the encrypted database.
+ */
+export function isLeftoverSession(): boolean {
+  return leftoverSession;
+}
 
 /**
  * Safari keeps a page it leaves in its back/forward cache with the database worker
@@ -151,6 +171,16 @@ export function bootWithoutLegacyData(): Promise<PGliteInterface> {
 }
 
 /**
+ * Closes the database for the rest of this page: every later getDatabase() waits for the
+ * reload that follows. For the reset (#1362), which deletes the database under it.
+ */
+export async function shutDownDatabase(): Promise<void> {
+  const previous = dbPromise;
+  dbPromise = new Promise(() => {});
+  await previous?.then((db) => db.close()).catch(() => {});
+}
+
+/**
  * Same singleton instance as getDatabase(), typed with the `live` extension
  * so callers can use PGlite live queries (db.live.incrementalQuery).
  */
@@ -185,10 +215,9 @@ export function flushToIndexedDb(): Promise<void> {
  * been flushed to IndexedDB, which is much faster but means committed data can
  * be lost in a crash. Pass false for a launch that cannot afford that.
  */
-async function createWorkerInstance(relaxedDurability = true): Promise<PGliteInterface> {
+async function createWorkerInstance(relaxedDurability = true, key: CryptoKey | null = null): Promise<PGliteInterface> {
   // The desktop app's database is encrypted (#1361): the worker opens its own store with
   // this key instead of DATA_DIR.
-  const key = await loadDatabaseKey();
   const options: Record<string, unknown> = {
     ...(key ? { key } : { dataDir: DATA_DIR }),
     // Forwarded to the worker's init(), which passes it to the engine.
@@ -209,6 +238,15 @@ async function createWorkerInstance(relaxedDurability = true): Promise<PGliteInt
   currentWorker.addEventListener('message', (event: MessageEvent<{ type?: string; step: string; at: number }>) => {
     if (event.data?.type === 'journal-boot-mark') markBoot(event.data.step, event.data.at - performance.timeOrigin);
   });
+  const worker = currentWorker;
+  workerOpenFailed = new Promise<never>((_, reject) => {
+    worker.addEventListener('message', (event: MessageEvent<{ type?: string; name: string; message: string }>) => {
+      if (event.data?.type !== 'journal-open-error') return;
+      reject(Object.assign(new Error(event.data.message), { name: event.data.name }));
+    });
+  });
+  // Handled where a boot waits on it; a failure nobody waits for must not be unhandled.
+  workerOpenFailed.catch(() => {});
   return PGliteWorker.create(currentWorker, options).then((db) => {
     // WASM fetched + compiled and the worker leader elected — the slowest
     // step of a cold boot, reported for the splash progress bar.
@@ -309,15 +347,65 @@ async function migrateLegacyDatabase(): Promise<PGliteInterface | null> {
   return null;
 }
 
+/** A worker on the plain DATA_DIR, or with a key on the encrypted store, with the schema set up. */
+async function openWorkerDatabase(key: CryptoKey | null): Promise<PGliteInterface> {
+  const db = await createWorkerInstance(true, key);
+  try {
+    await Promise.race([initializeSchema(db), workerOpenFailed]);
+  } catch (err) {
+    // Don't leak the worker: a retry would add a second one.
+    await db.close().catch(() => {});
+    throw err;
+  }
+  return db;
+}
+
+/**
+ * The desktop app's database (#1361, #1362). A plain database an older build left is
+ * deleted once the encrypted one is open, and so is the older Postgres 17 one, unread. If it has changes that never synced, this launch
+ * runs on it instead, so the sync sends them first (isLeftoverSession). Its data is never
+ * copied into the encrypted database, which starts empty and syncs from Homebase.
+ */
+async function openDesktopDatabase(): Promise<PGliteInterface> {
+  let leftover = false;
+  if (await databaseExists([PLAIN_DATABASE])) {
+    let plain: PGliteInterface | null = null;
+    try {
+      plain = await openWorkerDatabase(null);
+      const { countUnsyncedChanges } = await import('./queries/syncRecords');
+      const unsynced = await countUnsyncedChanges(plain);
+      if (unsynced > 0) {
+        console.warn(`[DB] The plain database an older build left has ${unsynced} unsynced changes; opening it to sync them`);
+        leftoverSession = true;
+        return plain;
+      }
+      leftover = true;
+    } catch (err) {
+      // Its changes can't be counted, so it is kept. A later launch tries again.
+      console.warn('[DB] Could not read the plain database an older build left; keeping it:', err);
+    }
+    await plain?.close().catch(() => {});
+  }
+  const db = await openWorkerDatabase(await loadDatabaseKey());
+  if (leftover) {
+    const { deleteLocalDatabase } = await import('./localReset');
+    deleteLocalDatabase(PLAIN_DATABASE).catch((err) => console.warn('[DB] Could not delete the plain database:', err));
+  }
+  // Its notes are on Homebase and this engine can't open it, so it is deleted without a sync.
+  if (await databaseExists([LEGACY_DATABASE])) {
+    const { deleteLocalDatabase } = await import('./localReset');
+    deleteLocalDatabase(LEGACY_DATABASE).catch((err) => console.warn('[DB] Could not delete the legacy database:', err));
+  }
+  return db;
+}
+
 async function initDatabase(): Promise<PGliteInterface> {
-  // The encrypted database starts empty and syncs from Homebase: no plain database is
-  // migrated into it, cleaned up or stamped here (older native builds' data is #1362's).
-  const encrypted = usesEncryptedDatabase();
+  if (usesEncryptedDatabase()) return openDesktopDatabase();
   // Two tabs booting on legacy data would each open the legacy dir with their
   // own engine, and the first to finish would delete it under the other. The
   // lock lets one migrate; the rest re-read the stamp inside it and fall
   // through. Already-migrated boots never wait on it.
-  if (!encrypted && getStoredPGliteVersion() !== PGLITE_VERSION && !legacyMigrationSkipped()) {
+  if (getStoredPGliteVersion() !== PGLITE_VERSION && !legacyMigrationSkipped()) {
     const migrated = navigator.locks
       ? await navigator.locks.request(MIGRATION_LOCK, migrateLegacyDatabase)
       : await migrateLegacyDatabase();
@@ -327,7 +415,7 @@ async function initDatabase(): Promise<PGliteInterface> {
   const storedVersion = getStoredPGliteVersion();
   const skipped = legacyMigrationSkipped();
 
-  if (!encrypted && storedVersion === PGLITE_VERSION) {
+  if (storedVersion === PGLITE_VERSION) {
     // The migration's own delete of the legacy DB is blocked by the tab's open
     // IndexedDB connection to it, so it outlives the migration. A launch that
     // never opens it can finish the job — off the boot path, failures logged.
@@ -339,7 +427,7 @@ async function initDatabase(): Promise<PGliteInterface> {
   try {
     // Leave the stamp alone for a skipped migration: the legacy data is still
     // there, waiting, and must not look like it was migrated.
-    if (!skipped && !encrypted) setStoredPGliteVersion(PGLITE_VERSION);
+    if (!skipped) setStoredPGliteVersion(PGLITE_VERSION);
     console.log('[DB] PGlite worker ready, initializing schema...');
     await initializeSchema(db);
     console.log('[DB] Schema initialized');

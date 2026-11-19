@@ -16,6 +16,8 @@ const mocks = {
   pgliteArgs: [] as Array<Record<string, unknown>>,
   flushLog: [] as string[],
   cipherLoads: 0,
+  // What the engine fails to open its database with.
+  openError: null as Error | null,
 };
 
 /** Loads pglite-worker.ts with the engine and worker runtime stubbed out. */
@@ -30,7 +32,7 @@ async function loadWorkerInit(): Promise<InitFn> {
   vi.doMock('@electric-sql/pglite', () => ({
     PGlite: class FakePGlite {
       static defaultStartParams = ['--single'];
-      waitReady = Promise.resolve();
+      waitReady = mocks.openError ? Promise.reject(mocks.openError) : Promise.resolve();
       constructor(options: Record<string, unknown>) {
         mocks.pgliteArgs.push(options);
       }
@@ -77,6 +79,7 @@ async function loadWorkerInit(): Promise<InitFn> {
 
 beforeEach(() => {
   mocks.pgliteArgs = [];
+  mocks.openError = null;
   // The worker posts its boot timing marks to the page.
   vi.stubGlobal('postMessage', vi.fn());
   // ...and listens for the page's flush requests (#833).
@@ -135,6 +138,17 @@ describe('pglite worker init', () => {
       key,
       mode: 'open-or-create',
     });
+  });
+
+  it("tells the page why the engine couldn't open the database, as its queries would wait forever (#1362)", async () => {
+    mocks.openError = Object.assign(new Error('a record was changed'), { name: 'CorruptStoreError' });
+    const init = await loadWorkerInit();
+
+    await init({ key: { type: 'secret' } as CryptoKey });
+    await Promise.resolve();
+
+    expect(postMessage).toHaveBeenCalledWith({ type: 'journal-open-error', name: 'CorruptStoreError', message: 'a record was changed' });
+    expect(postMessage).not.toHaveBeenCalledWith(expect.objectContaining({ step: 'db-open' }));
   });
 
   it('answers a flush request with a strict sync of the encrypted store (#1361)', async () => {

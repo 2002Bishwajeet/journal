@@ -28,10 +28,19 @@ const mocks = {
   skipOk: true,
   // The desktop app's database_key answer (#1361).
   keyAnswer: { key: Array<number>(32).fill(7) } as { key: number[] } | 'missing',
+  // The plain database an older desktop build left (#1362): absent, or its unsynced changes.
+  plainUnsynced: null as number | null,
+  plainUnreadable: false,
+  // The PG17 database of builds older than PGlite 0.5 is present.
+  legacyPresent: false,
+  // What the worker's engine fails to open the encrypted store with.
+  encryptedOpenError: null as string | null,
 };
 
 /** Fake PGliteWorker instance: records the steps the migration depends on. */
-function fakeDb() {
+function fakeDb(kind: 'plain' | 'encrypted' = 'plain') {
+  // A worker whose engine couldn't open its store never answers a query.
+  const hangs = kind === 'encrypted' && mocks.encryptedOpenError !== null;
   const tx = {
     query: async (sql: string) => {
       if (sql.includes('to_regclass')) return { rows: [{ present: mocks.markerPresent }] };
@@ -50,12 +59,20 @@ function fakeDb() {
   return {
     transaction: async <T>(callback: (tx: unknown) => Promise<T>) => callback(tx),
     exec: async (sql: string) => {
+      if (hangs) return new Promise(() => {});
       if (sql.includes('RESET search_path')) mocks.events.push('reset');
       // initializeSchema's first statement — the seam for a post-worker failure.
       if (sql.includes('schema_meta') && mocks.schemaError) throw mocks.schemaError;
+      if (sql.includes('schema_meta')) mocks.events.push(`schema:${kind}`);
       return [];
     },
-    query: async () => ({ rows: [] }),
+    query: async (sql: string) => {
+      if (sql.includes('AS unsynced')) {
+        if (mocks.plainUnreadable) throw new Error('simulated unreadable plain database');
+        return { rows: [{ unsynced: mocks.plainUnsynced }] };
+      }
+      return { rows: [] };
+    },
     close: async () => void mocks.events.push('close'),
     isLeader: true,
     waitReady: Promise.resolve(),
@@ -82,6 +99,9 @@ async function loadDatabaseModule() {
       return mocks.skipOk;
     },
     legacyMigrationSkipped: () => mocks.skipped,
+    databaseExists: async (names: string[]) =>
+      (names.includes('/pglite/journal-db-pg18') && mocks.plainUnsynced !== null) ||
+      (names.includes('/pglite/journal-db') && mocks.legacyPresent),
     getStoredPGliteVersion: () => mocks.storedVersion,
     setStoredPGliteVersion: (version: string) => {
       // Mirrors the real helper: the next read sees the new stamp.
@@ -95,7 +115,12 @@ async function loadDatabaseModule() {
       create: async (worker: EventTarget, options: Record<string, unknown>) => {
         mocks.worker = worker;
         mocks.workerOptions.push(options);
-        return fakeDb();
+        const kind = options.key ? 'encrypted' : 'plain';
+        if (kind === 'encrypted' && mocks.encryptedOpenError) {
+          const data = { type: 'journal-open-error', name: mocks.encryptedOpenError, message: 'simulated open failure' };
+          setTimeout(() => worker.dispatchEvent(new MessageEvent('message', { data })));
+        }
+        return fakeDb(kind);
       },
     },
   }));
@@ -110,6 +135,7 @@ async function loadDatabaseModule() {
   vi.doMock('@tauri-apps/api/core', () => ({
     invoke: async (command: string) => {
       mocks.events.push(`invoke:${command}`);
+      if (command.endsWith('reset_database_key')) mocks.keyAnswer = { key: Array<number>(32).fill(8) };
       return mocks.keyAnswer;
     },
   }));
@@ -138,10 +164,23 @@ beforeEach(() => {
   mocks.restoreError = null;
   mocks.schemaError = null;
   mocks.markerPresent = false;
+  mocks.legacyPresent = false;
   mocks.skipped = false;
   mocks.preserveOk = true;
   mocks.skipOk = true;
   mocks.keyAnswer = { key: Array<number>(32).fill(7) };
+  mocks.plainUnsynced = null;
+  mocks.plainUnreadable = false;
+  mocks.encryptedOpenError = null;
+  // pglite-cipher's IndexedDbBackend.destroy() deletes through this.
+  vi.stubGlobal('indexedDB', {
+    deleteDatabase: (name: string) => {
+      mocks.events.push(`delete:${name}`);
+      const request: { onsuccess?: () => void } = {};
+      setTimeout(() => request.onsuccess?.());
+      return request;
+    },
+  });
   // pglite.ts constructs a Worker before PGliteWorker.create sees it.
   page = new EventTarget();
   vi.stubGlobal('addEventListener', page.addEventListener.bind(page));
@@ -540,5 +579,154 @@ describe('desktop app encryption (#1361)', () => {
 
     expect(mocks.workerOptions).toEqual([]);
     expect(mocks.events).toContain('boot-error');
+  });
+});
+
+describe('desktop recovery and the plain database an older build left (#1362)', () => {
+  const onDesktop = () => vi.stubGlobal('window', { __JOURNAL_NATIVE__: { platform: 'macos' }, __TAURI_INTERNALS__: {} });
+  const PLAIN = 'delete:/pglite/journal-db-pg18';
+  const LEGACY = 'delete:/pglite/journal-db';
+  // Long enough for a fire-and-forget delete to have started.
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
+
+  type Key = 'present' | 'missing' | 'corrupt';
+  type Outcome = 'open encrypted' | 'open plain to sync it' | 'reset prompt';
+
+  // key × leftover plain database (none / 0 unsynced changes / > 0) → what the boot does.
+  const table: Array<[Key, number | null, Outcome, boolean]> = [
+    ['present', null, 'open encrypted', false],
+    ['present', 0, 'open encrypted', true],
+    ['present', 3, 'open plain to sync it', false],
+    ['missing', null, 'reset prompt', false],
+    ['missing', 0, 'reset prompt', false],
+    ['missing', 3, 'open plain to sync it', false],
+    ['corrupt', null, 'reset prompt', false],
+    ['corrupt', 0, 'reset prompt', false],
+    ['corrupt', 3, 'open plain to sync it', false],
+  ];
+
+  it.each(table)('key %s, leftover with %s unsynced changes: %s (deletes the plain database: %s)', async (key, unsynced, outcome, deletes) => {
+    onDesktop();
+    mocks.plainUnsynced = unsynced;
+    if (key === 'missing') mocks.keyAnswer = 'missing';
+    if (key === 'corrupt') mocks.encryptedOpenError = 'CorruptStoreError';
+    const { getDatabase, isLeftoverSession } = await loadDatabaseModule();
+
+    if (outcome === 'reset prompt') {
+      // The boot error screen offers the reset for exactly these two errors.
+      const error = await getDatabase().catch((err: Error) => err);
+      expect(error).toBeInstanceOf(Error);
+      expect((error as Error).name).toBe(key === 'missing' ? 'DatabaseKeyMissingError' : 'CorruptStoreError');
+      expect(mocks.events).toContain('boot-error');
+      // Never reset on its own.
+      expect(mocks.events.some((event) => event.includes('reset_database_key') || event.startsWith('delete:'))).toBe(false);
+    } else {
+      await getDatabase();
+      const last = mocks.workerOptions.at(-1) as { key?: CryptoKey; dataDir?: string };
+      if (outcome === 'open encrypted') {
+        expect(last.key).toBeInstanceOf(CryptoKey);
+        expect(isLeftoverSession()).toBe(false);
+      } else {
+        expect(last.dataDir).toBe('idb://journal-db-pg18');
+        expect(isLeftoverSession()).toBe(true);
+        // The plain database's changes are synced from it, never copied: the key isn't even read.
+        expect(mocks.events.some((event) => event.startsWith('invoke:'))).toBe(false);
+      }
+    }
+
+    await settle();
+    expect(mocks.events.includes(PLAIN)).toBe(deletes);
+    // Deleted only once the encrypted database is open.
+    if (deletes) expect(mocks.events.indexOf('schema:encrypted')).toBeLessThan(mocks.events.indexOf(PLAIN));
+  });
+
+  it('deletes the PG17 database unread once the encrypted one is open, without touching it first', async () => {
+    onDesktop();
+    mocks.legacyPresent = true;
+    const { getDatabase } = await loadDatabaseModule();
+
+    await getDatabase();
+    await settle();
+
+    expect(mocks.events).toContain(LEGACY);
+    expect(mocks.events).not.toContain('dump');
+    expect(mocks.events.indexOf('schema:encrypted')).toBeLessThan(mocks.events.indexOf(LEGACY));
+  });
+
+  it('leaves the PG17 database alone when there is none, and for a failed boot', async () => {
+    onDesktop();
+    const { getDatabase } = await loadDatabaseModule();
+    await getDatabase();
+    await settle();
+    expect(mocks.events).not.toContain(LEGACY);
+
+    mocks.legacyPresent = true;
+    mocks.keyAnswer = 'missing';
+    mocks.events.length = 0;
+    const failing = await loadDatabaseModule();
+    await failing.getDatabase().catch(() => {});
+    await settle();
+    expect(mocks.events).not.toContain(LEGACY);
+  });
+
+  it('does not touch the PG17 database in the PWA path, which still migrates it', async () => {
+    mocks.legacyPresent = true;
+    const { getDatabase } = await loadDatabaseModule();
+
+    await getDatabase();
+    await settle();
+
+    expect(mocks.events).not.toContain(LEGACY);
+    expect(mocks.events).toContain('dump');
+  });
+
+  it('keeps a plain database whose changes it cannot count, and opens the encrypted one', async () => {
+    onDesktop();
+    mocks.plainUnsynced = 0;
+    mocks.plainUnreadable = true;
+    const { getDatabase, isLeftoverSession } = await loadDatabaseModule();
+
+    await getDatabase();
+    await settle();
+
+    expect((mocks.workerOptions.at(-1) as { key?: CryptoKey }).key).toBeInstanceOf(CryptoKey);
+    expect(isLeftoverSession()).toBe(false);
+    expect(mocks.events).not.toContain(PLAIN);
+  });
+
+  it('resets on request: deletes every local database, then makes a new key, and the next boot opens it', async () => {
+    onDesktop();
+    mocks.plainUnsynced = 0;
+    mocks.keyAnswer = 'missing';
+    const { getDatabase } = await loadDatabaseModule();
+    await expect(getDatabase()).rejects.toThrow('missing from the system keychain');
+
+    const { resetLocalData } = await import('../lib/db/localReset');
+    await resetLocalData();
+
+    const deletes = mocks.events.filter((event) => event.startsWith('delete:'));
+    expect(deletes).toEqual(['delete:journal-data.a', 'delete:journal-data.b', PLAIN, LEGACY]);
+    expect(mocks.events.indexOf(PLAIN)).toBeLessThan(mocks.events.indexOf('invoke:plugin:journal-db-key|reset_database_key'));
+
+    // The reload: an empty encrypted database with the new key, which the first sync fills.
+    mocks.plainUnsynced = null;
+    const reloaded = await loadDatabaseModule();
+    await reloaded.getDatabase();
+    expect((mocks.workerOptions.at(-1) as { key?: CryptoKey }).key).toBeInstanceOf(CryptoKey);
+  });
+
+  it('closes the open database for good before the reset deletes it', async () => {
+    onDesktop();
+    mocks.plainUnsynced = 2;
+    const { getDatabase } = await loadDatabaseModule();
+    await getDatabase();
+
+    const { resetLocalData } = await import('../lib/db/localReset');
+    await resetLocalData();
+
+    expect(mocks.events.indexOf('close')).toBeLessThan(mocks.events.indexOf(PLAIN));
+    // A query after the reset waits for the reload instead of opening the database again.
+    const later = await Promise.race([getDatabase().then(() => 'opened'), settle().then(() => 'waits')]);
+    expect(later).toBe('waits');
   });
 });

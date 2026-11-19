@@ -13,7 +13,7 @@ const LEGACY_SKIP_KEY = 'journal-pglite-skip-legacy';
 const LEGACY_DATA_DIR = 'idb://journal-db';
 
 // IndexedDB database names used by the retired engines. Both detection and
-// deletion key off these — see legacyDatabaseExists() and deleteLegacyDatabase().
+// deletion key off these — see databaseExists() and deleteLegacyDatabase().
 const LEGACY_DB_NAMES = ['/pglite/journal-db', 'journal-db'];
 
 // --clean makes the restore drop-and-recreate every object it contains, so a
@@ -109,18 +109,18 @@ export function skipLegacyMigration(): boolean {
 }
 
 /**
- * Cheap check for a leftover legacy database that does NOT load any engine.
+ * Cheap check for a leftover database (the legacy one by default) that does NOT load any engine.
  * Prefers indexedDB.databases(); falls back (older Safari, which lacks it) to
  * probing each name with open()/onupgradeneeded — that event fires only when the
  * DB did not already exist, so any empty shell the probe creates is deleted.
  */
-async function legacyDatabaseExists(): Promise<boolean> {
+export async function databaseExists(databaseNames: string[] = LEGACY_DB_NAMES): Promise<boolean> {
   if (typeof indexedDB === 'undefined') return false;
   if (typeof indexedDB.databases === 'function') {
     const names = (await indexedDB.databases()).map((d) => d.name);
-    return LEGACY_DB_NAMES.some((name) => names.includes(name));
+    return databaseNames.some((name) => names.includes(name));
   }
-  for (const name of LEGACY_DB_NAMES) {
+  for (const name of databaseNames) {
     const outcome = await new Promise<'existed' | 'created' | 'error'>((resolve) => {
       let createdNow = false;
       const req = indexedDB.open(name);
@@ -269,7 +269,7 @@ export async function dumpLegacyDataDir(storedVersion: string | null, dataDir: s
 export async function dumpLegacyDatabase(storedVersion: string | null): Promise<LegacyDump | null> {
   // Detect without instantiating an engine. No leftover DB → nothing to migrate,
   // and none of the legacy engines (~10 MB WASM each) is imported on this path.
-  if (!(await legacyDatabaseExists())) {
+  if (!(await databaseExists())) {
     console.log('[PGlite Migration] No legacy database found, skipping');
     return null;
   }
@@ -349,7 +349,7 @@ export async function retireLegacyDatabase(storedVersion: string | null, dumpedT
  */
 export async function cleanUpLegacyDatabase(): Promise<void> {
   if (isLegacyKept()) return;
-  if (!(await legacyDatabaseExists())) return;
+  if (!(await databaseExists())) return;
 
   // A missing keep flag is not permission to delete — the write may have failed
   // — so the data itself decides. This is the only path that loads an engine

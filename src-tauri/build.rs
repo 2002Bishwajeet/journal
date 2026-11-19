@@ -20,7 +20,7 @@ fn main() {
     .plugin(
         "journal-db-key",
         tauri_build::InlinedPlugin::new()
-            .commands(&["database_key"])
+            .commands(&["database_key", "reset_database_key"])
             .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
     );
     let mut names = Vec::new();

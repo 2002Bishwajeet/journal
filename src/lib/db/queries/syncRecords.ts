@@ -1,4 +1,4 @@
-import type { Transaction } from '@electric-sql/pglite';
+import type { PGliteInterface, Transaction } from '@electric-sql/pglite';
 import { getDatabase } from '../pglite';
 import type { SyncRecord } from '@/types';
 import { clearNoteListEntryCache } from './noteList';
@@ -213,6 +213,21 @@ export async function getPendingSyncCount(): Promise<{ notes: number; folders: n
     );
     const row = result.rows[0];
     return { notes: row?.notes ?? 0, folders: row?.folders ?? 0, images: row?.images ?? 0, failed: row?.failed ?? 0 };
+}
+
+/**
+ * Changes in `db` that no sync has sent, the ones sync stopped retrying included: notes and
+ * folders not synced or without a sync record yet, and images not uploaded. Takes the
+ * database, as the desktop app counts the plain one an older build left (#1362).
+ */
+export async function countUnsyncedChanges(db: PGliteInterface): Promise<number> {
+    const result = await db.query<{ unsynced: number }>(
+        `SELECT (SELECT COUNT(*)::int FROM sync_records WHERE entity_type IN ('note', 'folder') AND sync_status <> 'synced')
+              + (SELECT COUNT(*)::int FROM search_index s WHERE NOT EXISTS (SELECT 1 FROM sync_records r WHERE r.local_id = s.doc_id))
+              + (SELECT COUNT(*)::int FROM folders f WHERE NOT EXISTS (SELECT 1 FROM sync_records r WHERE r.local_id = f.id))
+              + (SELECT COUNT(*)::int FROM pending_image_uploads WHERE status NOT IN ('synced', 'discarded')) AS unsynced`
+    );
+    return result.rows[0]?.unsynced ?? 0;
 }
 
 // ============================================
