@@ -1,3 +1,15 @@
+## [2.73.12](https://github.com/2002Bishwajeet/journal/compare/v2.73.11...v2.73.12) (2026-11-19)
+
+
+### Bug Fixes
+
+* **native:** open the encrypted database only where Tauri exists ([#1361](https://github.com/2002Bishwajeet/journal/issues/1361)) ([5b1e90a](https://github.com/2002Bishwajeet/journal/commit/5b1e90a641134b440cc80e0a5a95566e95f722e0))
+
+
+### Features
+
+* **native:** encrypt the desktop database with a keychain key through pglite-cipher ([#1361](https://github.com/2002Bishwajeet/journal/issues/1361)) ([d33cce8](https://github.com/2002Bishwajeet/journal/commit/d33cce804faf86849054afca3caa37d7fc3b3503))
+* **native:** reset-and-resync recovery and drop the leftover plain database ([#1362](https://github.com/2002Bishwajeet/journal/issues/1362)) ([790caad](https://github.com/2002Bishwajeet/journal/commit/790caad80323efc2f11f0478ba19adf2e29ca825))
 ## [2.73.11](https://github.com/2002Bishwajeet/journal/compare/v2.73.10...v2.73.11) (2026-11-19)
 
 
