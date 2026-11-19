@@ -97,11 +97,13 @@ test('lock a note: the locked panel and a hidden snippet, Unlock, then Lock now 
         await expect(page.getByRole('heading', { name: 'This note is locked' })).toBeVisible();
         await expect(activeEditor(page)).toHaveCount(0);
 
-        // The phone: the locked panel, then the note list it goes back to.
+        // The phone: the locked panel, then the folder's note list. Back pops the history, which
+        // started on the desktop's home, so it lands on the folders screen first.
         await page.setViewportSize(VIEWPORTS['390']);
         await expect(page.getByRole('heading', { name: 'This note is locked' })).toBeVisible();
         await shoot(page, 'locked-note', '390');
         await page.getByRole('button', { name: 'Back to list' }).click();
+        await page.getByRole('navigation', { name: 'Folders' }).getByRole('button', { name: 'Main' }).click();
         const phoneRow = page.getByTestId('note-row').filter({ hasText: TITLE });
         await expect(phoneRow).toContainText('Locked');
         await expect(phoneRow).not.toContainText(BODY);
