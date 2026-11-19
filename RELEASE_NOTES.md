@@ -16,6 +16,17 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.73.12 (2026-11-19)
+
+### New
+
+- If the desktop app cannot open its encrypted notes (the key is missing from the system keychain, or the local data is damaged), you can reset the local data. The app then gets your synced notes from your Homebase again.
+
+### Changed
+
+- The desktop app encrypts the notes it keeps on your computer. The key is in the system keychain. After the update, the app gets your notes from Homebase again.
+- The desktop app removes the unencrypted notes database that older versions kept on your computer. If that database has changes that did not sync, the app syncs them to your Homebase first.
+
 ## 2.73.11 (2026-11-19)
 
 ### Fixed
