@@ -137,7 +137,19 @@ describe('pglite worker init', () => {
       backend: ['journal-data.a', 'journal-data.b'],
       key,
       mode: 'open-or-create',
+      onProgress: expect.any(Function),
     });
+  });
+
+  it("tells the page how far the encrypted store's blocks are read, not its table (#1365)", async () => {
+    const init = await loadWorkerInit();
+    await init({ key: { type: 'secret' } as CryptoKey });
+    const { onProgress } = (mocks.pgliteArgs[0].fs as { options: { onProgress(p: { phase: string; done: number; total: number }): void } }).options;
+
+    onProgress({ phase: 'table', done: 1, total: 2 });
+    expect(postMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'journal-open-progress' }));
+    onProgress({ phase: 'blocks', done: 30, total: 120 });
+    expect(postMessage).toHaveBeenCalledWith({ type: 'journal-open-progress', done: 30, total: 120 });
   });
 
   it("tells the page why the engine couldn't open the database, as its queries would wait forever (#1362)", async () => {
