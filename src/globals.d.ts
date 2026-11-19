@@ -64,6 +64,8 @@ interface JournalE2EHooks {
   openNoteJSON(): Promise<{ docId: string; doc: unknown } | null>;
   /** Makes a note on this device read as one `authorOdinId` shared with the identity (#947). */
   markSharedWithMe(docId: string, authorOdinId: string): Promise<void>;
+  /** Puts a note on the feed as far as its metadata goes (#1416). */
+  seedFeedPost(docId: string, feedPostId: string, feedSummary?: string): Promise<void>;
   /**
    * Gives a note half a year of version history, three snapshots a day for days 2-21 ago ("day N", 512 bytes)
    * and one a week for weeks 5-24 ago ("week N", 8 KB), then runs the daily snapshot prune (#1054).

@@ -14,6 +14,7 @@ import { useShareCardPreview } from '@/hooks/useShareCardPreview';
 import { useShareCardImage } from '@/hooks/useShareCardImage';
 import type { ShareCardPatch } from '@/lib/share/publicCard';
 import { noteShareUrl } from '@/lib/share/sharedFolder';
+import { feedPostUrl } from '@/lib/share/feedArticle';
 import { publicOrigin } from '@/lib/native';
 import type { DocumentMetadata } from '@/types';
 import { toast } from 'sonner';
@@ -30,10 +31,35 @@ export function Notice({ id, icon: Icon, children }: { id?: string; icon: Lucide
     );
 }
 
-/** The link card the public link unfurls with: the same 1200×630 image (og:image). */
-export function ShareLinkPreview({ noteId, noteTitle, isPublic }: { noteId: string; noteTitle: string; isPublic: boolean }) {
+/**
+ * The link card the public link unfurls with: the same 1200×630 image (og:image). On the feed
+ * (`feedPostId`) it is the feed post's card instead, with the post's link to copy and open.
+ */
+export function ShareLinkPreview({ noteId, noteTitle, isPublic, feedPostId, feedSummary }: {
+    noteId: string;
+    noteTitle: string;
+    isPublic: boolean;
+    feedPostId?: string;
+    feedSummary?: string;
+}) {
+    const { getIdentity } = useAuth();
     const cardPreview = useShareCardPreview(noteId);
     const cardImage = useShareCardImage(noteId, cardPreview.cardImageFrom, isPublic);
+    const [copied, setCopied] = useState(false);
+    const identity = getIdentity();
+    const postUrl = feedPostId && identity ? feedPostUrl(identity, feedPostId) : undefined;
+
+    const copyPostUrl = async () => {
+        if (!postUrl) return;
+        try {
+            await navigator.clipboard.writeText(postUrl);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch (err) {
+            console.error('Failed to copy link:', err);
+        }
+    };
+
     return (
         // A region on the dialog and the phone sheet alike, named by its heading
         <section aria-labelledby="share-preview-heading" className="flex w-full flex-col gap-3">
@@ -42,12 +68,25 @@ export function ShareLinkPreview({ noteId, noteTitle, isPublic }: { noteId: stri
             </h3>
             <ShareCardPreview
                 title={noteTitle || 'Untitled'}
-                description={cardPreview.description}
-                domain={new URL(publicOrigin()).host}
+                description={postUrl ? (feedSummary?.trim() || cardPreview.description) : cardPreview.description}
+                domain={postUrl && identity ? identity : new URL(publicOrigin()).host}
                 image={cardImage ? (
                     <img src={cardImage} alt="" className="h-full w-full object-cover" />
                 ) : undefined}
             />
+            {postUrl && (
+                <div className="flex items-center gap-2">
+                    <Input readOnly value={postUrl} aria-label="Feed post link" className="min-w-0 flex-1 bg-muted/40 text-sm max-sm:h-11 dark:bg-muted/40" />
+                    <Button variant="outline" size="icon" className="shrink-0 max-sm:size-11" aria-label="Copy post link" onClick={copyPostUrl}>
+                        {copied ? <Check className="text-green-700 dark:text-green-400" /> : <Copy />}
+                    </Button>
+                    <Button variant="outline" size="icon" className="shrink-0 max-sm:size-11" aria-label="Open feed post" asChild>
+                        <a href={postUrl} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink />
+                        </a>
+                    </Button>
+                </div>
+            )}
         </section>
     );
 }
