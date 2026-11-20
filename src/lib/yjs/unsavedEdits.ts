@@ -59,6 +59,13 @@ export async function sealPlaintextCopies(): Promise<void> {
     }));
 }
 
+/** Android, once encryption is off (#1435): the sealed copies, whose key goes with the encrypted store. */
+export function removeSealedCopies(): void {
+    for (const docId of unsavedEditDocIds()) {
+        if (readString(KEY_PREFIX + docId)?.startsWith(SEALED_PREFIX)) removeKey(KEY_PREFIX + docId);
+    }
+}
+
 /** Null too for a sealed copy the store key can't open (the app is locked). */
 export async function readUnsavedEdits(docId: string): Promise<Uint8Array | null> {
     const key = KEY_PREFIX + docId;

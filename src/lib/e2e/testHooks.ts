@@ -300,6 +300,13 @@ async function seedPendingSync(): Promise<void> {
     );
 }
 
+/** The hermetic app can't push, so its Main folder stays unsynced; this leaves nothing for a sync to send (#1435). */
+async function markSynced(): Promise<void> {
+    const { upsertSyncRecord } = await import('@/lib/db');
+    const { MAIN_FOLDER_ID } = await import('@/lib/homebase');
+    await upsertSyncRecord({ localId: MAIN_FOLDER_ID, entityType: 'folder', syncStatus: 'synced', remoteFileId: 'seeded-main-folder' });
+}
+
 /**
  * Leaves only image uploads in a note already on the server, as an image added on this
  * device does (#874): one per entry of `images` (PNG bytes), in a note titled `title`.
@@ -524,7 +531,7 @@ if (E2E_ORIGINS.includes(location.origin)) {
     // Set by a spec's init script before the page loads (#905).
     e2eSwitches.sessionRestoreDelayMs = Number(localStorage.getItem('e2e-session-restore-delay-ms')) || 0;
     Object.defineProperty(window, '__journalE2E', {
-        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, showActionSheet, showSheet, syncToDisk, ignoreInvites, seedPendingSync, seedImageUploads, seedCollaborativeNote, seedFolders, uploadPendingImages, refuseSharePush, deleteFilesNamed, subscribePeerPush, journalNotifications, noteHeader, probePeerNote, startAgentEval, takeAgentEvents, openNoteJSON, markSharedWithMe, seedShareRequest, seedFeedPost, seedSnapshotHistory }),
+        value: Object.freeze({ ready, renderCard, hasUnsavedEdits, showActionSheet, showSheet, syncToDisk, ignoreInvites, seedPendingSync, markSynced, seedImageUploads, seedCollaborativeNote, seedFolders, uploadPendingImages, refuseSharePush, deleteFilesNamed, subscribePeerPush, journalNotifications, noteHeader, probePeerNote, startAgentEval, takeAgentEvents, openNoteJSON, markSharedWithMe, seedShareRequest, seedFeedPost, seedSnapshotHistory }),
         writable: false,
         configurable: false,
         enumerable: false,

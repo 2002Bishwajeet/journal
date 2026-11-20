@@ -1,13 +1,52 @@
 import { nativePlatform } from '../native';
 
 /**
- * The native app, desktop (#1361) and phone (#1364), opens its database through pglite-cipher,
- * always, in its own IndexedDB store. The web stays plain. A page that only claims a native
- * platform (e2e fakes it with __JOURNAL_NATIVE__) has no Tauri to ask for the key.
+ * Android's database is encrypted only on a device that opted in (#1435), an experimental
+ * setting: opening a large encrypted one in its WebView can take over 20 s (#1365). Set true
+ * to make it the default.
  */
-export function usesEncryptedDatabase(): boolean {
+export const ANDROID_ENCRYPTION_DEFAULT: boolean = false;
+
+/** The per-device opt-in, outside the database so the boot reads it before opening one. */
+export const ANDROID_ENCRYPTION_KEY = 'journal-android-encryption';
+
+/**
+ * The Tauri app, desktop and phone, which has the OS keychain. A page that only claims a native
+ * platform (e2e fakes it with __JOURNAL_NATIVE__) has no Tauri to ask.
+ */
+export function inTauriApp(): boolean {
   if (typeof window === 'undefined' || !('__TAURI_INTERNALS__' in window)) return false;
   return nativePlatform() !== null;
+}
+
+/** The Tauri app on Android, where encryption is the "Encrypt notes on this device" switch (#1435). */
+export function onAndroid(): boolean {
+  return inTauriApp() && nativePlatform() === 'android';
+}
+
+/** Whether this Android device opted in to encryption, else ANDROID_ENCRYPTION_DEFAULT. */
+export function androidEncryptionOn(): boolean {
+  const stored = localStorage.getItem(ANDROID_ENCRYPTION_KEY);
+  return stored === null ? ANDROID_ENCRYPTION_DEFAULT : stored === 'true';
+}
+
+/** Takes effect on the next boot, which moves to the other store (pglite.ts). */
+export function setAndroidEncryption(on: boolean): void {
+  localStorage.setItem(ANDROID_ENCRYPTION_KEY, String(on));
+}
+
+/** Android without the opt-in (#1435): the plain database, as on the web. */
+export function encryptionOff(): boolean {
+  return onAndroid() && !androidEncryptionOn();
+}
+
+/**
+ * The native app, desktop (#1361) and phone (#1364), opens its database through pglite-cipher,
+ * always, in its own IndexedDB store, except on an Android device that didn't opt in (#1435).
+ * The web stays plain.
+ */
+export function usesEncryptedDatabase(): boolean {
+  return inTauriApp() && !encryptionOff();
 }
 
 /**
@@ -135,11 +174,12 @@ const deriveLocalKeys = async (bytes: Uint8Array<ArrayBuffer>): Promise<LocalKey
 /**
  * The database's key from the OS keychain (src-tauri/src/db_key.rs), imported as a
  * non-extractable key for the PGlite worker. Null where the database is plain; there
- * neither Tauri nor pglite-cipher is loaded. With the app lock on, the keychain answers
+ * neither Tauri nor pglite-cipher is loaded. `encrypted` opens the store an Android device
+ * left when it opted out (#1435). With the app lock on, the keychain answers
  * only after Touch ID, Windows Hello, Face ID or a fingerprint.
  */
-export async function loadDatabaseKey(): Promise<CryptoKey | null> {
-  if (!usesEncryptedDatabase()) return null;
+export async function loadDatabaseKey(encrypted = usesEncryptedDatabase()): Promise<CryptoKey | null> {
+  if (!encrypted) return null;
   const bytes = loadKeyBytes();
   const derived = bytes.then(deriveLocalKeys);
   derived.catch(() => {});

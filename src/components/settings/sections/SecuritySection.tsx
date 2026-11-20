@@ -1,4 +1,6 @@
 import { Button } from "@/components/ui/button";
+import { ExperimentalBadge } from "@/components/LocalAIExperimental";
+import ConfirmDialog from "@/components/modals/ConfirmDialog";
 import { Switch } from "@/components/ui/switch";
 import { useSecuritySettings } from "@/hooks/useAppLock";
 import { useShowNotesOutsideApp } from "@/hooks/useNativeBridge";
@@ -17,15 +19,46 @@ const UNLOCK_WITH: Partial<Record<NativePlatform, string>> = {
   android: "your fingerprint, face or screen lock",
 };
 
-/** Native app only. Encryption and the app lock only in the Tauri app, desktop and phone (#1363, #1364). */
+/**
+ * Native app only. Encryption and the app lock only in the Tauri app, desktop and phone (#1363, #1364);
+ * on Android only after "Encrypt notes on this device" (#1435).
+ */
 export default function SecuritySection() {
   const { on, setOn } = useShowNotesOutsideApp();
-  const { encrypted, status, changingLock, setLockOn, lockAfter, setLockAfter, lockNow } = useSecuritySettings();
+  const {
+    encrypted,
+    android,
+    changingEncryption,
+    confirmingEncryption,
+    setEncryptionOn,
+    confirmEncryption,
+    cancelEncryption,
+    status,
+    changingLock,
+    setLockOn,
+    lockAfter,
+    setLockAfter,
+    lockNow,
+  } = useSecuritySettings();
   const platform = nativePlatform();
   const unlockWith = (platform && UNLOCK_WITH[platform]) ?? "Touch ID or your password";
 
   return (
     <div className="space-y-6">
+      {android && (
+        <div className="overflow-hidden rounded-xl border bg-card">
+          <SettingsRow
+            id="security-encryption"
+            label={
+              <>
+                Encrypt notes on this device <ExperimentalBadge />
+              </>
+            }
+            description="Slower to open on large accounts."
+            control={<Switch checked={encrypted} disabled={changingEncryption} onCheckedChange={setEncryptionOn} />}
+          />
+        </div>
+      )}
       {encrypted && (
         <div className="overflow-hidden rounded-xl border bg-card">
           <div className="flex min-h-14 flex-wrap items-center gap-x-4 gap-y-2 border-b px-4 py-3 last:border-b-0">
@@ -92,6 +125,15 @@ export default function SecuritySection() {
           control={<Switch checked={on} onCheckedChange={setOn} />}
         />
       </div>
+      <ConfirmDialog
+        isOpen={confirmingEncryption}
+        onClose={cancelEncryption}
+        onConfirm={confirmEncryption}
+        title="Encrypt notes on this device?"
+        description="Journal syncs your changes, restarts, and downloads your notes from Homebase into an encrypted store. This is experimental: it can be slow to open on large accounts."
+        confirmText="Encrypt"
+        variant="default"
+      />
     </div>
   );
 }

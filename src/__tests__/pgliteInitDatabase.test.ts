@@ -35,6 +35,12 @@ const mocks = {
   legacyPresent: false,
   // What the worker's engine fails to open the encrypted store with.
   encryptedOpenError: null as string | null,
+  // Android with encryption off (#1435): the encrypted store it left, and its unsynced changes.
+  encryptedPresent: false,
+  encryptedUnsynced: 0,
+  encryptedUnreadable: false,
+  // What idb-keyval holds under the query cache's key: a sealed one is bytes.
+  queryCache: undefined as unknown,
 };
 
 /** Fake PGliteWorker instance: records the steps the migration depends on. */
@@ -67,6 +73,10 @@ function fakeDb(kind: 'plain' | 'encrypted' = 'plain') {
       return [];
     },
     query: async (sql: string) => {
+      if (sql.includes('AS unsynced') && kind === 'encrypted') {
+        if (mocks.encryptedUnreadable) throw new Error('simulated unreadable encrypted store');
+        return { rows: [{ unsynced: mocks.encryptedUnsynced }] };
+      }
       if (sql.includes('AS unsynced')) {
         if (mocks.plainUnreadable) throw new Error('simulated unreadable plain database');
         return { rows: [{ unsynced: mocks.plainUnsynced }] };
@@ -101,7 +111,8 @@ async function loadDatabaseModule() {
     legacyMigrationSkipped: () => mocks.skipped,
     databaseExists: async (names: string[]) =>
       (names.includes('/pglite/journal-db-pg18') && mocks.plainUnsynced !== null) ||
-      (names.includes('/pglite/journal-db') && mocks.legacyPresent),
+      (names.includes('/pglite/journal-db') && mocks.legacyPresent) ||
+      (names.includes('journal-data.a') && mocks.encryptedPresent),
     getStoredPGliteVersion: () => mocks.storedVersion,
     setStoredPGliteVersion: (version: string) => {
       // Mirrors the real helper: the next read sees the new stamp.
@@ -139,6 +150,7 @@ async function loadDatabaseModule() {
     invoke: async (command: string) => {
       mocks.events.push(`invoke:${command}`);
       if (command.endsWith('reset_database_key')) mocks.keyAnswer = { key: Array<number>(32).fill(8) };
+      if (command.endsWith('set_app_lock')) return null;
       return mocks.keyAnswer;
     },
   }));
@@ -146,7 +158,10 @@ async function loadDatabaseModule() {
     mocks.events.push('cipher-loaded');
     return importOriginal();
   });
-  vi.doMock('idb-keyval', () => ({ del: async (key: string) => void mocks.events.push(`idb-delete:${key}`) }));
+  vi.doMock('idb-keyval', () => ({
+    get: async () => mocks.queryCache,
+    del: async (key: string) => void mocks.events.push(`idb-delete:${key}`),
+  }));
   return import('../lib/db/pglite');
 }
 
@@ -176,6 +191,10 @@ beforeEach(() => {
   mocks.plainUnsynced = null;
   mocks.plainUnreadable = false;
   mocks.encryptedOpenError = null;
+  mocks.encryptedPresent = false;
+  mocks.encryptedUnsynced = 0;
+  mocks.encryptedUnreadable = false;
+  mocks.queryCache = undefined;
   // pglite-cipher's IndexedDbBackend.destroy() deletes through this.
   vi.stubGlobal('indexedDB', {
     deleteDatabase: (name: string) => {
@@ -205,6 +224,19 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
 });
+
+/** A localStorage over a Map, which this node test environment doesn't have. */
+function stubLocalStorage(entries: Array<[string, string]> = []): Map<string, string> {
+  const items = new Map(entries);
+  vi.stubGlobal('localStorage', {
+    get length() { return items.size; },
+    key: (i: number) => [...items.keys()][i] ?? null,
+    getItem: (key: string) => items.get(key) ?? null,
+    setItem: (key: string, value: string) => void items.set(key, value),
+    removeItem: (key: string) => void items.delete(key),
+  });
+  return items;
+}
 
 describe('initDatabase legacy migration', () => {
   it('stamps the version and retires the legacy DB only after the restore commits', async () => {
@@ -576,7 +608,7 @@ describe('desktop app encryption (#1361)', () => {
     },
   );
 
-  it.each(['ios', 'android'])('opens the encrypted store with the %s keychain key, as the desktop does (#1364)', async (platform) => {
+  it.each(['ios'])('opens the encrypted store with the %s keychain key, as the desktop does (#1364)', async (platform) => {
     vi.stubGlobal('window', { __JOURNAL_NATIVE__: { platform }, __TAURI_INTERNALS__: {} });
     const { getDatabase } = await loadDatabaseModule();
 
@@ -594,6 +626,12 @@ describe('desktop app encryption (#1361)', () => {
     ['macos', false],
   ])("relays the encrypted open's progress to the splash on %s only (#1365)", async (platform, relayed) => {
     vi.stubGlobal('window', { __JOURNAL_NATIVE__: { platform }, __TAURI_INTERNALS__: {} });
+    // Android, not opted in, opens one only for the changes the store it left still has to send (#1435).
+    if (platform === 'android') {
+      stubLocalStorage();
+      mocks.encryptedPresent = true;
+      mocks.encryptedUnsynced = 1;
+    }
     const { getDatabase } = await loadDatabaseModule();
     await getDatabase();
 
@@ -792,5 +830,147 @@ describe('desktop recovery and the plain database an older build left (#1362)', 
     // A query after the reset waits for the reload instead of opening the database again.
     const later = await Promise.race([getDatabase().then(() => 'opened'), settle().then(() => 'waits')]);
     expect(later).toBe('waits');
+  });
+});
+
+describe('Android: encryption off by default, an experimental opt-in (#1435)', () => {
+  const onPlatform = (platform: string) => vi.stubGlobal('window', { __JOURNAL_NATIVE__: { platform }, __TAURI_INTERNALS__: {} });
+  const STORE = ['delete:journal-data.a', 'delete:journal-data.b'];
+  const invoked = () => mocks.events.filter((event) => event.startsWith('invoke:'));
+
+  beforeEach(() => {
+    mocks.storedVersion = '0.5';
+    mocks.dump = null;
+  });
+
+  it('Android is plain by default and encrypted once opted in; iOS and the desktop always are', async () => {
+    const { ANDROID_ENCRYPTION_DEFAULT, ANDROID_ENCRYPTION_KEY, usesEncryptedDatabase, inTauriApp } = await import('../lib/db/databaseKey');
+    expect(ANDROID_ENCRYPTION_DEFAULT).toBe(false);
+    const items = stubLocalStorage();
+    for (const optedIn of [false, true]) {
+      if (optedIn) items.set(ANDROID_ENCRYPTION_KEY, 'true');
+      for (const [platform, encrypted] of [['android', optedIn], ['ios', true], ['macos', true], ['windows', true], ['linux', true]] as const) {
+        onPlatform(platform);
+        expect(usesEncryptedDatabase()).toBe(encrypted);
+        // The sign-in stays in the keychain and locked notes keep working everywhere.
+        expect(inTauriApp()).toBe(true);
+      }
+    }
+    items.set(ANDROID_ENCRYPTION_KEY, 'false');
+    onPlatform('android');
+    expect(usesEncryptedDatabase()).toBe(false);
+  });
+
+  it.each([
+    [0, 'the encrypted store, and deletes the plain database'],
+    [3, 'the plain database to sync its changes first'],
+  ])('opted in, with %s unsynced changes in the plain database: opens %s', async (unsynced) => {
+    onPlatform('android');
+    stubLocalStorage([['journal-android-encryption', 'true']]);
+    mocks.plainUnsynced = unsynced;
+    const { getDatabase, isLeftoverSession } = await loadDatabaseModule();
+
+    await getDatabase();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    const last = mocks.workerOptions.at(-1) as { key?: CryptoKey; dataDir?: string };
+    // Nothing is copied: the encrypted store starts empty and fills from Homebase.
+    expect(mocks.events).not.toContain('restore');
+    if (unsynced === 0) {
+      expect(last.key).toBeInstanceOf(CryptoKey);
+      expect(mocks.events).toContain('delete:/pglite/journal-db-pg18');
+      expect(isLeftoverSession()).toBe(false);
+    } else {
+      expect(last.dataDir).toBe('idb://journal-db-pg18');
+      expect(mocks.events).not.toContain('delete:/pglite/journal-db-pg18');
+      expect(isLeftoverSession()).toBe(true);
+    }
+  });
+
+  it('opens the plain database without asking for a key or loading pglite-cipher', async () => {
+    onPlatform('android');
+    stubLocalStorage();
+    const { getDatabase, isLeftoverSession } = await loadDatabaseModule();
+
+    await getDatabase();
+
+    expect(mocks.workerOptions).toHaveLength(1);
+    expect(mocks.workerOptions[0].dataDir).toBe('idb://journal-db-pg18');
+    expect(invoked()).toEqual([]);
+    expect(mocks.events).not.toContain('cipher-loaded');
+    expect(isLeftoverSession()).toBe(false);
+  });
+
+  it('turns an app lock left on off quietly, without asking for the key', async () => {
+    onPlatform('android');
+    const items = stubLocalStorage([['journal-app-lock', 'true']]);
+    const { getDatabase } = await loadDatabaseModule();
+
+    await getDatabase();
+
+    expect(invoked()).toEqual(['invoke:plugin:journal-db-key|set_app_lock']);
+    expect(items.get('journal-app-lock')).toBe('false');
+    expect(mocks.workerOptions[0].dataDir).toBe('idb://journal-db-pg18');
+  });
+
+  type Store = 'synced' | 'unsynced' | 'uncountable' | 'key missing' | 'corrupt';
+  // The encrypted store an earlier build left → what the boot opens, and whether it deletes that store.
+  const table: Array<[Store, 'plain' | 'encrypted to sync it', boolean]> = [
+    ['synced', 'plain', true],
+    ['unsynced', 'encrypted to sync it', false],
+    ['uncountable', 'plain', false],
+    ['key missing', 'plain', true],
+    ['corrupt', 'plain', true],
+  ];
+
+  it.each(table)('store left %s: opens %s (deletes it: %s)', async (store, opens, deletes) => {
+    onPlatform('android');
+    const items = stubLocalStorage([
+      ['journal-app-lock', 'true'],
+      ['journal-unsaved-edits:sealed-note', 'sealed:AAAA'],
+      ['journal-unsaved-edits:plain-note', 'AAAA'],
+    ]);
+    mocks.encryptedPresent = true;
+    mocks.queryCache = new Uint8Array([1, 2, 3]);
+    if (store === 'unsynced') mocks.encryptedUnsynced = 3;
+    if (store === 'uncountable') mocks.encryptedUnreadable = true;
+    if (store === 'key missing') mocks.keyAnswer = 'missing';
+    if (store === 'corrupt') mocks.encryptedOpenError = 'CorruptStoreError';
+    const { getDatabase, isLeftoverSession } = await loadDatabaseModule();
+
+    await getDatabase();
+
+    // The lock goes before the key is read, so reading it asks nobody.
+    expect(invoked().slice(0, 2)).toEqual(['invoke:plugin:journal-db-key|set_app_lock', 'invoke:plugin:journal-db-key|database_key']);
+    const last = mocks.workerOptions.at(-1) as { key?: CryptoKey; dataDir?: string };
+    if (opens === 'plain') {
+      expect(last.dataDir).toBe('idb://journal-db-pg18');
+      expect(isLeftoverSession()).toBe(false);
+    } else {
+      expect(last.key).toBeInstanceOf(CryptoKey);
+      expect(mocks.workerOptions).toHaveLength(1);
+      expect(isLeftoverSession()).toBe(true);
+    }
+    // Nothing is copied: the plain database fills through the first sync.
+    expect(mocks.events).not.toContain('restore');
+    expect(STORE.every((event) => mocks.events.includes(event))).toBe(deletes);
+    expect(mocks.events.includes('idb-delete:journal-query-cache')).toBe(deletes);
+    expect(items.has('journal-unsaved-edits:sealed-note')).toBe(!deletes);
+    expect(items.get('journal-unsaved-edits:plain-note')).toBe('AAAA');
+    // The plain database opens only once the store is gone.
+    if (deletes) expect(mocks.events.indexOf(STORE[1])).toBeLessThan(mocks.events.lastIndexOf('schema:plain'));
+  });
+
+  it('leaves a plain query cache alone when it deletes the store', async () => {
+    onPlatform('android');
+    stubLocalStorage();
+    mocks.encryptedPresent = true;
+    mocks.queryCache = '{"clientState":{}}';
+    const { getDatabase } = await loadDatabaseModule();
+
+    await getDatabase();
+
+    expect(mocks.events).toContain(STORE[0]);
+    expect(mocks.events).not.toContain('idb-delete:journal-query-cache');
   });
 });

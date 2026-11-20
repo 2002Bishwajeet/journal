@@ -19,6 +19,8 @@ interface JournalE2EHooks {
   ignoreInvites(): void;
   /** Leaves 6 unsynced items, two of them with errors, for the Diagnostics spec (#800). */
   seedPendingSync(): Promise<void>;
+  /** Marks the Main folder synced, so a fresh app has nothing unsynced (#1435). */
+  markSynced(): Promise<void>;
   /** Leaves only image uploads (PNG bytes) in a note already on the server (#874). */
   seedImageUploads(title: string, images: number[][]): Promise<void>;
   /** Adds a synced note in Main that is shared with two people (#828). */
