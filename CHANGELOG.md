@@ -1,3 +1,15 @@
+## [2.73.18](https://github.com/2002Bishwajeet/journal/compare/v2.73.17...v2.73.18) (2026-11-20)
+
+
+### Bug Fixes
+
+* **deps:** override glob to 14 so workbox precache works with minimatch 11 ([1f7f29a](https://github.com/2002Bishwajeet/journal/commit/1f7f29a3d749d325d1eee91d5c5d53077197f546))
+
+
+### Features
+
+* **android:** database encryption as an experimental opt-in in Settings -> Security ([#1435](https://github.com/2002Bishwajeet/journal/issues/1435)) ([c08c40a](https://github.com/2002Bishwajeet/journal/commit/c08c40af56fc9950eb7fe2ddca1fc580fc58ccb2)), closes [#1362](https://github.com/2002Bishwajeet/journal/issues/1362)
+* **android:** pause database encryption behind one switch, move installs back to the plain database ([#1435](https://github.com/2002Bishwajeet/journal/issues/1435)) ([56b4887](https://github.com/2002Bishwajeet/journal/commit/56b4887898f5be24ca395a2e1ce4cc570cf7e001)), closes [#1429](https://github.com/2002Bishwajeet/journal/issues/1429) [#1427](https://github.com/2002Bishwajeet/journal/issues/1427) [#1362](https://github.com/2002Bishwajeet/journal/issues/1362)
 ## [2.73.17](https://github.com/2002Bishwajeet/journal/compare/v2.73.16...v2.73.17) (2026-11-19)
 
 

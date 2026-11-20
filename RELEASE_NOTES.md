@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.73.18 (2026-11-20)
+
+### Changed
+
+- Android: on-device encryption is now an experimental option in Settings → Security, off by default, because it can be slow to open on large accounts.
+
 ## 2.73.17 (2026-11-19)
 
 ### Changed
