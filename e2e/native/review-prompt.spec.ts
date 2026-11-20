@@ -2,7 +2,7 @@ import type { Browser, Page } from '@playwright/test';
 import { test, expect, waitForAppReady, withFencedPage } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
 import { fakeKeychain } from '../support/fakeKeychain';
-import { createNote, openNote, openSettingsSection, settingsPanel } from '../support/actions';
+import { activeTitleInput, openNote, openSettingsSection, settingsPanel, typeInEditor } from '../support/actions';
 
 // #1439: the system rating dialog in the native app. The app is forced native through the init-script
 // globals, as in paywall.spec.ts, with the bridge plugin listed and its request_review command faked
@@ -39,12 +39,21 @@ async function openApp(browser: Browser, platform: 'ios' | 'macos', body: (page:
 }
 
 const requests = (page: Page) => page.evaluate(() => Number(localStorage.getItem('e2e-review-requests') ?? 0));
+// createNote waits for the new note's row in the list, which a phone hides behind the open note.
+async function writeNote(page: Page, title: string, body: string): Promise<void> {
+    const before = page.url();
+    await page.getByRole('button', { name: /^New( note)?$/ }).click();
+    await page.waitForURL((url) => url.href !== before);
+    await expect(activeTitleInput(page)).toHaveValue('Untitled');
+    await activeTitleInput(page).fill(title);
+    await typeInEditor(page, body);
+}
 const closeNote = (page: Page) => page.getByRole('button', { name: /^Back to/ }).click();
 
 test('asks for a rating once after the threshold and not again in the same version', async ({ browser }) => {
     await openApp(browser, 'ios', async (page) => {
         for (const title of ['One', 'Two', 'Three', 'Four', 'Five']) {
-            await createNote(page, { title, body: `Entry ${title}` });
+            await writeNote(page, title, `Entry ${title}`);
             await closeNote(page);
         }
         await expect.poll(() => requests(page)).toBe(1);
@@ -71,7 +80,7 @@ test('Settings -> About has a Rate row on iOS and none on desktop', async ({ bro
     });
     await openApp(browser, 'macos', async (page) => {
         const panel = await aboutPanel(page);
-        await expect(panel.getByText('Version')).toBeVisible();
+        await expect(panel.getByRole('heading', { name: 'Version' })).toBeVisible();
         await expect(panel.getByRole('button', { name: 'Rate' })).toHaveCount(0);
     });
 });
