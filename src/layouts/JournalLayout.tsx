@@ -79,6 +79,7 @@ import { useSearchReindex } from "@/hooks/useSearchReindex";
 import { useNotesMirror } from "@/hooks/useNotesMirror";
 import { useDailyReminder } from "@/hooks/useDailyReminder";
 import { useNativeBridge } from "@/hooks/useNativeBridge";
+import { useReviewPrompt } from "@/hooks/useReviewPrompt";
 import { useAppLockGate, useLockWhenHidden } from "@/hooks/useAppLock";
 import { useUserActivity } from "@/hooks/useUserActivity";
 import { useDockMenu } from "@/hooks/useDockMenu";
@@ -145,6 +146,7 @@ export default function JournalLayout() {
   // undefined while the native app reads its entitlement.
   const canEditAnswer = useCanEditAnswer();
   const canEdit = canEditAnswer !== false;
+  useReviewPrompt(noteId, notes, !canEdit);
 
   // Tab management, kept in sync with the URL
   const {

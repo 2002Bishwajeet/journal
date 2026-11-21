@@ -6,7 +6,8 @@ import { useSettingsPlatform } from "@/hooks/useSettingsPlatform";
 import { isNativeSettings } from "@/lib/settingsPlatform";
 import { useLatestWhatsNew } from "@/hooks/useWhatsNew";
 import { BILLING_URL, DOWNLOAD_URL } from "@/lib/billing";
-import { APP_NAME, isNativeApp } from "@/lib/native";
+import { APP_NAME, isNativeApp, nativePlatform } from "@/lib/native";
+import { openStoreReview, storeReviewUrl } from "@/lib/native/review";
 
 const links = [
   { label: "Source code", href: "https://github.com/2002Bishwajeet/journal" },
@@ -52,6 +53,23 @@ export default function AboutSection() {
           View
         </Button>
       </div>
+
+      {storeReviewUrl(nativePlatform()) && (
+        <div className="flex min-h-14 flex-wrap items-center gap-x-4 gap-y-2 border-b px-4 py-3">
+          <div className="min-w-36 flex-1 space-y-0.5">
+            <h3 className="text-sm leading-5 font-medium">Rate {APP_NAME}</h3>
+            <p className="text-xs text-muted-foreground">Write a review in the store</p>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="min-h-11 min-w-11 md:min-h-0 md:min-w-0"
+            onClick={() => openStoreReview().catch(() => toast.error("Couldn't open the store"))}
+          >
+            Rate
+          </Button>
+        </div>
+      )}
 
       <div className="space-y-0.5 border-b px-4 py-3">
         <h3 className="text-sm leading-5 font-medium">Privacy</h3>

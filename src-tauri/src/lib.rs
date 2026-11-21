@@ -859,9 +859,9 @@ fn app_menu(app: &tauri::AppHandle) -> tauri::Result<tauri::menu::Menu<tauri::Wr
 }
 
 /// Open external links and the sign-in outside the web view (#1188): the
-/// default browser on desktop, an in-app browser on iOS and Android.
+/// default browser on desktop, an in-app browser on iOS and Android. Opener is on
+/// mobile too, for the store listing's `itms-apps://` and `market://` links (#1439).
 fn link_plugins<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
-    #[cfg(desktop)]
     let builder = builder.plugin(tauri_plugin_opener::init());
     #[cfg(mobile)]
     let builder = builder.plugin(tauri_plugin_browser::init());
