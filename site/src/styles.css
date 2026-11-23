@@ -455,7 +455,7 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .code-panel .btn-primary { background: var(--code-ink); color: var(--code-bg); }
 @media (hover: hover) and (pointer: fine) { .code-panel .btn-primary:hover { background: color-mix(in srgb, var(--code-ink) 86%, var(--code-bg)); } }
 .mcpb-step {
-  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; padding: 0 12px 12px;
+  display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 'num note'; gap: 4px 12px; padding: 0 12px 12px;
   border-radius: var(--radius); background: rgb(255 255 255 / 0.04); counter-increment: cmd;
 }
 .mcpb-step .code-note { color: var(--code-ink); }
