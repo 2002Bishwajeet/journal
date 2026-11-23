@@ -291,7 +291,7 @@ describe('the page in the build', () => {
     });
 
     it('sends no referrer, is not cached and not indexed, and loads no third-party script', () => {
-        const built = render(html, { billing: true, downloads: true, stores: true, renew: true });
+        const built = render(html, { billing: true, downloads: true, appstore: true, play: false, renew: true });
         expect(built).toContain('<meta name="referrer" content="no-referrer" />');
         expect(built).toContain('<meta name="robots" content="noindex, nofollow" />');
         expect(built).not.toContain('rel="canonical"');
