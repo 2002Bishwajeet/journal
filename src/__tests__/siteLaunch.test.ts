@@ -108,11 +108,11 @@ describe('the download page', () => {
         const section = /<section[^>]*id="apps-add"[\s\S]*?<\/section>/.exec(html)?.[0] ?? '';
         const heads = [...section.matchAll(/<h3 class="h3">([^<]+)<\/h3>/g)].map(([, title]) => title);
         expect(heads).toEqual([
-            'Your notes are encrypted on this device too',
+            'Your notes are encrypted on your device too',
             'Lock the app, or one note or folder',
             'Jot a note from anywhere',
             'Stays running, starts at login, updates itself',
-            'Share links open straight in the app',
+            'Share links open in the app',
             "Writing help from Apple's on-device model",
         ]);
         expect(section).toMatch(/Everything else is the same Journal you use in the browser, which stays free\.<\/p>\s*<\/div>\s*<\/section>$/);
@@ -120,6 +120,13 @@ describe('the download page', () => {
         expect(section).not.toMatch(/share sheet|Save dialog/i);
         expect(html.indexOf('id="apps-add"')).toBeGreaterThan(html.indexOf('id="download-title"'));
         expect(html.indexOf('id="apps-add"')).toBeLessThan(html.indexOf('id="start-title"'));
+    });
+
+    it('names Android in what the apps add only once the Play app is live', () => {
+        const section = (stores: Stores) => textNodes(/<section[^>]*id="apps-add"[\s\S]*?<\/section>/.exec(built('download.html', stores))?.[0] ?? '').join('');
+        expect(section(DEPLOYED)).not.toContain('Android');
+        expect(section(BOTH)).toContain('iPhone, iPad, Android, Mac and Windows.');
+        expect(section(BOTH)).toContain('On Android, an experimental option in Settings.');
     });
 });
 
