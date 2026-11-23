@@ -12,7 +12,7 @@ import { IDENTITY_PLACEHOLDER, identityFrom, startInstallCard } from '../../site
 
 // A path, not new URL(`…${file}`, import.meta.url): Vite turns that into a glob of the whole repo under happy-dom.
 const read = (file: string) => readFileSync(resolve(import.meta.dirname, '../..', file), 'utf8');
-const html = render(read('site/agents.html'), { billing: false, downloads: false, stores: false, renew: false });
+const html = render(read('site/agents.html'), { billing: false, downloads: false, appstore: false, play: false, renew: false });
 const body = /<body[^>]*>([\s\S]*)<\/body>/.exec(html)![1];
 
 const writeText = vi.fn<(text: string) => Promise<void>>();
