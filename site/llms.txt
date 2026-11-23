@@ -7,7 +7,7 @@ Journal runs in the browser at {{SITE}}/welcome and signs in with a Homebase ide
 ## Pages
 
 - [Home]({{SITE}}/): what Journal is, where notes live, the editor, sharing and public pages, live blocks, and common questions
-- [Agents]({{SITE}}/landing/agents): set up the Journal MCP server in Claude Code, Claude Desktop, Cursor or Codex CLI step by step (sign in, approve, grant folders, check, fixes for common errors), and the reference for all fourteen tools: what each does, its inputs with types, what it returns, when to use it and an example request
+- [Agents]({{SITE}}/landing/agents): set up the Journal MCP server in Claude Code, Claude Desktop, Cursor or Codex CLI step by step (sign in, approve, grant folders, check, fixes for common errors), and the reference for every tool: what each does, its inputs with types, what it returns, when to use it and an example request
 - [Pricing]({{SITE}}/landing/pricing): the free web app, the paid native apps, and questions about paying
 - [Journal apps]({{SITE}}/landing/buy): the native apps, the license key and renewing updates
 - [Contact]({{SITE}}/landing/contact): how to reach us, and support for the web app and the native apps

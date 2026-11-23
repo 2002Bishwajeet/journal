@@ -431,12 +431,54 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 @media (hover: hover) and (pointer: fine) { .tab:hover { color: var(--code-ink); } }
 /* On a phone the four tabs wrap into two rows rather than scrolling out of sight. */
 @media (max-width: 599px) { .tabs { flex-wrap: wrap; } .tab { padding: 0 12px; } }
-/* Each snippet: what to do and its Copy button in one row, the code under them, wrapped rather than cut off. */
-.snippet { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 4px 12px; padding-right: 8px; }
-.snippet + .snippet { margin-top: 4px; padding-top: 8px; background: rgb(255 255 255 / 0.03); }
-.code-note { padding: 10px 0 0 20px; font-size: var(--fs-small); line-height: 1.5; color: #B9B6AE; }
+/* One numbered row per command: its number, what to do and its own Copy button, the command under them.
+   A long command scrolls sideways inside its row rather than wrapping mid-line (see the phone rule below).
+   The markup reads instruction, command, Copy; the grid puts Copy top right on wider screens. */
+.cmds { display: grid; gap: 4px; padding: 0 8px 8px; counter-reset: cmd; }
+.snippet {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 4px 12px;
+  grid-template-areas: 'num note copy' '. cmd cmd' '. hint hint';
+  padding: 0 8px 0 12px; border-radius: var(--radius); background: rgb(255 255 255 / 0.04); counter-increment: cmd;
+}
+.snippet::before {
+  content: counter(cmd); content: counter(cmd) / ''; /* the list already says the number to a screen reader */
+  grid-area: num; display: grid; place-items: center; width: 26px; height: 26px; margin-top: 12px; border-radius: 50%;
+  background: rgb(255 255 255 / 0.1); color: var(--code-ink); font-size: 14px; font-weight: 650; line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.snippet .code-note { grid-area: note; }
+.snippet .copy-btn { grid-area: copy; }
+.code-note { padding-top: 12px; font-size: var(--fs-small); line-height: 1.5; color: #B9B6AE; }
 .code-note code { color: var(--code-ink); white-space: normal; overflow-wrap: anywhere; }
-.snippet pre { grid-column: 1 / -1; padding-top: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.snippet pre { grid-area: cmd; }
+.code-hint { grid-area: hint; }
+.install .snippet pre { padding: 8px 0 16px; white-space: pre; overflow-wrap: normal; overscroll-behavior-x: contain; }
+/* The address in a command, on the dark panels only: Sand marks the part that is yours, dotted while it
+   is still the placeholder, plain once the field has filled it in. */
+.code-panel .identity { color: var(--accent); }
+.code-panel .identity:not([data-filled]) { text-decoration: underline dotted; text-underline-offset: 0.25em; }
+.code-hint { margin-top: -8px; padding-bottom: 14px; font-size: var(--fs-small); line-height: 1.5; color: #B9B6AE; }
+/* Your Homebase address: shown by the script, which writes it into every command as you type. */
+.install-col { display: grid; gap: 16px; align-content: start; min-width: 0; }
+.identity-field { display: grid; gap: 8px; }
+.identity-field[hidden] { display: none; }
+.identity-label { font-weight: 650; }
+.identity-help { font-size: var(--fs-small); line-height: 1.5; color: var(--muted); }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+/* Which Claude apps work: rows told apart by a tone step. */
+.apps { width: 100%; max-width: 46ch; margin-top: 8px; border-collapse: collapse; font-size: var(--fs-small); line-height: 1.4; }
+.apps caption { padding-bottom: 8px; text-align: left; font-size: var(--fs-body); font-weight: 650; }
+.apps th, .apps td { padding: 10px 12px; text-align: left; vertical-align: top; }
+.apps tbody th { font-weight: 400; }
+.apps thead th { font-weight: 650; }
+.apps td { white-space: nowrap; }
+.apps tbody tr:nth-child(odd) { background: var(--bg); }
+/* What Claude can and can't do: two short lists side by side. */
+.can { display: grid; gap: 20px; margin-top: clamp(48px, 6vw, 80px); padding: clamp(24px, 3.4vw, 48px); border-radius: 16px; background: var(--band-2); }
+.can-cols { display: grid; gap: 24px var(--gap); }
+@media (min-width: 900px) { .can-cols { grid-template-columns: 1fr 1fr; } }
+.can-head { margin-bottom: 8px; font-size: var(--fs-body); font-weight: 650; }
+.can ul { display: grid; gap: 8px; max-width: 52ch; }
 .code-panel pre, .session pre {
   margin: 0; padding: 4px 20px 24px;
   font-family: var(--font-mono); font-size: var(--fs-small); line-height: 1.8;
@@ -444,8 +486,18 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 }
 .code-panel pre code, .session pre code { white-space: inherit; }
 .terminal pre { white-space: pre-wrap; overflow-wrap: anywhere; }
-/* On a phone a long command wraps rather than running off the edge; the Copy button copies it whole. */
-@media (max-width: 599px) { .code-panel pre, .session pre { padding: 4px 16px 20px; font-size: 13px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; } }
+/* On a phone the terminal and the sample result wrap rather than running off the edge. An install command
+   stays on one line and scrolls sideways in its row, so a pasted command is never split. */
+@media (max-width: 599px) {
+  .code-panel pre, .session pre { padding: 4px 16px 20px; font-size: 13px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+  /* On a phone the command takes the row's full width and Copy sits under it, so the instruction
+     isn't squeezed beside the button and more of the command shows before it scrolls. */
+  .snippet { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 'num note' 'cmd cmd' 'hint hint' 'copy copy'; }
+  .snippet .copy-btn { justify-self: start; margin: 0 0 12px; }
+  .install .snippet pre { padding: 4px 0 10px; }
+  .code-hint { margin-top: -4px; padding-bottom: 10px; }
+  .cmds { padding: 0 4px 4px; }
+}
 .copy-btn {
   display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 4px; padding: 0 14px;
   border: 0; border-radius: var(--radius); background: rgb(255 255 255 / 0.08); color: var(--code-ink);
@@ -493,7 +545,7 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .fixes code, .band .fixes code { background: var(--band); }
 /* Tool reference: an index by job, the shared rules, then each tool's card of facts beside its inputs. */
 .tool-index { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 24px; margin-bottom: clamp(40px, 5vw, 64px); }
-@media (min-width: 900px) { .tool-index { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--gap); } }
+@media (min-width: 900px) { .tool-index { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--gap); } }
 .tool-index-head { font-weight: 650; margin-bottom: 4px; }
 .tool-index a { display: inline-flex; align-items: center; min-height: 40px; color: var(--muted); text-decoration: none; }
 .tool-index code { font-size: 14px; white-space: normal; overflow-wrap: anywhere; }
@@ -584,12 +636,12 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 /* Renewing is the second, smaller errand: a step lighter than the panel. */
 .buy-renew { padding: 20px; border-radius: 12px; background: var(--bg); }
 .buy-label { font-weight: 650; margin-top: 4px; }
-.buy-input {
+.buy-input, .identity-input {
   width: 100%; min-height: 52px; padding: 0 16px;
   border: 1.5px solid color-mix(in srgb, var(--ink) 24%, transparent); border-radius: var(--radius);
   background: var(--bg); color: var(--ink); font: inherit; font-size: var(--fs-body);
 }
-.buy-input:focus-visible { border-color: var(--ink); }
+.buy-input:focus-visible, .identity-input:focus-visible { border-color: var(--ink); }
 .buy-input[aria-invalid='true'] { border-color: #A0442F; border-width: 2px; }
 :root[data-theme='dark'] .buy-input[aria-invalid='true'] { border-color: #E3A08F; }
 .buy-status { font-weight: 560; color: #A0442F; } /* the playground's error colour */
