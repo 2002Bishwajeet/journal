@@ -43,6 +43,7 @@ describe('identityFrom', () => {
         ['  Alex.DotYou.Cloud  ', 'alex.dotyou.cloud'],
         ['https://alex.dotyou.cloud/', 'alex.dotyou.cloud'],
         ['https://alex.dotyou.cloud/owner/settings', 'alex.dotyou.cloud'],
+        ['alex. dotyou.cloud', 'alex.dotyou.cloud'],
         ['   ', ''],
     ])('reads %j as %j', (input, expected) => {
         expect(identityFrom(input)).toBe(expected);
@@ -99,8 +100,12 @@ describe('the install card', () => {
         expect(identities.length).toBe(7);
         expect($$('.identity-hint').every((hint) => !(hint as HTMLElement).hidden)).toBe(true);
 
+        expect(identities.some((el) => el.hasAttribute('data-filled'))).toBe(false);
+
         type('https://alex.dotyou.cloud/');
         expect(identities.every((el) => el.textContent === 'alex.dotyou.cloud')).toBe(true);
+        // Filled in: the address loses its dotted placeholder look.
+        expect(identities.every((el) => el.hasAttribute('data-filled'))).toBe(true);
         expect($$('.identity-hint').every((hint) => (hint as HTMLElement).hidden)).toBe(true);
         expect(await copy($('[data-copy="install-desktop-login"]'))).toBe('npx -y journal-mcp@latest login alex.dotyou.cloud');
         expect(await copy($('[data-copy="install-code-login"]'))).toBe('/journal:login alex.dotyou.cloud');
@@ -108,7 +113,34 @@ describe('the install card', () => {
 
         type('');
         expect(identities.every((el) => el.textContent === IDENTITY_PLACEHOLDER)).toBe(true);
+        expect(identities.some((el) => el.hasAttribute('data-filled'))).toBe(false);
         expect($$('.identity-hint').every((hint) => !(hint as HTMLElement).hidden)).toBe(true);
+    });
+
+    it('tells a screen reader what was copied', async () => {
+        startInstallCard(document);
+        await copy($('[data-copy="install-code-plugin"]'));
+        expect($('#copy-status').getAttribute('role')).toBe('status');
+        expect($('#copy-status').textContent).toBe('Copied the command that installs the plugin');
+    });
+
+    it('selects the command when the clipboard is blocked, so it can still be copied by hand', async () => {
+        startInstallCard(document);
+        writeText.mockRejectedValue(new Error('blocked'));
+        const button = $<HTMLButtonElement>('[data-copy="install-desktop-login"]');
+        button.click();
+        await vi.waitFor(() => expect(button.querySelector('.copy-label')!.textContent).toBe('Selected, now copy'));
+        expect(getSelection()!.toString()).toBe(`npx -y journal-mcp@latest login ${IDENTITY_PLACEHOLDER}`);
+        expect($('#copy-status').textContent).toContain('is selected');
+    });
+
+    it('reads instruction, command, then its Copy button, and says what the address field does', () => {
+        for (const row of $$('.install .snippet')) {
+            const order = [...row.children].map((el) => el.tagName);
+            expect(order.indexOf('PRE')).toBeLessThan(order.indexOf('BUTTON'));
+        }
+        expect($('#identity-input').getAttribute('aria-describedby')).toBe('identity-help');
+        expect($('#identity-help').textContent).toBe('Type it once and every command below fills it in. Nothing is saved.');
     });
 
     it('shows each login with the hint under it', () => {

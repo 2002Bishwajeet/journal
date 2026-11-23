@@ -432,28 +432,39 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 /* On a phone the four tabs wrap into two rows rather than scrolling out of sight. */
 @media (max-width: 599px) { .tabs { flex-wrap: wrap; } .tab { padding: 0 12px; } }
 /* One numbered row per command: its number, what to do and its own Copy button, the command under them.
-   A long command scrolls sideways inside its row rather than wrapping mid-line (see the phone rule below). */
+   A long command scrolls sideways inside its row rather than wrapping mid-line (see the phone rule below).
+   The markup reads instruction, command, Copy; the grid puts Copy top right on wider screens. */
 .cmds { display: grid; gap: 4px; padding: 0 8px 8px; counter-reset: cmd; }
 .snippet {
   display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 4px 12px;
+  grid-template-areas: 'num note copy' '. cmd cmd' '. hint hint';
   padding: 0 8px 0 12px; border-radius: var(--radius); background: rgb(255 255 255 / 0.04); counter-increment: cmd;
 }
 .snippet::before {
   content: counter(cmd); content: counter(cmd) / ''; /* the list already says the number to a screen reader */
-  display: grid; place-items: center; width: 26px; height: 26px; margin-top: 12px; border-radius: 50%;
+  grid-area: num; display: grid; place-items: center; width: 26px; height: 26px; margin-top: 12px; border-radius: 50%;
   background: rgb(255 255 255 / 0.1); color: var(--code-ink); font-size: 14px; font-weight: 650; line-height: 1;
   font-variant-numeric: tabular-nums;
 }
+.snippet .code-note { grid-area: note; }
+.snippet .copy-btn { grid-area: copy; }
 .code-note { padding-top: 12px; font-size: var(--fs-small); line-height: 1.5; color: #B9B6AE; }
 .code-note code { color: var(--code-ink); white-space: normal; overflow-wrap: anywhere; }
-.snippet pre, .code-hint { grid-column: 2 / -1; }
-.install .snippet pre { padding: 8px 0 16px; white-space: pre; overflow-wrap: normal; }
+.snippet pre { grid-area: cmd; }
+.code-hint { grid-area: hint; }
+.install .snippet pre { padding: 8px 0 16px; white-space: pre; overflow-wrap: normal; overscroll-behavior-x: contain; }
+/* The address in a command, on the dark panels only: Sand marks the part that is yours, dotted while it
+   is still the placeholder, plain once the field has filled it in. */
+.code-panel .identity { color: var(--accent); }
+.code-panel .identity:not([data-filled]) { text-decoration: underline dotted; text-underline-offset: 0.25em; }
 .code-hint { margin-top: -8px; padding-bottom: 14px; font-size: var(--fs-small); line-height: 1.5; color: #B9B6AE; }
 /* Your Homebase address: shown by the script, which writes it into every command as you type. */
 .install-col { display: grid; gap: 16px; align-content: start; min-width: 0; }
 .identity-field { display: grid; gap: 8px; }
 .identity-field[hidden] { display: none; }
 .identity-label { font-weight: 650; }
+.identity-help { font-size: var(--fs-small); line-height: 1.5; color: var(--muted); }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 /* Which Claude apps work: rows told apart by a tone step. */
 .apps { width: 100%; max-width: 46ch; margin-top: 8px; border-collapse: collapse; font-size: var(--fs-small); line-height: 1.4; }
 .apps caption { padding-bottom: 8px; text-align: left; font-size: var(--fs-body); font-weight: 650; }
@@ -479,7 +490,12 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
    stays on one line and scrolls sideways in its row, so a pasted command is never split. */
 @media (max-width: 599px) {
   .code-panel pre, .session pre { padding: 4px 16px 20px; font-size: 13px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
-  .install .snippet pre { padding: 8px 0 14px; white-space: pre; overflow-wrap: normal; }
+  /* On a phone the command takes the row's full width and Copy sits under it, so the instruction
+     isn't squeezed beside the button and more of the command shows before it scrolls. */
+  .snippet { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 'num note' 'cmd cmd' 'hint hint' 'copy copy'; }
+  .snippet .copy-btn { justify-self: start; margin: 0 0 12px; }
+  .install .snippet pre { padding: 4px 0 10px; }
+  .code-hint { margin-top: -4px; padding-bottom: 10px; }
   .cmds { padding: 0 4px 4px; }
 }
 .copy-btn {
