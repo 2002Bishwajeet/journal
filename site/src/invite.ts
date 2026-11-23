@@ -25,5 +25,5 @@ export function redeemError(status: number | null): string {
 
 /** The text file Save writes. */
 export function keyFile(key: string): string {
-  return `Journal license key\n\n${key}\n\nA lifetime license for the Journal apps on up to 5 devices.\nOpen Journal and enter this key. On a computer it goes on the license screen; on iPhone or iPad, tap "Have a license key?" on the paywall.\nDownload the apps: https://journal.cloudx.run/landing/download\n`;
+  return `Journal license key\n\n${key}\n\nA lifetime license for the Journal apps on up to 5 devices.\nOpen Journal, sign in and paste this key. On a computer, open Settings, then Purchase. On iPhone or iPad, tap "Have a license key?" at the bottom of the screen.\nDownload the apps: https://journal.cloudx.run/landing/download\n`;
 }

@@ -15,6 +15,7 @@ const done = document.querySelector<HTMLElement>('#redeem-done')!;
 const keyText = done.querySelector<HTMLElement>('#redeem-key')!;
 const copy = done.querySelector<HTMLButtonElement>('#redeem-copy')!;
 const save = done.querySelector<HTMLButtonElement>('#redeem-save')!;
+const saved = done.querySelector<HTMLElement>('#redeem-saved')!;
 
 // Read the code, then drop the whole query at once so it stays out of the address bar, the history and any referrer.
 const linkCode = new URLSearchParams(location.search).get('code')?.trim() || null;
@@ -51,12 +52,14 @@ function showKey(key: string): void {
     try {
       await navigator.clipboard.writeText(key);
       copy.textContent = 'Copied';
+      saved.textContent = 'Key copied. Keep a copy somewhere safe too, like your notes or a password manager.';
     } catch {
       getSelection()?.selectAllChildren(keyText);
       copy.textContent = 'Select and copy';
+      saved.textContent = 'The key is selected. Copy it with Ctrl+C, or Command+C on a Mac.';
     }
     clearTimeout(timer);
-    timer = window.setTimeout(() => (copy.textContent = 'Copy'), 2000);
+    timer = window.setTimeout(() => (copy.textContent = 'Copy key'), 2000);
   });
   save.addEventListener('click', () => {
     const url = URL.createObjectURL(new Blob([keyFile(key)], { type: 'text/plain' }));
@@ -64,6 +67,7 @@ function showKey(key: string): void {
     link.href = url;
     link.download = 'journal-license-key.txt';
     link.click();
+    saved.textContent = 'Saved as journal-license-key.txt, in your downloads.';
     setTimeout(() => URL.revokeObjectURL(url));
   });
 }

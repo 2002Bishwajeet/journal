@@ -122,6 +122,7 @@ describe('getting the key', () => {
         await flush();
         expect(writeText).toHaveBeenCalledWith(KEY);
         expect($('#redeem-copy').textContent).toBe('Copied');
+        expect($('#redeem-saved').textContent).toMatch(/^Key copied\./);
     });
 
     it('saves the key as a text file, in the browser', async () => {
@@ -136,6 +137,7 @@ describe('getting the key', () => {
         await getKey();
         $('#redeem-save').click();
         expect(clicked).toHaveBeenCalledOnce();
+        expect($('#redeem-saved').textContent).toContain('journal-license-key.txt');
         expect(await blobs[0].text()).toContain(KEY);
         expect(fetchMock).toHaveBeenCalledOnce();
     });
