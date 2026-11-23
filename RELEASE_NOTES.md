@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.73.21 (2026-11-23)
+
+### New
+
+- The download page shows what the apps add to Journal in the browser: notes encrypted on the device, an app lock and note locks, quick capture, the tray, share links that open in the app, and writing help from the Apple on-device model.
+
 ## 2.73.20 (2026-11-23)
 
 ### New
