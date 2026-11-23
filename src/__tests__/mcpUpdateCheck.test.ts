@@ -40,6 +40,19 @@ describe('mcp stale-version notice', () => {
         expect(updateNotice('1.9.0')).toContain('1.13.0 is available');
     });
 
+    it('tells the Claude Desktop extension, which a restart does not update, to install the new one (#1457)', async () => {
+        vi.stubGlobal('fetch', registry('1.13.0'));
+        await checkForUpdate();
+        process.env.JOURNAL_MCP_IDENTITY = 'alex.dotyou.cloud';
+        try {
+            expect(updateNotice('1.12.0')).toBe(
+                'Journal MCP 1.13.0 is available (running 1.12.0); install the new Claude Desktop extension from https://journal.cloudx.run/landing/agents to update.'
+            );
+        } finally {
+            delete process.env.JOURNAL_MCP_IDENTITY;
+        }
+    });
+
     it('says nothing when the running version is current or newer', async () => {
         vi.stubGlobal('fetch', registry('1.12.0'));
         await checkForUpdate();

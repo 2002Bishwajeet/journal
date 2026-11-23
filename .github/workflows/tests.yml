@@ -72,6 +72,10 @@ jobs:
         env:
           CI: true
 
+      # mcp-release.yml attaches it to each MCP release (#1457): check here that it still validates and packs.
+      - name: Build and pack the Claude Desktop extension
+        run: npm run mcp:mcpb
+
   typecheck:
     runs-on: ubuntu-latest
     permissions:

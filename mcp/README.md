@@ -33,6 +33,26 @@ How clients get new versions, and the server's once-a-day stale-version notice (
 `mcp/package/README.md`, filling in the tool list from the server, and copies the repo's
 `LICENSE` next to it.
 
+## Claude Desktop extension (no terminal)
+
+Each `mcp-v*` release also carries `journal-mcp-<version>.mcpb`, a
+[Desktop Extension](https://github.com/anthropics/mcpb) with the built server, its manifest, the
+app icon and the keychain module for macOS and Windows. Claude Desktop runs it with its own Node.js.
+Double-click it, type your Homebase address when Claude Desktop asks, and approve **Journal MCP** in the
+browser tab that opens. The agents page's **Download for Claude Desktop** button fetches the newest one.
+
+Claude Desktop starts the server with that address in `JOURNAL_MCP_IDENTITY`. With a saved login for
+it (from `journal-mcp login` or an earlier run) the server runs as usual. Without one, the server
+connects at once and starts the same browser login as `journal-mcp login` (`mcp/firstRun.ts`),
+saving the credentials to the keychain; until you approve, each tool answers with what to do and the
+approval link. A tool call after a failed or timed-out login starts a new one.
+
+`npm run mcp:mcpb` builds it (`mcp/mcpb.ts`): it stages the server under `mcp/mcpb-build/`, writes the
+manifest (tools listed from the server), installs the keychain module's macOS and Windows builds, then
+validates and packs it with `@anthropic-ai/mcpb` into `mcp/journal-mcp-<version>.mcpb`. CI packs it
+on every PR; **Release MCP package** attaches it to the release, and its `dry_run` attaches it to a
+draft release instead and publishes nothing.
+
 ## Setup (from a checkout)
 
 Log in once per identity. This registers a "Journal MCP" app on your identity (its own

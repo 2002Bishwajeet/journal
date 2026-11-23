@@ -76,11 +76,17 @@ function json(x: unknown, notes: string[] = [], untrusted = false) {
  * in-memory transport with fake deps — no SDK/drive access needed for the real server to
  * be exercised. `clientName` comes from this server's own initialize handshake.
  * `updateNotice` (mcp/updateCheck.ts) ends the instructions when a newer version is out.
+ * `source` can be a getter, read on each call: the Desktop Extension's throws until its first login is done (mcp/firstRun.ts).
  */
-export function createJournalMcpServer({ feed, ...driveDeps }: McpDriveDeps, updateNotice?: string): McpServer {
+export function createJournalMcpServer(source: McpDriveDeps | (() => McpDriveDeps), updateNotice?: string): McpServer {
     const instructions = updateNotice ? `${INSTRUCTIONS}\n\n${updateNotice}` : INSTRUCTIONS;
     const server = new McpServer({ name: 'journal-mcp', version: '0.1.0' }, { instructions });
-    const deps: WriteDeps = { ...driveDeps, loadImage, clientName: () => server.server.getClientVersion()?.name ?? '' };
+    const clientName = () => server.server.getClientVersion()?.name ?? '';
+    const bind = () => {
+        const { feed, ...driveDeps } = typeof source === 'function' ? source() : source;
+        const deps: WriteDeps = { ...driveDeps, loadImage, clientName };
+        return { deps, feed };
+    };
 
     for (const tool of TOOLS) {
         server.registerTool(
@@ -92,7 +98,7 @@ export function createJournalMcpServer({ feed, ...driveDeps }: McpDriveDeps, upd
                 annotations: { readOnlyHint: tool.readOnly, destructiveHint: !!tool.destructive },
             },
             async (args: Record<string, unknown>) => {
-                const { data, text, notes } = await tool.execute(deps, args);
+                const { data, text, notes } = await tool.execute(bind().deps, args);
                 return text ? { content: [{ type: 'text' as const, text: String(data) }] } : json(data, notes, UNTRUSTED_CONTENT_TOOLS.has(tool.name));
             }
         );
@@ -107,7 +113,7 @@ export function createJournalMcpServer({ feed, ...driveDeps }: McpDriveDeps, upd
             annotations: { readOnlyHint: false, destructiveHint: true },
         },
         async ({ code, dryRun }) => {
-            const { output, error, reads, writes } = await runScript(deps, code, dryRun);
+            const { output, error, reads, writes } = await runScript(bind().deps, code, dryRun);
             const summary = `${error ? 'The script stopped early; its error ends the output.' : 'The script finished.'} ${reads} reads, ${writes} writes${dryRun ? ' (dry run: none applied)' : ''}.`;
             return { content: [{ type: 'text' as const, text: untrustedContent(output) }, { type: 'text' as const, text: summary }], isError: !!error };
         }
@@ -122,6 +128,7 @@ export function createJournalMcpServer({ feed, ...driveDeps }: McpDriveDeps, upd
             annotations: { readOnlyHint: false, destructiveHint: true },
         },
         async ({ id, summary }) => {
+            const { deps, feed } = bind();
             if (!feed) throw new Error('publish_to_feed: no feed to publish to');
             return json(await publishToFeed(deps, feed, { id, summary }));
         }

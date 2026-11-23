@@ -43,7 +43,11 @@ export function updateNotice(running: string | undefined): string | undefined {
     if (!running || disabled()) return undefined;
     const latest = readCache()?.latest;
     if (!latest || !isNewer(latest, running)) return undefined;
-    return `Journal MCP ${latest} is available (running ${running}); restart your MCP client to update.`;
+    // The Claude Desktop extension (JOURNAL_MCP_IDENTITY, #1457) bundles its server: restarting doesn't update it.
+    const how = process.env.JOURNAL_MCP_IDENTITY
+        ? 'install the new Claude Desktop extension from https://journal.cloudx.run/landing/agents to update'
+        : 'restart your MCP client to update';
+    return `Journal MCP ${latest} is available (running ${running}); ${how}.`;
 }
 
 /** Asks the npm registry for the latest version, unless opted out or checked in the last day. Never throws. */
