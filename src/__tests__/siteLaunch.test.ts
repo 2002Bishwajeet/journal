@@ -97,10 +97,21 @@ describe('the device frames', () => {
 describe('the download page', () => {
     const html = built('download.html');
 
-    it('has the three getting-started steps, with Homebase sign-up marked closed beta', () => {
+    it('has the two after-install steps, with Homebase sign-up marked closed beta', () => {
         const steps = [...html.matchAll(/<h3 class="step-title">([^<]+)<\/h3>/g)].map(([, title]) => title);
-        expect(steps).toEqual(['Install', 'Create a Homebase identity', 'Sign in']);
+        expect(steps).toEqual(['Create a Homebase identity', 'Sign in']);
         expect(html).toContain('<a href="https://homebase.id">homebase.id</a>, where sign-up is in <strong>closed beta</strong>');
+    });
+
+    // #1476: the agents page's numbered rows once shared the global .step selector and broke this flow.
+    it('keeps .step for the arrow flow only: the agents page rows use .mcpb-step', () => {
+        const css = read('site/src/styles.css');
+        const stepRules = css.split('}').filter((rule) => /(^|[\s,{}])\.step(?![\w-])/.test(rule.split('{')[0]));
+        expect(stepRules.length).toBeGreaterThan(0);
+        for (const rule of stepRules) expect(rule).not.toMatch(/counter-increment|counter\(/);
+        expect(css).not.toMatch(/\.step::before/);
+        expect(read('site/agents.html')).not.toMatch(/class="step"/);
+        expect(read('site/agents.html')).toContain('class="mcpb-step"');
     });
 
     // #1456: what the apps add, only features with a released entry in RELEASE_NOTES.md, right after the hero.

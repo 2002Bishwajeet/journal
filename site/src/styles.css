@@ -268,7 +268,7 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
   }
 }
 
-/* ---- Where notes live: three filled steps, pointing on ---- */
+/* ---- Where notes live: three filled steps, pointing on (the download page has two: step-1, step-3). Only this flow owns .step; the agents page's rows are .mcpb-step ---- */
 .flow { display: grid; gap: 6px; }
 .step { display: grid; gap: 10px; align-content: start; padding: 28px 24px 32px; }
 .step:first-child { border-radius: 12px 12px 0 0; }
@@ -281,6 +281,7 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .step-3 p { color: var(--field-ink); }
 @media (min-width: 860px) {
   .flow { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
+  .flow-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .step { gap: 16px; padding: 48px 56px 52px 40px; min-height: 300px; border-radius: 0; }
   .step:first-child { border-radius: 12px 0 0 12px; clip-path: polygon(0 0, calc(100% - 28px) 0, 100% 50%, calc(100% - 28px) 100%, 0 100%); }
   .step-2 { margin-left: -22px; padding-left: 62px; clip-path: polygon(0 0, calc(100% - 28px) 0, 100% 50%, calc(100% - 28px) 100%, 0 100%, 28px 50%); }
@@ -441,7 +442,7 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
   grid-template-areas: 'num note copy' '. cmd cmd' '. hint hint';
   padding: 0 8px 0 12px; border-radius: var(--radius); background: rgb(255 255 255 / 0.04); counter-increment: cmd;
 }
-.snippet::before, .step::before {
+.snippet::before, .mcpb-step::before {
   content: counter(cmd); content: counter(cmd) / ''; /* the list already says the number to a screen reader */
   grid-area: num; display: grid; place-items: center; width: 26px; height: 26px; margin-top: 12px; border-radius: 50%;
   background: rgb(255 255 255 / 0.1); color: var(--code-ink); font-size: 14px; font-weight: 650; line-height: 1;
@@ -453,11 +454,11 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .mcpb { display: grid; justify-items: start; gap: 4px; padding: 8px 12px 12px; }
 .code-panel .btn-primary { background: var(--code-ink); color: var(--code-bg); }
 @media (hover: hover) and (pointer: fine) { .code-panel .btn-primary:hover { background: color-mix(in srgb, var(--code-ink) 86%, var(--code-bg)); } }
-.step {
+.mcpb-step {
   display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; padding: 0 12px 12px;
   border-radius: var(--radius); background: rgb(255 255 255 / 0.04); counter-increment: cmd;
 }
-.step .code-note { color: var(--code-ink); }
+.mcpb-step .code-note { color: var(--code-ink); }
 .alt-setup summary {
   display: flex; align-items: center; gap: 8px; min-height: 44px; margin: 0 8px 8px; padding: 0 12px; border-radius: var(--radius);
   font-size: var(--fs-small); color: #B9B6AE; cursor: pointer; list-style: none; user-select: none; -webkit-user-select: none;
