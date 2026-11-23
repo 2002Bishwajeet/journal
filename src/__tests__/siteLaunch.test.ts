@@ -5,7 +5,7 @@
  * #1455: that flag is split in two, VITE_APPSTORE_LIVE (on in the deploy) and VITE_PLAY_LIVE (off: "Android: coming later").
  */
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { Window } from 'happy-dom';
 import { describe, expect, it } from 'vitest';
 import { APPSTORE_LIVE, PLAY_LIVE, render } from '../../site/vite.config';
@@ -125,10 +125,15 @@ describe('the download page', () => {
             'Stays running, starts at login, updates itself',
             'Share links open in the app',
             "Writing help from Apple's on-device model",
+            // #1478: shipped native features the site did not name (#1015, #1016/#1123/#1139, #1117/#1118, #1205).
+            'Every note as a .md file in a folder',
+            'Notifications, and a daily reminder',
+            'Services and Dock menus on a Mac',
+            'Export saves where you choose',
         ]);
         expect(section).toMatch(/Everything else is the same Journal you use in the browser, which stays free\.<\/p>\s*<\/div>\s*<\/section>$/);
-        // The native export save (#1205) is listed only once its release note is out of release-notes/.
-        expect(section).not.toMatch(/share sheet|Save dialog/i);
+        expect(section).toContain('a locked note is never written');
+        expect(section).toContain('The daily reminder is on Mac only.');
         expect(html.indexOf('id="apps-add"')).toBeGreaterThan(html.indexOf('id="download-title"'));
         expect(html.indexOf('id="apps-add"')).toBeLessThan(html.indexOf('id="start-title"'));
     });
@@ -256,6 +261,40 @@ describe('the home page Homebase lines', () => {
 });
 
 describe('the pricing and buy copy', () => {
+    // #1478: the web app is free and full-featured for writing, but the apps add what only an app can do.
+    it.each(readdirSync(new URL('../../site', import.meta.url)).filter((f) => f.endsWith('.html')))('%s never says "every feature"', (file) => {
+        expect(textNodes(built(file, BOTH)).join(' ')).not.toMatch(/every feature/i);
+    });
+
+    it.each(['site/llms.txt', 'public/llms.txt'])('%s never says "every feature"', (file) => {
+        expect(read(file)).not.toMatch(/every feature/i);
+    });
+
+    it('leads the apps column on Pricing with what the apps add, the license terms below', () => {
+        const pro = textNodes(/<article class="plan plan-pro"[\s\S]*?<\/article>/.exec(built('pricing.html', DEPLOYED))?.[0] ?? '').join('\n');
+        const at = (words: string) => {
+            expect(pro).toContain(words);
+            return pro.indexOf(words);
+        };
+        const benefits = [
+            'Your notes encrypted on your device too',
+            'Lock the app, or one note or folder, with Face ID, Touch ID or Windows Hello',
+            'Jot a note from anywhere on your computer with Cmd+Shift+J, or Ctrl+Shift+J on Windows and Linux (not yet on Linux Wayland)',
+            'Keeps syncing from the tray or menu bar, and starts at login',
+            'Share links that open in the app',
+            "Writing help from Apple's on-device model on iPhone and iPad",
+        ].map(at);
+        expect(benefits).toEqual([...benefits].sort((a, b) => a - b));
+        const terms = ['One purchase, no subscription', 'one license key for up to 5 devices', 'A year of updates included'].map(at);
+        expect(Math.min(...terms)).toBeGreaterThan(Math.max(...benefits));
+    });
+
+    it('makes the case for the apps in the home pricing teaser, linking to Pricing', () => {
+        const teaser = /<section[^>]*id="pricing"[\s\S]*?<\/section>/.exec(built('index.html', DEPLOYED))?.[0] ?? '';
+        expect(teaser).toContain('The apps encrypt your notes on your device too, and lock the app or a single note with your face or fingerprint.');
+        expect(teaser).toContain('href="/landing/pricing"');
+    });
+
     it.each(['pricing.html', 'buy.html'])('%s states the model', (file) => {
         const html = built(file, DEPLOYED);
         for (const words of ['3-day trial', '€24.99', '€14.99', 'year of updates', 'Journal apps']) expect(html).toContain(words);
