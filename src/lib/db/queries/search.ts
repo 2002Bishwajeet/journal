@@ -2,7 +2,7 @@ import { getDatabase, ensureTrigramSearch } from '../pglite';
 import type { NoteListEntry, DocumentMetadata, AdvancedSearchResult } from '@/types';
 import { ACTIVE_NOTES_FILTER, NOTE_LIST_SELECT, MODIFIED_DESC, LOCKED_NOTE, lockedNote } from './shared';
 import { toNoteListEntry, type NoteListRow } from './noteList';
-import { buildSearchPlan, type SearchPlan } from '@/lib/search/searchPlan';
+import { buildSearchPlan, type SearchPlan, type SearchFilters } from '@/lib/search/searchPlan';
 
 /**
  * Fast search for the `[[` note-link picker: title substring match plus
@@ -98,6 +98,26 @@ const proseOf = `CROSS JOIN LATERAL (SELECT split_part(s.plain_text_content, chr
 // Below this many hits the next, slower stage runs.
 const ENOUGH = 10;
 
+/** The filters (#1230) as `AND` conditions on `s`, their values pushed onto `params`. */
+function filterSql(filters: SearchFilters | undefined, params: unknown[]): string {
+    if (!filters) return '';
+    const param = (value: unknown) => `$${params.push(value)}`;
+    const flag = (key: string) => `COALESCE((s.metadata->>'${key}')::boolean, false)`;
+    return [
+        filters.tags &&
+            `${param(filters.tags)}::text[] <@ ARRAY(SELECT lower(t) FROM jsonb_array_elements_text(COALESCE(s.metadata->'tags', '[]'::jsonb)) t)`,
+        filters.folderIds && `s.metadata->>'folderId' = ANY(${param(filters.folderIds)}::text[])`,
+        filters.pinned && flag('isPinned'),
+        filters.shared && flag('isCollaborative'),
+        filters.public && flag('isPublic'),
+        filters.after && `${MODIFIED} >= ${param(filters.after)}`,
+        filters.before && `${MODIFIED} < ${param(filters.before)}`,
+    ]
+        .filter(Boolean)
+        .map((condition) => ` AND ${condition}`)
+        .join('');
+}
+
 /**
  * Search for the search dialog and the in-app agent (#1225). Staged so each
  * statement can use an index, and ordered in tiers, best first: title equals
@@ -116,28 +136,49 @@ const ENOUGH = 10;
  *
  * A locked note (#1427) is found by its title only: its body and tags are never
  * matched and never shown in a snippet.
+ *
+ * `filters` (the search box's `tag:`, `folder:`, `is:`, `before:` and `after:`,
+ * #1230) narrow every stage. With filters and no text: the filtered notes,
+ * newest first, with a preview and no match type.
  */
 export async function advancedSearch(
     query: string,
-    options: { includeArchived?: boolean } = {},
+    options: { includeArchived?: boolean; filters?: SearchFilters } = {},
 ): Promise<AdvancedSearchResult[]> {
     const plan = buildSearchPlan(query);
-    if (!plan.text) return [];
+    const { filters } = options;
+    if (!plan.text && !filters) return [];
     const db = await getDatabase();
     const visible = visibilityFilter(options.includeArchived);
     const unlocked = `${visible} AND NOT ${lockedNote('s')}`;
     const results: AdvancedSearchResult[] = [];
     try {
-        results.push(...(await searchTitlesAndFullText(db, plan, visible, unlocked)));
+        if (!plan.text) return await listFiltered(db, visible, filters);
+        results.push(...(await searchTitlesAndFullText(db, plan, visible, unlocked, filters)));
         if (results.length >= ENOUGH || plan.text.length < 3 || plan.kind === 'syntax') return results;
         await ensureTrigramSearch(db);
-        results.push(...(await searchBodySubstring(db, plan, unlocked, results)));
+        results.push(...(await searchBodySubstring(db, plan, unlocked, results, filters)));
         if (results.length >= ENOUGH || plan.text.length < 4 || plan.kind !== 'words') return results;
-        results.push(...(await searchFuzzyTitles(db, plan, visible, results)));
+        results.push(...(await searchFuzzyTitles(db, plan, visible, results, filters)));
     } catch (error) {
         console.error('[advancedSearch] Error:', error);
     }
     return results;
+}
+
+/** Filters and no text: the newest 50 matching notes, with the note list's preview. */
+async function listFiltered(db: Db, visible: string, filters?: SearchFilters): Promise<AdvancedSearchResult[]> {
+    const params: unknown[] = [];
+    const result = await db.query<HitRow & { preview: string }>(
+        `SELECT s.doc_id, s.title, s.metadata,
+            CASE WHEN ${lockedNote('s')} THEN '' ELSE LEFT(s.plain_text_content, 150) END AS preview
+         FROM search_index s
+         WHERE ${visible}${filterSql(filters, params)}
+         ORDER BY ${MODIFIED} DESC NULLS LAST
+         LIMIT 50`,
+        params,
+    );
+    return result.rows.map((row) => ({ docId: row.doc_id, title: row.title, metadata: row.metadata, score: 0, preview: row.preview }));
 }
 
 /** The full-text query as tsquery text; '' when there is none (only stop words, or symbols). */
@@ -159,13 +200,20 @@ async function fullTextQuery(db: Db, plan: SearchPlan): Promise<string> {
 }
 
 /** `unlocked`: `visible` without locked notes, for the full-text branch, which matches bodies and tags. */
-async function searchTitlesAndFullText(db: Db, plan: SearchPlan, visible: string, unlocked: string): Promise<AdvancedSearchResult[]> {
+async function searchTitlesAndFullText(
+    db: Db,
+    plan: SearchPlan,
+    visible: string,
+    unlocked: string,
+    filters?: SearchFilters,
+): Promise<AdvancedSearchResult[]> {
     const tsq = await fullTextQuery(db, plan);
     const titleBranch = plan.kind !== 'syntax';
     if (!tsq && !titleBranch) return [];
 
     const params = [tsq, plan.text, (/[\p{L}\p{N}]+/u.exec(plan.text)?.[0] ?? '').toLowerCase()];
     const param = (value: string) => `$${params.push(value)}`;
+    const filter = filterSql(filters, params);
     // `t` is the lowercased, unaccented title, computed once per row. The title
     // is weight A in search_vector and the tags weight B, so the query
     // restricted to A matches in the title, and to B in the tags.
@@ -186,7 +234,7 @@ async function searchTitlesAndFullText(db: Db, plan: SearchPlan, visible: string
     const branch = (where: string, fts: boolean) =>
         `SELECT doc_id, ${tier} AS tier, ${fts} AS fts, modified
          FROM (SELECT s.doc_id, lower(unaccent(s.title)) AS t, s.search_vector, s.vector_version, ${MODIFIED} AS modified
-               FROM search_index s WHERE ${where} AND ${fts ? unlocked : visible} OFFSET 0) b`;
+               FROM search_index s WHERE ${where} AND ${fts ? unlocked : visible}${filter} OFFSET 0) b`;
     const branches = [
         tsq && branch('s.search_vector @@ $1::tsquery', true),
         titleBranch && branch(`journal_unaccent(s.title) ILIKE '%' || journal_unaccent(${param(plan.like)}) || '%'`, false),
@@ -254,7 +302,9 @@ async function searchBodySubstring(
     plan: SearchPlan,
     visible: string,
     found: AdvancedSearchResult[],
+    filters?: SearchFilters,
 ): Promise<AdvancedSearchResult[]> {
+    const params: unknown[] = [plan.like, plan.text, found.map((r) => r.docId)];
     // Capped without an ORDER BY, so the trigram bitmap scan stops at 30 matches.
     // Accent-sensitive, unlike the other stages: it runs on the trigram index of
     // the body as written, and an unaccented copy would double that index.
@@ -262,12 +312,12 @@ async function searchBodySubstring(
         `SELECT s.doc_id, s.title, s.metadata,
             SUBSTRING(p.prose FROM GREATEST(1, strpos(lower(p.prose), lower($2)) - 40) FOR 120) AS snippet
          FROM (SELECT s.doc_id FROM search_index s
-               WHERE s.plain_text_content ILIKE '%' || $1 || '%' AND s.doc_id <> ALL($3::uuid[]) AND ${visible}
+               WHERE s.plain_text_content ILIKE '%' || $1 || '%' AND s.doc_id <> ALL($3::uuid[]) AND ${visible}${filterSql(filters, params)}
                LIMIT 30) hit
          JOIN search_index s ON s.doc_id = hit.doc_id
          ${proseOf}
          ORDER BY ${MODIFIED} DESC NULLS LAST`,
-        [plan.like, plan.text, found.map((r) => r.docId)],
+        params,
     );
     const highlight = new RegExp(`(${plan.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
     return result.rows.map((row) => ({
@@ -285,17 +335,19 @@ async function searchFuzzyTitles(
     plan: SearchPlan,
     visible: string,
     found: AdvancedSearchResult[],
+    filters?: SearchFilters,
 ): Promise<AdvancedSearchResult[]> {
+    const params: unknown[] = [plan.text, found.map((r) => r.docId)];
     // `<%`, not word_similarity() > x, so the title trigram index (on the
     // unaccented title) can serve it.
     await db.exec(`SET pg_trgm.word_similarity_threshold = 0.5`);
     const result = await db.query<HitRow & { similarity: number }>(
         `SELECT s.doc_id, s.title, s.metadata, word_similarity(journal_unaccent($1), journal_unaccent(s.title)) AS similarity
          FROM search_index s
-         WHERE journal_unaccent($1) <% journal_unaccent(s.title) AND s.doc_id <> ALL($2::uuid[]) AND ${visible}
+         WHERE journal_unaccent($1) <% journal_unaccent(s.title) AND s.doc_id <> ALL($2::uuid[]) AND ${visible}${filterSql(filters, params)}
          ORDER BY similarity DESC, ${MODIFIED} DESC NULLS LAST
          LIMIT 10`,
-        [plan.text, found.map((r) => r.docId)],
+        params,
     );
     return result.rows.map((row) => ({
         docId: row.doc_id,
