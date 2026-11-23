@@ -22,7 +22,7 @@ test('the search sheet shows a recent note and opens it', async ({ browser }) =>
     const dialog = page.getByRole('dialog', { name: 'Search notes' });
     await expect(dialog).toBeVisible();
     await expect(dialog.getByText('Recent', { exact: true })).toBeVisible();
-    await expect(dialog.getByRole('button', { name: 'Remove from recent' })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: /^Remove .* from recent$/ })).toBeVisible();
     await dialog.evaluate((el) => Promise.all(el.getAnimations().map((a) => a.finished)));
     await inBothThemes(page, async (theme) => {
       await page.screenshot({ path: test.info().outputPath(`search-recent-${theme}-393x852.png`) });
@@ -31,5 +31,6 @@ test('the search sheet shows a recent note and opens it', async ({ browser }) =>
     await dialog.getByText('Zebra crossing').click();
     await expect(dialog).toBeHidden();
     await expect(page.locator('textarea[placeholder="Untitled"]:visible')).toHaveValue('Zebra crossing');
+    await expect(page.locator('textarea[placeholder="Untitled"]:visible')).toBeFocused();
   });
 });

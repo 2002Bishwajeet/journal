@@ -72,3 +72,27 @@ test('a note titled "Café Zürich" is found by typing cafe zurich (#1229)', asy
   await expect(results).toHaveCount(1);
   await expect(results.first()).toContainText('Café Zürich');
 });
+
+test('Search is a combobox, Tab stays in the dialog, Esc returns focus to the opener (#1231)', async ({ app }) => {
+  await createNote(app, { title: 'Yak shaving', body: 'Bald yak' });
+
+  const opener = app.locator('[data-pane="sidebar"]').getByRole('button', { name: 'Search', exact: true });
+  await opener.focus();
+  await opener.press('Enter');
+  const dialog = app.getByRole('dialog', { name: 'Search notes' });
+  const input = dialog.getByRole('combobox', { name: 'Search notes' });
+  await expect(input).toBeFocused();
+  await input.fill('Yak');
+  await expect(dialog.getByRole('option')).toHaveCount(1);
+  await expect(dialog.getByRole('status')).toHaveText('1 result');
+  await expect(input).toHaveAttribute('aria-activedescendant', 'search-result-0');
+
+  for (let i = 0; i < 10; i++) {
+    await app.keyboard.press('Tab');
+    expect(await app.evaluate(() => !!document.activeElement?.closest('[role="dialog"]'))).toBe(true);
+  }
+
+  await app.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+  await expect(opener).toBeFocused();
+});

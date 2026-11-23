@@ -27,9 +27,9 @@ test('tap Tag, pick a tag, and see its notes', async ({ browser }) => {
     await buttons[1].tap();
     await expect(input).toHaveValue('tag:');
     await expect(input).toBeFocused();
-    const work = dialog.getByRole('button', { name: /^#work/ });
+    const work = dialog.getByRole('option', { name: /^#work/ });
     await expect(work).toBeVisible();
-    await expect(dialog.getByRole('button', { name: /^#ideas/ })).toBeVisible();
+    await expect(dialog.getByRole('option', { name: /^#ideas/ })).toBeVisible();
     await inBothThemes(page, async (theme) => {
       await page.screenshot({ path: test.info().outputPath(`search-filter-suggestions-${theme}-393x852.png`) });
     });

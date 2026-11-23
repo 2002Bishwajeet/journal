@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Journal for agents: the MCP server</title>
-  <meta name="description" content="Set up the Journal MCP server in Claude Code, Claude Desktop, Cursor or Codex CLI, then read the reference for its fourteen tools: inputs, results and when to use each." />
+  <meta name="description" content="Set up the Journal MCP server in Claude Code, Claude Desktop, Cursor or Codex CLI, then read the reference for every tool: inputs, results and when to use each." />
   <meta property="og:title" content="Journal for agents: the MCP server" />
   <meta property="og:description" content="Let Claude Code, Claude Desktop, Cursor and Codex CLI read and write your notes, in the folders you grant." />
   <!-- head -->
@@ -19,17 +19,17 @@
         <h1 class="display page-title" id="agents-hero-title" data-reveal>Give your agents a notebook</h1>
         <div class="agents-hero">
           <div class="agents-hero-copy">
-            <p class="lede" data-reveal style="--i:1">The Journal MCP server lets Claude Code, Claude Desktop, Cursor and Codex CLI read, search, create and edit your notes, in the folders you grant.</p>
+            <p class="lede" data-reveal style="--i:1">Let Claude read and write your notes, in the folders you grant. It runs on your computer and talks to your notes directly. Your notes don't pass through any Journal server.</p>
             <div class="ctas" data-reveal style="--i:2">
-              <a class="btn btn-primary" href="#setup">Set up the server</a>
-              <a class="btn btn-secondary" href="#tools">See the fourteen tools</a>
+              <a class="btn btn-primary" href="#setup">Connect Claude</a>
+              <a class="btn btn-secondary" href="#tools">See every tool</a>
             </div>
             <div class="needs" data-reveal style="--i:3">
               <h2 class="h3">What you need</h2>
               <dl>
-                <dt>A Homebase identity</dt><dd>Such as <code>you.dotyou.cloud</code>, signed in to <a href="/welcome">Journal</a> at least once. <a href="https://homebase.id/sign-up">Join the wait list</a> if you have none.</dd>
-                <dt>Node.js 20 or newer</dt><dd>The server runs on your computer through <code>npx</code>. Check with <code>node --version</code>.</dd>
-                <dt>An MCP client</dt><dd>Claude Code, Claude Desktop, Cursor, Codex CLI, or any client that can start a local command.</dd>
+                <dt>A Homebase identity</dt><dd>Such as <code>alex.dotyou.cloud</code>, signed in to <a href="/welcome">Journal</a> at least once. <a href="https://homebase.id/sign-up">Join the wait list</a> if you have none.</dd>
+                <dt>Node.js 20 or newer</dt><dd>Free from <a href="https://nodejs.org">nodejs.org</a>. The server runs on your computer through <code>npx</code>. Check with <code>node --version</code>.</dd>
+                <dt>A Claude app</dt><dd>Claude Desktop or Claude Code. Cursor, Codex CLI and any other client that can start a local command work too.</dd>
               </dl>
             </div>
           </div>
@@ -49,6 +49,26 @@
             </figure>
           </div>
         </div>
+
+        <div class="can" data-reveal>
+          <h2 class="h3">What Claude can and can't do</h2>
+          <div class="can-cols">
+            <div>
+              <h3 class="can-head">It can</h3>
+              <ul>
+                <li>Read and search notes, only in the folders you grant.</li>
+                <li>Write new notes and edit them, only in the folders you set to Read + write.</li>
+              </ul>
+            </div>
+            <div>
+              <h3 class="can-head">It can't</h3>
+              <ul>
+                <li>See folders set to None, or notes marked ‘exclude from AI’.</li>
+                <li>Delete a note for good. It can only move one to Trash, where you can restore it.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -57,116 +77,153 @@
       <div class="wrap">
         <div class="section-head">
           <h2 class="h2" id="setup-title" data-reveal>Set it up in four steps</h2>
-          <p class="lede" data-reveal style="--i:1">Sign in once on your computer, add the server to your agent, grant it folders, then ask it something to check. It takes about five minutes.</p>
+          <p class="lede" data-reveal style="--i:1">Sign in once on your computer, add Journal to Claude, grant it folders, then ask it something to check. It takes about five minutes.</p>
         </div>
 
         <ol class="setup">
           <li class="setup-step" data-reveal>
             <div class="setup-copy">
-              <h3 class="h3">Install the server and sign in</h3>
-              <p>Pick your agent. In Claude Code the plugin does both in one go. In the others, sign in from a terminal, then add the server to the client's config file.</p>
-              <p>Put your own identity in place of <code>you.dotyou.cloud</code>. You sign in once per computer: every client on it shares the same login, kept in your system keychain.</p>
+              <h3 class="h3" id="install-title">Which Claude do you use?</h3>
+              <p>Pick your app, then follow its numbered steps in order. Each Copy button copies only what is in its own box. You sign in once per computer: every app on it shares the same login, kept in your system keychain.</p>
+              <table class="apps">
+                <caption>Which Claude apps work</caption>
+                <thead><tr><th scope="col">App</th><th scope="col">Works with Journal</th></tr></thead>
+                <tbody>
+                  <tr><th scope="row">Claude Desktop (Mac, Windows)</th><td>Yes</td></tr>
+                  <tr><th scope="row">Claude Code</th><td>Yes</td></tr>
+                  <tr><th scope="row">claude.ai on the web</th><td>Not yet</td></tr>
+                  <tr><th scope="row">Claude on iPhone and Android</th><td>Not yet</td></tr>
+                </tbody>
+              </table>
             </div>
-            <div class="code-panel install" data-ui>
-              <div class="code-head">
-                <div class="tabs" role="tablist" aria-label="Your agent">
-                  <button class="tab" type="button" role="tab" id="tab-claude-code" aria-controls="panel-claude-code" aria-selected="true">Claude Code</button>
-                  <button class="tab" type="button" role="tab" id="tab-desktop" aria-controls="panel-desktop" aria-selected="false" tabindex="-1">Claude Desktop</button>
-                  <button class="tab" type="button" role="tab" id="tab-cursor" aria-controls="panel-cursor" aria-selected="false" tabindex="-1">Cursor</button>
-                  <button class="tab" type="button" role="tab" id="tab-codex" aria-controls="panel-codex" aria-selected="false" tabindex="-1">Codex CLI</button>
-                </div>
+            <div class="install-col">
+              <div class="identity-field" hidden>
+                <label class="identity-label" for="identity-input">Your Homebase address</label>
+                <input class="identity-input" id="identity-input" name="identity" type="text" inputmode="url" enterkeyhint="done" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="alex.dotyou.cloud" aria-describedby="identity-help" />
+                <p class="identity-help" id="identity-help">Type it once and every command below fills it in. Nothing is saved.</p>
               </div>
-
-              <div class="tab-panel" role="tabpanel" id="panel-claude-code" aria-labelledby="tab-claude-code">
-                <div class="snippet">
-                  <p class="code-note">Paste these into Claude Code, one at a time. The last one opens your browser to approve the server.</p>
-                  <button class="copy-btn" type="button" data-copy="install-claude-code" aria-label="Copy the Claude Code commands">
-                  <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                  <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-                  <span class="copy-label">Copy</span>
-                  </button>
-                  <pre tabindex="0" aria-label="Claude Code: install the plugin and sign in"><code id="install-claude-code">/plugin marketplace add 2002Bishwajeet/journal
-/plugin install journal@journal
-/journal:login you.dotyou.cloud</code></pre>
+              <p class="sr-only" role="status" id="copy-status"></p>
+              <div class="code-panel install" data-ui>
+                <div class="code-head">
+                  <div class="tabs" role="tablist" aria-labelledby="install-title">
+                    <button class="tab" type="button" role="tab" id="tab-desktop" aria-controls="panel-desktop" aria-selected="true">Claude Desktop</button>
+                    <button class="tab" type="button" role="tab" id="tab-claude-code" aria-controls="panel-claude-code" aria-selected="false" tabindex="-1">Claude Code</button>
+                    <button class="tab" type="button" role="tab" id="tab-cursor" aria-controls="panel-cursor" aria-selected="false" tabindex="-1">Cursor</button>
+                    <button class="tab" type="button" role="tab" id="tab-codex" aria-controls="panel-codex" aria-selected="false" tabindex="-1">Codex CLI</button>
+                  </div>
                 </div>
-              </div>
 
-              <div class="tab-panel" role="tabpanel" id="panel-desktop" aria-labelledby="tab-desktop" hidden>
-                <div class="snippet">
-                  <p class="code-note">First, sign in from a terminal:</p>
-                  <button class="copy-btn" type="button" data-copy="login-desktop" aria-label="Copy the sign-in command">
-                  <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                  <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-                  <span class="copy-label">Copy</span>
-                  </button>
-                  <pre tabindex="0" aria-label="Claude Desktop: sign in from a terminal"><code id="login-desktop">npx -y journal-mcp@latest login you.dotyou.cloud</code></pre>
-                </div>
-                <div class="snippet">
-                  <p class="code-note">Then open Settings → Developer → Edit Config in Claude Desktop, add this to <code>claude_desktop_config.json</code>, and quit and reopen the app:</p>
-                  <button class="copy-btn" type="button" data-copy="install-desktop" aria-label="Copy the Claude Desktop config">
-                  <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                  <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-                  <span class="copy-label">Copy</span>
-                  </button>
-                  <pre tabindex="0" aria-label="Claude Desktop: claude_desktop_config.json"><code id="install-desktop">{
-  "mcpServers": {
-    "journal": {
-      "command": "npx",
-      "args": ["-y", "journal-mcp@latest"]
-    }
-  }
+                <div class="tab-panel" role="tabpanel" id="panel-desktop" aria-labelledby="tab-desktop">
+                  <ol class="cmds">
+                    <li class="snippet">
+                      <p class="code-note">Open Terminal on a Mac or PowerShell on Windows, paste this and press Enter. It opens your browser to approve Journal:</p>
+                      <pre tabindex="0" aria-label="Claude Desktop: sign in from a terminal"><code id="install-desktop-login">npx -y journal-mcp@latest login <span class="identity">type.your.identity.here</span></code></pre>
+                      <p class="code-hint identity-hint">Replace with your Homebase address, e.g. alex.dotyou.cloud</p>
+                      <button class="copy-btn" type="button" data-copy="install-desktop-login" aria-label="Copy the Claude Desktop sign-in command">
+                        <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                        <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                        <span class="copy-label">Copy</span>
+                      </button>
+                    </li>
+                    <li class="snippet">
+                      <p class="code-note">In Claude Desktop, open Settings → Developer → Edit Config. Paste this inside <code>"mcpServers": { … }</code>, with a comma between it and any server already there. If the file has no <code>mcpServers</code>, add <code>"mcpServers": { }</code> first. Save, then quit and reopen Claude Desktop.</p>
+                      <pre tabindex="0" aria-label="Claude Desktop: the journal entry for claude_desktop_config.json"><code id="install-desktop-config">"journal": {
+  "command": "npx",
+  "args": ["-y", "journal-mcp@latest"]
 }</code></pre>
+                      <button class="copy-btn" type="button" data-copy="install-desktop-config" aria-label="Copy the Claude Desktop config entry">
+                        <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                        <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                        <span class="copy-label">Copy</span>
+                      </button>
+                    </li>
+                  </ol>
                 </div>
-              </div>
 
-              <div class="tab-panel" role="tabpanel" id="panel-cursor" aria-labelledby="tab-cursor" hidden>
-                <div class="snippet">
-                  <p class="code-note">First, sign in from a terminal:</p>
-                  <button class="copy-btn" type="button" data-copy="login-cursor" aria-label="Copy the sign-in command">
-                  <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                  <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-                  <span class="copy-label">Copy</span>
-                  </button>
-                  <pre tabindex="0" aria-label="Cursor: sign in from a terminal"><code id="login-cursor">npx -y journal-mcp@latest login you.dotyou.cloud</code></pre>
+                <div class="tab-panel" role="tabpanel" id="panel-claude-code" aria-labelledby="tab-claude-code" hidden>
+                  <ol class="cmds">
+                    <li class="snippet">
+                      <p class="code-note">Paste this into Claude Code and press Enter:</p>
+                      <pre tabindex="0" aria-label="Claude Code: add the plugin source"><code id="install-code-marketplace">/plugin marketplace add 2002Bishwajeet/journal</code></pre>
+                      <button class="copy-btn" type="button" data-copy="install-code-marketplace" aria-label="Copy the command that adds the plugin source">
+                        <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                        <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                        <span class="copy-label">Copy</span>
+                      </button>
+                    </li>
+                    <li class="snippet">
+                      <p class="code-note">Then this one, to install the plugin:</p>
+                      <pre tabindex="0" aria-label="Claude Code: install the plugin"><code id="install-code-plugin">/plugin install journal@journal</code></pre>
+                      <button class="copy-btn" type="button" data-copy="install-code-plugin" aria-label="Copy the command that installs the plugin">
+                        <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                        <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                        <span class="copy-label">Copy</span>
+                      </button>
+                    </li>
+                    <li class="snippet">
+                      <p class="code-note">Then sign in. It opens your browser to approve Journal:</p>
+                      <pre tabindex="0" aria-label="Claude Code: sign in"><code id="install-code-login">/journal:login <span class="identity">type.your.identity.here</span></code></pre>
+                      <p class="code-hint identity-hint">Replace with your Homebase address, e.g. alex.dotyou.cloud</p>
+                      <button class="copy-btn" type="button" data-copy="install-code-login" aria-label="Copy the Claude Code sign-in command">
+                        <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                        <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                        <span class="copy-label">Copy</span>
+                      </button>
+                    </li>
+                  </ol>
                 </div>
-                <div class="snippet">
-                  <p class="code-note">Then add this to <code>~/.cursor/mcp.json</code> for every project, or <code>.cursor/mcp.json</code> for one, and restart Cursor:</p>
-                  <button class="copy-btn" type="button" data-copy="install-cursor" aria-label="Copy the Cursor config">
-                  <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                  <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-                  <span class="copy-label">Copy</span>
-                  </button>
-                  <pre tabindex="0" aria-label="Cursor: mcp.json"><code id="install-cursor">{
-  "mcpServers": {
-    "journal": {
-      "command": "npx",
-      "args": ["-y", "journal-mcp@latest"]
-    }
-  }
+
+                <div class="tab-panel" role="tabpanel" id="panel-cursor" aria-labelledby="tab-cursor" hidden>
+                  <ol class="cmds">
+                    <li class="snippet">
+                      <p class="code-note">In a terminal, paste this and press Enter. It opens your browser to approve Journal:</p>
+                      <pre tabindex="0" aria-label="Cursor: sign in from a terminal"><code id="install-cursor-login">npx -y journal-mcp@latest login <span class="identity">type.your.identity.here</span></code></pre>
+                      <p class="code-hint identity-hint">Replace with your Homebase address, e.g. alex.dotyou.cloud</p>
+                      <button class="copy-btn" type="button" data-copy="install-cursor-login" aria-label="Copy the Cursor sign-in command">
+                        <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                        <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                        <span class="copy-label">Copy</span>
+                      </button>
+                    </li>
+                    <li class="snippet">
+                      <p class="code-note">Paste this inside <code>"mcpServers": { … }</code> in <code>~/.cursor/mcp.json</code> for every project, or <code>.cursor/mcp.json</code> for one, with a comma between it and any server already there. Then restart Cursor.</p>
+                      <pre tabindex="0" aria-label="Cursor: the journal entry for mcp.json"><code id="install-cursor-config">"journal": {
+  "command": "npx",
+  "args": ["-y", "journal-mcp@latest"]
 }</code></pre>
+                      <button class="copy-btn" type="button" data-copy="install-cursor-config" aria-label="Copy the Cursor config entry">
+                        <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                        <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                        <span class="copy-label">Copy</span>
+                      </button>
+                    </li>
+                  </ol>
                 </div>
-              </div>
 
-              <div class="tab-panel" role="tabpanel" id="panel-codex" aria-labelledby="tab-codex" hidden>
-                <div class="snippet">
-                  <p class="code-note">First, sign in from a terminal:</p>
-                  <button class="copy-btn" type="button" data-copy="login-codex" aria-label="Copy the sign-in command">
-                  <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                  <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-                  <span class="copy-label">Copy</span>
-                  </button>
-                  <pre tabindex="0" aria-label="Codex CLI: sign in from a terminal"><code id="login-codex">npx -y journal-mcp@latest login you.dotyou.cloud</code></pre>
-                </div>
-                <div class="snippet">
-                  <p class="code-note">Then add this to <code>~/.codex/config.toml</code> and start a new Codex session:</p>
-                  <button class="copy-btn" type="button" data-copy="install-codex" aria-label="Copy the Codex CLI config">
-                  <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                  <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
-                  <span class="copy-label">Copy</span>
-                  </button>
-                  <pre tabindex="0" aria-label="Codex CLI: ~/.codex/config.toml"><code id="install-codex">[mcp_servers.journal]
+                <div class="tab-panel" role="tabpanel" id="panel-codex" aria-labelledby="tab-codex" hidden>
+                  <ol class="cmds">
+                    <li class="snippet">
+                      <p class="code-note">In a terminal, paste this and press Enter. It opens your browser to approve Journal:</p>
+                      <pre tabindex="0" aria-label="Codex CLI: sign in from a terminal"><code id="install-codex-login">npx -y journal-mcp@latest login <span class="identity">type.your.identity.here</span></code></pre>
+                      <p class="code-hint identity-hint">Replace with your Homebase address, e.g. alex.dotyou.cloud</p>
+                      <button class="copy-btn" type="button" data-copy="install-codex-login" aria-label="Copy the Codex CLI sign-in command">
+                        <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                        <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                        <span class="copy-label">Copy</span>
+                      </button>
+                    </li>
+                    <li class="snippet">
+                      <p class="code-note">Add this to the end of <code>~/.codex/config.toml</code> and start a new Codex session:</p>
+                      <pre tabindex="0" aria-label="Codex CLI: ~/.codex/config.toml"><code id="install-codex-config">[mcp_servers.journal]
 command = "npx"
 args = ["-y", "journal-mcp@latest"]</code></pre>
+                      <button class="copy-btn" type="button" data-copy="install-codex-config" aria-label="Copy the Codex CLI config">
+                        <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                        <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                        <span class="copy-label">Copy</span>
+                      </button>
+                    </li>
+                  </ol>
                 </div>
               </div>
             </div>
@@ -182,9 +239,9 @@ args = ["-y", "journal-mcp@latest"]</code></pre>
             <figure class="code-panel terminal" data-ui aria-labelledby="terminal-cap">
               <figcaption id="terminal-cap" class="code-head"><span>What the terminal shows</span></figcaption>
               <pre tabindex="0" aria-label="Sign-in output"><code>Open this URL to approve Journal MCP:
-https://you.dotyou.cloud/api/owner/v1/youauth/authorize?…
+https://<span class="identity">type.your.identity.here</span>/api/owner/v1/youauth/authorize?…
 
-Logged in as you.dotyou.cloud. Credentials saved to the OS keychain.</code></pre>
+Logged in as <span class="identity">type.your.identity.here</span>. Credentials saved to the OS keychain.</code></pre>
             </figure>
           </li>
 
@@ -232,14 +289,14 @@ Logged in as you.dotyou.cloud. Credentials saved to the OS keychain.</code></pre
           <h3 class="h3" id="fixes">If something goes wrong</h3>
           <dl>
             <div><dt><code>Not logged in. Run: journal-mcp login &lt;identity&gt;</code></dt><dd>The server started but found no login on this computer. Run the sign-in step again, then reload the server.</dd></div>
-            <div><dt><code>Not a valid Homebase identity</code></dt><dd>Check the spelling. Give the identity alone, such as <code>you.dotyou.cloud</code>, and make sure it opens in a browser.</dd></div>
+            <div><dt><code>Not a valid Homebase identity</code></dt><dd>Check the spelling. Give the identity alone, such as <code>alex.dotyou.cloud</code>, and make sure it opens in a browser.</dd></div>
             <div><dt><code>Login timed out after 5 minutes</code></dt><dd>The approval wasn't finished in time. Run the login again and approve Journal MCP in the console it opens.</dd></div>
             <div><dt>No browser opens</dt><dd>Over SSH or in a container, add <code>--no-browser</code> and paste the code, as in step two.</dd></div>
             <div><dt><code>Journal MCP needs Node 20 or newer</code></dt><dd>Install Node.js 20 or later, remove the old one, and restart your client.</dd></div>
             <div><dt>The client can't start <code>npx</code></dt><dd>Desktop apps don't always see your shell's path. Put the full path from <code>which npx</code> in <code>"command"</code>.</dd></div>
             <div><dt>The agent sees no notes</dt><dd>Nothing is granted yet. Set the folders it needs in Settings → Agent access; the change applies on the next tool call.</dd></div>
             <div><dt><code>Note is read-only for agents</code></dt><dd>The note's folder is set to Read. Change it to Read + write to let the agent edit.</dd></div>
-            <div><dt>Revoke access</dt><dd>Remove Journal MCP under Apps in your owner console. To forget the login on one computer, run the login command with <code>logout</code> in place of <code>login you.dotyou.cloud</code>.</dd></div>
+            <div><dt>Revoke access</dt><dd>Remove Journal MCP under Apps in your owner console. To forget the login on one computer, run the login command with <code>logout</code> in place of <code>login <span class="identity">type.your.identity.here</span></code>.</dd></div>
           </dl>
         </div>
       </div>
@@ -249,7 +306,7 @@ Logged in as you.dotyou.cloud. Credentials saved to the OS keychain.</code></pre
     <section class="section" id="tools" aria-labelledby="tools-title">
       <div class="wrap">
         <div class="section-head head-split">
-          <h2 class="h2" id="tools-title" data-reveal>Fourteen tools, grouped by job</h2>
+          <h2 class="h2" id="tools-title" data-reveal>Every tool, grouped by job</h2>
           <p class="lede" data-reveal style="--i:1">What each tool does, what it takes and returns, and when an agent should reach for it. Your agent reads the same descriptions when it connects.</p>
         </div>
 
@@ -257,7 +314,8 @@ Logged in as you.dotyou.cloud. Credentials saved to the OS keychain.</code></pre
           <div><p class="tool-index-head">Find and read</p><ul><li><a href="#tool-list_folders"><code>list_folders</code></a></li><li><a href="#tool-list_notes"><code>list_notes</code></a></li><li><a href="#tool-search_notes"><code>search_notes</code></a></li><li><a href="#tool-get_note"><code>get_note</code></a></li><li><a href="#tool-get_authoring_guide"><code>get_authoring_guide</code></a></li></ul></div>
           <div><p class="tool-index-head">Write and edit</p><ul><li><a href="#tool-create_note"><code>create_note</code></a></li><li><a href="#tool-append_to_note"><code>append_to_note</code></a></li><li><a href="#tool-replace_in_note"><code>replace_in_note</code></a></li><li><a href="#tool-update_note"><code>update_note</code></a></li><li><a href="#tool-edit_block"><code>edit_block</code></a></li></ul></div>
           <div><p class="tool-index-head">Covers</p><ul><li><a href="#tool-set_note_cover"><code>set_note_cover</code></a></li><li><a href="#tool-clear_note_cover"><code>clear_note_cover</code></a></li></ul></div>
-          <div><p class="tool-index-head">Organise</p><ul><li><a href="#tool-create_folder"><code>create_folder</code></a></li><li><a href="#tool-delete_note"><code>delete_note</code></a></li></ul></div>
+          <div><p class="tool-index-head">Organise</p><ul><li><a href="#tool-create_folder"><code>create_folder</code></a></li><li><a href="#tool-delete_note"><code>delete_note</code></a></li><li><a href="#tool-run_script"><code>run_script</code></a></li></ul></div>
+          <div><p class="tool-index-head">Share and publish</p><ul><li><a href="#tool-get_sharing"><code>get_sharing</code></a></li><li><a href="#tool-share_note"><code>share_note</code></a></li><li><a href="#tool-publish_to_feed"><code>publish_to_feed</code></a></li></ul></div>
         </nav>
 
         <div class="rules" data-reveal>
@@ -580,6 +638,93 @@ Logged in as you.dotyou.cloud. Credentials saved to the OS keychain.</code></pre
               <p><code>{ id, state: "trashed" }</code>.</p>
             </div>
           </article>
+
+          <article class="tool" id="tool-run_script" aria-labelledby="t-run_script" data-reveal>
+            <div class="tool-main">
+              <h4 class="tool-name" id="t-run_script"><code>run_script</code></h4>
+              <p>Runs a short JavaScript program against your granted notes in a sandbox, and returns only what it logs. It calls the same tools, with the same grants.</p>
+              <dl class="tool-facts">
+                <dt>Use it when</dt><dd>A job picks notes by what they say, such as tagging every note that mentions a place, without reading each note into the chat.</dd>
+                <dt>Try asking</dt><dd class="ask">Tag every note that mentions Lisbon with lisbon.</dd>
+              </dl>
+            </div>
+            <div class="tool-spec">
+              <h5 class="spec-head">Inputs</h5>
+              <dl class="params">
+                <div><dt><code>code</code> <span>string, required</span></dt><dd>The body of an async function with a <code>journal</code> API, described in <code>get_authoring_guide</code>.</dd></div>
+                <div><dt><code>dryRun</code> <span>boolean, optional</span></dt><dd>Make no writes, and log each write it would make.</dd></div>
+              </dl>
+              <p class="small">No network, files or timers. Each run gets at most 10 s of CPU, 64 MB, 200 reads, 50 writes and 8000 characters of output. A script can't move notes to Trash or add images.</p>
+              <h5 class="spec-head">Returns</h5>
+              <p>What the script logged, and how many reads and writes it made.</p>
+            </div>
+          </article>
+        </div>
+
+        <div class="tool-group" aria-labelledby="group-share">
+          <h3 class="h3 group-title" id="group-share" data-reveal>Share and publish</h3>
+          <p class="group-note" data-reveal>Making a public note private happens at once. Anything else is a request: the note shows it in Journal, and nothing is shared until you confirm it there. Turn on ‘Let agents ask to share notes’ in Settings → Agent access to allow requests.</p>
+
+          <article class="tool" id="tool-get_sharing" aria-labelledby="t-get_sharing" data-reveal>
+            <div class="tool-main">
+              <h4 class="tool-name" id="t-get_sharing"><code>get_sharing</code></h4>
+              <p>Says who can see a note: only you, anyone with the link, or the people and circles it is shared with.</p>
+              <dl class="tool-facts">
+                <dt>Use it when</dt><dd>Before sharing a note, or to find a public note's link. Read access is enough.</dd>
+                <dt>Try asking</dt><dd class="ask">Who can see my Trip plan note?</dd>
+              </dl>
+            </div>
+            <div class="tool-spec">
+              <h5 class="spec-head">Inputs</h5>
+              <dl class="params">
+                <div><dt><code>id</code> <span>string, required</span></dt><dd>The note's id.</dd></div>
+              </dl>
+              <h5 class="spec-head">Returns</h5>
+              <p><code>{ id, access, link, with, inSharedFolder, pending }</code>, where <code>access</code> is <code>private</code>, <code>public</code> or <code>people</code>, and <code>pending</code> is a request still waiting for you.</p>
+            </div>
+          </article>
+
+          <article class="tool" id="tool-share_note" aria-labelledby="t-share_note" data-reveal>
+            <div class="tool-main">
+              <h4 class="tool-name" id="t-share_note"><code>share_note</code></h4>
+              <p>Asks to make a note public, share it with people or circles, or stop sharing it. One tool for every kind of sharing.</p>
+              <dl class="tool-facts">
+                <dt>Use it when</dt><dd>You want a link to send, or a note shared with someone. A note in a shared folder is public through the folder: move it with <code>update_note</code> instead.</dd>
+                <dt>Try asking</dt><dd class="ask">Make my Trip plan note public and give me the link.</dd>
+              </dl>
+            </div>
+            <div class="tool-spec">
+              <h5 class="spec-head">Inputs</h5>
+              <dl class="params">
+                <div><dt><code>id</code> <span>string, required</span></dt><dd>The note's id.</dd></div>
+                <div><dt><code>access</code> <span>"private", "public" or "people", required</span></dt><dd>Who should see it.</dd></div>
+                <div><dt><code>with</code> <span>object[], optional</span></dt><dd>For <code>people</code>, the full list: <code>{ kind: "person", id: &lt;their identity&gt; }</code> or <code>{ kind: "circle", id: &lt;id or name&gt; }</code>, with <code>role</code> <code>viewer</code> (default) or <code>editor</code> for circles.</dd></div>
+              </dl>
+              <h5 class="spec-head">Returns</h5>
+              <p><code>{ id, status, access, link }</code>, where <code>status</code> is <code>shared</code>, <code>pending</code> (waiting for you) or <code>unchanged</code>.</p>
+            </div>
+          </article>
+
+          <article class="tool" id="tool-publish_to_feed" aria-labelledby="t-publish_to_feed" data-reveal>
+            <div class="tool-main">
+              <h4 class="tool-name" id="t-publish_to_feed"><code>publish_to_feed</code></h4>
+              <p>Publishes a note to your Homebase feed as an article anyone can read, as Publish to feed in Journal's Share dialog does. Publishing it again updates the same post.</p>
+              <dl class="tool-facts">
+                <dt>Use it when</dt><dd>A note is ready to go out to your followers. The note itself doesn't have to be public.</dd>
+                <dt>Try asking</dt><dd class="ask">Publish my Trip plan note to my feed.</dd>
+              </dl>
+            </div>
+            <div class="tool-spec">
+              <h5 class="spec-head">Inputs</h5>
+              <dl class="params">
+                <div><dt><code>id</code> <span>string, required</span></dt><dd>The note's id.</dd></div>
+                <div><dt><code>summary</code> <span>string, optional</span></dt><dd>One to three sentences shown with the post. It is kept on the note; an empty string removes it.</dd></div>
+              </dl>
+              <p class="small">Journal MCP needs your permission to write to your feed. Until you give it, the tool publishes nothing and returns the link that asks you.</p>
+              <h5 class="spec-head">Returns</h5>
+              <p><code>{ postId, url, status }</code>, where <code>status</code> is <code>published</code> or <code>updated</code>.</p>
+            </div>
+          </article>
         </div>
       </div>
     </section>
@@ -626,7 +771,7 @@ Logged in as you.dotyou.cloud. Credentials saved to the OS keychain.</code></pre
       <div class="wrap cta-row">
         <h2 class="h2" id="agents-close-title" data-reveal>Connect your first agent</h2>
         <div class="ctas" data-reveal style="--i:1">
-          <a class="btn btn-primary" href="#setup">Set up the server</a>
+          <a class="btn btn-primary" href="#setup">Connect Claude</a>
           <a class="btn btn-secondary" href="https://github.com/2002Bishwajeet/journal/blob/main/mcp/README.md">Read the MCP README</a>
         </div>
       </div>

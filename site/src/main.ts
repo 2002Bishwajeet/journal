@@ -1,4 +1,5 @@
 import './styles.css';
+import { startInstallCard } from './agents';
 
 const root = document.documentElement;
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
@@ -126,27 +127,9 @@ document.querySelectorAll<HTMLElement>('[role="tablist"]').forEach((list) => {
   });
 });
 
-// ---- Agents page: copy an install snippet ----
+// ---- Agents page: copy one command, fill in your address ----
 
-document.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((button) => {
-  const label = button.querySelector('.copy-label')!;
-  let timer: number | undefined;
-  button.addEventListener('click', async () => {
-    const text = document.getElementById(button.dataset.copy!)!.textContent ?? '';
-    try {
-      await navigator.clipboard.writeText(text);
-      label.textContent = 'Copied';
-      button.toggleAttribute('data-copied', true);
-    } catch {
-      label.textContent = 'Select and copy';
-    }
-    clearTimeout(timer);
-    timer = window.setTimeout(() => {
-      label.textContent = 'Copy';
-      button.toggleAttribute('data-copied', false);
-    }, 1800);
-  });
-});
+startInstallCard(document);
 
 // ---- Home Mermaid playground: mermaid loads only when the section comes near ----
 

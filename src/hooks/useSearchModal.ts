@@ -136,8 +136,12 @@ export interface UseSearchModalReturn {
     searchText: string;
     chips: SearchChip[];
     inputRef: React.RefObject<HTMLInputElement | null>;
+    /** What a screen reader hears once the query settles: the result count, "No results", or nothing. Not the visible empty-state text, so it is not on screen twice. */
+    status: string;
 
     // Handlers
+    /** Keeps Tab and Shift+Tab inside the dialog. */
+    handleDialogKeyDown: (e: React.KeyboardEvent<HTMLElement>) => void;
     /** `caret`: where the caret is after the change; the end when not given. */
     handleQueryChange: (value: string, caret?: number) => void;
     handleCaretChange: (caret: number) => void;
@@ -178,6 +182,8 @@ export function useSearchModal({
     const [recentNotes, setRecentNotes] = useState(loadRecentNotes);
     const [recentSearches, setRecentSearches] = useState(loadRecentSearches);
     const requestSeqRef = useRef(0);
+    // Set when a note is picked: focus then goes to the editor, not back to the opener.
+    const pickedNoteRef = useRef(false);
 
     const trimmedQuery = query.trim();
     const isLoading = Boolean(
@@ -203,6 +209,7 @@ export function useSearchModal({
         (docId: string, find?: string) => {
             // A query is worth remembering once it led to a note.
             if (trimmedQuery) saveRecentSearches(pushRecentSearch(loadRecentSearches(), trimmedQuery));
+            pickedNoteRef.current = true;
             onSelectNote(docId, find);
             handleClose();
         },
@@ -225,6 +232,35 @@ export function useSearchModal({
         // eslint-disable-next-line react-hooks/set-state-in-effect -- seeds the field once when the search opens with a query
         if (isOpen && initialQuery) handleQueryChange(initialQuery);
     }, [isOpen, initialQuery, handleQueryChange]);
+
+    // While open, the rest of the page is inert (the dialog is portalled to body, so it is a sibling);
+    // on close, focus returns to whatever had it when search opened, or to the editor after a pick.
+    useEffect(() => {
+        if (!isOpen) return;
+        const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        pickedNoteRef.current = false;
+        const root = document.querySelector('[data-search-root]');
+        const inerted = [...document.body.children].filter(
+            (el): el is HTMLElement => el instanceof HTMLElement && el !== root && !el.hasAttribute('inert')
+        );
+        inerted.forEach((el) => el.setAttribute('inert', ''));
+        return () => {
+            inerted.forEach((el) => el.removeAttribute('inert'));
+            if (!pickedNoteRef.current) {
+                opener?.focus();
+                return;
+            }
+            // The picked note's editor mounts after the route changes; wait a few frames for it.
+            let frames = 0;
+            const focusEditor = () => {
+                const editor = [...document.querySelectorAll<HTMLElement>('textarea[placeholder="Untitled"]')].find((el) => el.offsetParent !== null);
+                if (editor) editor.focus();
+                else if (++frames < 30) requestAnimationFrame(focusEditor);
+                else opener?.focus();
+            };
+            focusEditor();
+        };
+    }, [isOpen]);
 
     // Focus input when modal opens
     useEffect(() => {
@@ -311,6 +347,27 @@ export function useSearchModal({
                 .map((result): SearchEntry => ({ kind: 'note', section: 'notes', result })),
         ];
     }
+
+    // Filter suggestions are not results.
+    const noteCount = entries.length - suggestions.length;
+    const status = !trimmedQuery || isLoading
+        ? ''
+        : noteCount === 0
+            ? 'No results'
+            : `${noteCount} ${noteCount === 1 ? 'result' : 'results'}`;
+
+    const handleDialogKeyDown = useCallback((e: React.KeyboardEvent<HTMLElement>) => {
+        if (e.key !== 'Tab') return;
+        const focusable = [...e.currentTarget.querySelectorAll<HTMLElement>('input, button')].filter((el) => !el.hasAttribute('disabled'));
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (!first || !last) return;
+        const active = document.activeElement;
+        if (e.shiftKey ? active === first : active === last) {
+            e.preventDefault();
+            (e.shiftKey ? last : first).focus();
+        }
+    }, []);
 
     const selectedEntry = entries[selectedIndex];
     useEffect(() => {
@@ -433,6 +490,8 @@ export function useSearchModal({
         searchText: parsed.text,
         chips,
         inputRef,
+        status,
+        handleDialogKeyDown,
         handleQueryChange,
         handleCaretChange: setCaret,
         handleRemoveChip,
