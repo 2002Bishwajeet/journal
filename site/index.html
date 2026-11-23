@@ -35,9 +35,20 @@
         <h1 class="display hero-title" id="hero-title" data-reveal>Private notes, encrypted.</h1>
         <p class="lede hero-lede" data-reveal style="--i:1">Journal is an encrypted Markdown notebook. Your notes stay home: on your device, and encrypted on a Homebase identity you own.</p>
         <div class="hero-actions" data-reveal style="--i:2">
-          <div class="ctas">
-            <a class="btn btn-primary" href="/welcome">Open Journal</a>
-            <a class="btn btn-secondary" href="https://homebase.id/sign-up">Join the Homebase wait list</a>
+          <div>
+            <div class="ctas">
+              <!-- downloads-live -->
+              <a class="btn btn-primary" href="/landing/download" data-download>Download</a>
+              <a class="btn btn-secondary" href="/welcome">Open Journal</a>
+              <!-- /downloads-live -->
+              <!-- downloads-soon -->
+              <a class="btn btn-primary" href="/welcome">Open Journal</a>
+              <!-- /downloads-soon -->
+              <a class="btn btn-secondary" href="https://homebase.id/sign-up">Join the Homebase wait list</a>
+            </div>
+            <!-- downloads-live -->
+            <p class="small hero-other" hidden><a href="/landing/download">Other platforms</a></p>
+            <!-- /downloads-live -->
           </div>
           <p class="hero-note"><a href="https://homebase.id">Homebase</a> gives you a private web address that holds your data. Journal signs in with it. Homebase sign-up is a closed beta with a wait list.</p>
           <!-- store-badges -->
@@ -234,12 +245,19 @@
       <div class="wrap closing-row">
         <h2 class="display" id="closing-title" data-reveal>Write. Your notes stay home.</h2>
         <div class="ctas" data-reveal style="--i:1">
+          <!-- downloads-live -->
+          <a class="btn btn-primary" href="/landing/download" data-download>Download</a>
+          <a class="btn btn-secondary" href="/welcome">Open Journal</a>
+          <!-- /downloads-live -->
+          <!-- downloads-soon -->
           <a class="btn btn-primary" href="/welcome">Open Journal</a>
+          <!-- /downloads-soon -->
           <a class="btn btn-secondary" href="https://homebase.id/sign-up">Join the Homebase wait list</a>
         </div>
       </div>
     </section>
   </main>
+  <script type="module" src="/src/heroDownload.ts"></script>
 
   <!-- footer -->
   <!-- credit: Cover photo in the published note: <a href="https://commons.wikimedia.org/wiki/File:Alfama_Rooftops_and_Tagus_River_View,_Lisbon_(54733828355).jpg">“Alfama Rooftops and Tagus River View, Lisbon”</a> by Dale Cruse, <a href="https://creativecommons.org/licenses/by/4.0">CC BY 4.0</a>, via Wikimedia Commons. -->

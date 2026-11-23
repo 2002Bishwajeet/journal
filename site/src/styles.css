@@ -160,6 +160,7 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .store-badge img { height: 48px; width: auto; }
 .store-badge-play img { height: calc(48px * 250 / 168); margin: calc(-48px * 41 / 168); }
 .hero-actions .store-badges { grid-column: 1 / -1; }
+.hero-other { margin-top: 8px; }
 
 /* ---- Navigation ---- */
 .nav {
