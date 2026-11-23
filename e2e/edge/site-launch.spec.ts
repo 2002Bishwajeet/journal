@@ -112,10 +112,39 @@ test('the home desktop pictures sit in a macOS window, the phone in front of it'
   expect(await page.locator('main .window:visible, main .device:visible').count()).toBeLessThanOrEqual(3);
 });
 
-test('the download page shows the three getting-started steps', async ({ page }) => {
+test('the download page shows the two after-install steps', async ({ page }) => {
   await page.goto('/landing/download');
-  const steps = page.getByRole('heading', { name: 'Getting started' }).locator('xpath=ancestor::section').locator('.step-title');
-  await expect(steps).toHaveText(['Install', 'Create a Homebase identity', 'Sign in']);
+  const section = page.getByRole('heading', { name: 'After you install' }).locator('xpath=ancestor::section');
+  await expect(section.locator('.step-title')).toHaveText(['Create a Homebase identity', 'Sign in']);
   await expect(page.getByText('closed beta', { exact: true })).toBeVisible();
+  // #1476: the steps lay out as the arrow flow, not the agents page's numbered rows.
+  await expect(section.locator('.step').first()).toHaveCSS('counter-increment', 'none');
+  for (const colorScheme of ['light', 'dark'] as const) {
+    for (const viewport of [{ name: '1280', width: 1280, height: 800 }, { name: '390', width: 390, height: 844 }]) {
+      await page.emulateMedia({ colorScheme });
+      await page.setViewportSize(viewport);
+      await section.scrollIntoViewIfNeeded();
+      await expect(section.locator('[data-reveal]:not(.in)')).toHaveCount(0);
+      await section.screenshot({ path: test.info().outputPath(`download-after-install-${colorScheme}-${viewport.name}.png`), animations: 'disabled' });
+    }
+  }
   await expectLoaded(page, '.buy-phone img[src$="/media/phone-note-iphone-light.webp"]');
 });
+
+// #1476: the agents page's extension steps keep their numbered rows, saved for the PR.
+for (const colorScheme of ['light', 'dark'] as const) {
+  for (const viewport of [{ name: '1280', width: 1280, height: 800 }, { name: '390', width: 390, height: 844 }]) {
+    test(`agents page, extension steps, ${colorScheme}, ${viewport.name}`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme });
+      await page.setViewportSize(viewport);
+      await page.goto('/landing/agents');
+      const steps = page.locator('#panel-desktop .mcpb-step');
+      await expect(steps).toHaveCount(3);
+      await expect(steps.first()).toHaveCSS('counter-increment', /^cmd/);
+      const list = page.locator('#panel-desktop .cmds');
+      await list.scrollIntoViewIfNeeded();
+      await expect(page.locator('#panel-desktop [data-reveal]:not(.in)')).toHaveCount(0);
+      await list.screenshot({ path: test.info().outputPath(`agents-extension-steps-${colorScheme}-${viewport.name}.png`), animations: 'disabled' });
+    });
+  }
+}
