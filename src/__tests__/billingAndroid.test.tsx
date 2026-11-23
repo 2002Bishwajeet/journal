@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 /**
- * #1215 audit F2: with journal-iap listed (plugins.txt is one list) but Play billing not shipped,
- * Android mounts none of the paid pieces: no LicenseGate (whose license read starts the trial
- * clock), no trial chip, no trial line on the sign-in page (#1282), no Settings → Purchase.
+ * #1175: Android sells through Play once the journal-iap plugin is there, so it mounts the paid
+ * pieces as iOS does: LicenseGate, the trial chip, the trial line on the sign-in page (#1282) and
+ * Settings → Purchase. Without the plugin it mounts none of them.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { createElement as h, act } from 'react';
@@ -36,8 +36,8 @@ afterEach(async () => {
     vi.resetModules();
 });
 
-async function mount(platform: 'ios' | 'android') {
-    window.__JOURNAL_NATIVE__ = { platform, plugins: ['journal-iap'] };
+async function mount(platform: 'ios' | 'android', plugins = ['journal-iap']) {
+    window.__JOURNAL_NATIVE__ = { platform, plugins };
     const { LicenseGate, TrialChip, WelcomeTrial } = await import('@/components/license/License');
     root = createRoot(document.body.appendChild(document.createElement('div')));
     await act(async () => root!.render(h('div', null, h(LicenseGate, { onSignOut: () => {}, pendingTotal: 0 }), h(TrialChip), h(WelcomeTrial))));
@@ -47,20 +47,20 @@ async function mount(platform: 'ios' | 'android') {
     });
 }
 
-describe('paid pieces on Android before Play billing ships', () => {
-    it('should mount nothing on Android, while iOS mounts the gate and the chip', async () => {
+describe('paid pieces on Android', () => {
+    it('should mount the gate and the chip on Android, as on iOS', async () => {
         await mount('android');
-        expect(mounted).toEqual([]);
-        await act(async () => root?.unmount());
-        root = undefined;
-
-        await mount('ios');
         expect(mounted.sort()).toEqual(['LicenseGate', 'TrialChip', 'WelcomeTrial']);
     });
 
-    it('should hide Settings → Purchase on Android', async () => {
+    it('should mount nothing on Android without journal-iap', async () => {
+        await mount('android', []);
+        expect(mounted).toEqual([]);
+    });
+
+    it('should show Settings → Purchase on Android', async () => {
         window.__JOURNAL_NATIVE__ = { platform: 'android', plugins: ['journal-iap'] };
         const { SETTINGS_SECTIONS } = await import('@/components/settings/sections');
-        expect(SETTINGS_SECTIONS.find((s) => s.id === 'license')?.hidden).toBe(true);
+        expect(SETTINGS_SECTIONS.find((s) => s.id === 'license')?.hidden).toBe(false);
     });
 });

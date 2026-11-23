@@ -4,7 +4,8 @@
 // versionCode is the git commit count, like the iOS build number, so each build
 // from main is higher than the last; versionName is package.json's.
 import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { checkBillingMetaData } from './android-billing-check.mjs';
 
 // #1340: the checked-in label is "Journal Dev" so a local build can't pass for the store app.
 // Only the release workflow (JOURNAL_RELEASE_BUILD=1) builds with the real name.
@@ -23,3 +24,6 @@ execFileSync(
   ],
   { stdio: 'inherit' },
 );
+
+// #1175: with native/ the bundle sells through Play, which warns without the billing version meta-data.
+if (existsSync('native/android/premium')) checkBillingMetaData('src-tauri/gen/android/app');

@@ -23,6 +23,8 @@ interface Device {
     owned: Purchase[];
     /** What the next `purchase` answers. */
     answer: 'purchased' | 'pending' | 'cancelled';
+    /** Android's trial start, kept by the plugin (SharedPreferences and Block Store, #1175). */
+    androidTrial: string | null;
     calls: string[];
 }
 
@@ -33,7 +35,7 @@ async function openNativeApp(
     { platform, store = null, purchases = [] }: { platform: string; store?: Device['store']; purchases?: Purchase[] },
     body: (page: Page, device: Device) => Promise<void>,
 ): Promise<void> {
-    const device: Device = { store, owned: purchases, answer: 'purchased', calls: [] };
+    const device: Device = { store, owned: purchases, answer: 'purchased', androidTrial: null, calls: [] };
     await withFencedPage(browser, { storageState: 'e2e/fixtures/hermetic-auth.json' }, async (page) => {
         await page.exposeFunction('deviceIpc', (cmd: string, args: Record<string, unknown>) => {
             device.calls.push(cmd);
@@ -49,6 +51,8 @@ async function openNativeApp(
                 if (device.answer === 'purchased') device.owned.push(owned(args.id as string, new Date().toISOString()));
                 return { status: device.answer };
             }
+            if (cmd === 'plugin:journal-iap|trial_read') return { startedAt: device.androidTrial };
+            if (cmd === 'plugin:journal-iap|trial_start') return { startedAt: (device.androidTrial ??= new Date().toISOString()) };
             return null;
         });
         await page.addInitScript((platform) => {
@@ -151,19 +155,27 @@ test.describe('native paywall', () => {
         });
     });
 
-    test('android: no trial screen, paywall or website until #1175 turns the Play purchase on', async ({ browser }) => {
-        await openNativeApp(browser, { platform: 'android', store: { trialStartedAt: hoursAgo(80) } }, async (page, device) => {
+    test('android: the trial starts on first launch; 72 h later the Play paywall, and Buy unlocks (#1175)', async ({ browser }) => {
+        await openNativeApp(browser, { platform: 'android' }, async (page, device) => {
             await page.setViewportSize(PHONE);
-            await expect(page.getByRole('button', { name: 'Settings', exact: true })).toBeVisible();
-            await expect(trialScreen(page)).toHaveCount(0);
-            await expect(storePaywall(page)).toHaveCount(0);
+            const info = trialScreen(page);
+            await expect(info).toContainText('until you unlock Journal');
+            expect(device.androidTrial).not.toBeNull();
+            await info.getByRole('button', { name: 'Continue' }).click();
+            await expect(info).toBeHidden();
             await expectNoWebPurchase(page);
-            // Nothing reads or starts a trial, nor asks the store, so turning Play on later locks no one out (#1215 F2).
-            await page.getByRole('button', { name: 'Settings', exact: true }).click();
-            const settings = page.getByRole('dialog', { name: 'Settings' });
-            await expect(settings.getByRole('listitem').getByRole('button', { name: /^Account/ })).toBeVisible();
-            await expect(settings.getByRole('listitem').getByRole('button', { name: /^Purchase/ })).toHaveCount(0);
-            expect(device.calls.filter((c) => c.startsWith('plugin:journal-iap|') || c.startsWith('plugin:journal-license|'))).toEqual([]);
+
+            // 72 hours later.
+            device.androidTrial = hoursAgo(73);
+            await page.reload();
+            await waitForAppReady(page);
+            const wall = storePaywall(page);
+            await expect(wall.getByRole('button', { name: `Unlock for ${PRICE}` })).toBeVisible();
+            await expectNoWebPurchase(page);
+            await wall.getByRole('button', { name: `Unlock for ${PRICE}` }).click();
+            await expect(wall).toBeHidden();
+            await expect(page.getByText('Journal unlocked')).toBeVisible();
+            expect(device.owned.map((p) => p.productId)).toEqual(['journal.unlock']);
         });
     });
 
