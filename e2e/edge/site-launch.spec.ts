@@ -130,3 +130,21 @@ test('the download page shows the two after-install steps', async ({ page }) => 
   }
   await expectLoaded(page, '.buy-phone img[src$="/media/phone-note-iphone-light.webp"]');
 });
+
+// #1476: the agents page's extension steps keep their numbered rows, saved for the PR.
+for (const colorScheme of ['light', 'dark'] as const) {
+  for (const viewport of [{ name: '1280', width: 1280, height: 800 }, { name: '390', width: 390, height: 844 }]) {
+    test(`agents page, extension steps, ${colorScheme}, ${viewport.name}`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme });
+      await page.setViewportSize(viewport);
+      await page.goto('/landing/agents');
+      const steps = page.locator('#panel-desktop .mcpb-step');
+      await expect(steps).toHaveCount(3);
+      await expect(steps.first()).toHaveCSS('counter-increment', /^cmd/);
+      const list = page.locator('#panel-desktop .cmds');
+      await list.scrollIntoViewIfNeeded();
+      await expect(page.locator('#panel-desktop [data-reveal]:not(.in)')).toHaveCount(0);
+      await list.screenshot({ path: test.info().outputPath(`agents-extension-steps-${colorScheme}-${viewport.name}.png`), animations: 'disabled' });
+    });
+  }
+}
