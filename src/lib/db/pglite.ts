@@ -244,8 +244,12 @@ async function createWorkerInstance(relaxedDurability = true, key: CryptoKey | n
     });
   }
   // The worker's boot timing marks (#901): reading the data dir from IndexedDB, and Postgres up.
+  // And this tab's worker won the leader election (#806). Listened for here, from the worker's
+  // start: PGliteWorker only listens for `leader-now` once create() has taken its tab lock, so a
+  // worker that wins the election first leaves db.isLeader false for good (#1446).
   currentWorker.addEventListener('message', (event: MessageEvent<{ type?: string; step: string; at: number }>) => {
     if (event.data?.type === 'journal-boot-mark') markBoot(event.data.step, event.data.at - performance.timeOrigin);
+    if (event.data?.type === 'leader-now') markBoot('db-leader');
   });
   const worker = currentWorker;
   workerOpenFailed = new Promise<never>((_, reject) => {
@@ -261,11 +265,8 @@ async function createWorkerInstance(relaxedDurability = true, key: CryptoKey | n
     // WASM fetched + compiled and the worker leader elected — the slowest
     // step of a cold boot, reported for the splash progress bar.
     reportBootPhase('db-worker');
-    // Boot timing marks (#806): this tab's worker won the leader election, and the
-    // leader accepted this tab. The leader accepts it before its engine has loaded:
-    // db-idb-read, db-idb-loaded and db-open (from the worker) time that load (#901).
-    if (db.isLeader) markBoot('db-leader');
-    else db.onLeaderChange(() => { if (db.isLeader) markBoot('db-leader'); });
+    // Boot timing mark (#806): the leader accepted this tab. The leader accepts it before its
+    // engine has loaded: db-idb-read, db-idb-loaded and db-open (from the worker) time that load (#901).
     void db.waitReady.then(() => markBoot('db-connected'));
     return db;
   });
