@@ -325,5 +325,26 @@ describe('ShareNoteDialog', () => {
             expect(buttons('Copied')).toHaveLength(1);
             expect(document.body.textContent).toContain('Only people with access can open this link.');
         });
+
+        it('hides Copy link and its help while only the owner has access, and shows them for a person', async () => {
+            await open();
+            expect(buttons('Copy link')).toHaveLength(0);
+            expect(document.body.textContent).not.toContain('Only people with access can open this link.');
+
+            access.current = idleAccess({ isShared: true, entries: [{ kind: 'person', id: 'sam.id', role: 'viewer' }] });
+            await open();
+            expect(buttons('Copy link')).toHaveLength(1);
+            expect(document.body.textContent).toContain('Only people with access can open this link.');
+
+            access.current = idleAccess({ isDirty: true, entries: [] });
+            await open();
+            expect(buttons('Copy link')).toHaveLength(0);
+        });
+
+        it('keeps Copy link when the note is public', async () => {
+            notes.current = [{ docId: NOTE_ID, metadata: { isPublic: true } }];
+            await open();
+            expect(buttons('Copy link')).toHaveLength(1);
+        });
     });
 });

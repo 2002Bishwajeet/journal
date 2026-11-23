@@ -230,6 +230,7 @@ export default function ShareNoteDialog({ isOpen, onClose, noteId, noteTitle, in
                     onMakePublic={handleMakePublic}
                     askingAboutLinks={askingAboutLinks}
                     setAskingAboutLinks={setAskingAboutLinks}
+                    hasOtherAccess={access.entries.length > 0}
                 />
             </fieldset>
             <ShareToFeed noteId={noteId} />
