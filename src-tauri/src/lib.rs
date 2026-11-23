@@ -40,10 +40,10 @@ mod premium {
 mod app_lock;
 mod db_key;
 mod ios_keyboard;
-#[cfg(any(target_os = "ios", target_os = "macos", target_os = "linux", test))]
-mod webview_recovery;
 #[cfg(desktop)]
 mod window_geometry;
+#[cfg(any(target_os = "ios", target_os = "macos", target_os = "linux", test))]
+mod webview_recovery;
 
 /// Fixed port for the local HTTP server that serves the built frontend.
 ///
@@ -303,10 +303,7 @@ fn rebind(addr: SocketAddr) -> Server {
 /// app it suspended, so after a night in the background the web view had
 /// nothing to load from. The address is bound again whenever that happens.
 fn serve_forever(app: tauri::AppHandle, mut server: Server) {
-    let addr = server
-        .server_addr()
-        .to_ip()
-        .expect("bound to an IP address");
+    let addr = server.server_addr().to_ip().expect("bound to an IP address");
     loop {
         serve(&app, &server);
         let state = app.state::<AssetServer>();
@@ -1111,22 +1108,10 @@ mod tests {
             )
         };
         let until = at("2027-11-16T00:00:00Z");
-        assert!(
-            should_install(at("2027-06-01T12:00:00Z"), until, false),
-            "before"
-        );
-        assert!(
-            should_install(at("2027-11-16T00:00:00Z"), until, false),
-            "on it"
-        );
-        assert!(
-            !should_install(at("2027-11-16T00:00:01Z"), until, false),
-            "after"
-        );
-        assert!(
-            should_install(at("2030-01-01T00:00:00Z"), None, false),
-            "no key"
-        );
+        assert!(should_install(at("2027-06-01T12:00:00Z"), until, false), "before");
+        assert!(should_install(at("2027-11-16T00:00:00Z"), until, false), "on it");
+        assert!(!should_install(at("2027-11-16T00:00:01Z"), until, false), "after");
+        assert!(should_install(at("2030-01-01T00:00:00Z"), None, false), "no key");
         assert!(should_install(None, until, false), "unknown release date");
         assert!(should_install(None, None, false));
         // A renewal moves the date: the skipped release installs at the next check.
@@ -1151,9 +1136,7 @@ mod tests {
 
         let manifest = |extra: serde_json::Value| {
             let mut m = serde_json::json!({ "version": "2.70.0", "pub_date": "2027-12-01T00:00:00Z", "platforms": {} });
-            m.as_object_mut()
-                .unwrap()
-                .extend(extra.as_object().unwrap().clone());
+            m.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
             is_security_release(&m)
         };
         assert!(manifest(serde_json::json!({ "security": true })));
@@ -1166,10 +1149,7 @@ mod tests {
     #[test]
     fn updates_are_checked_every_few_hours_and_on_a_wake_at_most_hourly() {
         let minutes = |m: u64| Duration::from_secs(m * 60);
-        assert!(
-            update_due(Duration::MAX, false),
-            "the first check, at launch"
-        );
+        assert!(update_due(Duration::MAX, false), "the first check, at launch");
         assert!(!update_due(minutes(239), false));
         assert!(update_due(minutes(240), false), "every 4 hours");
         // A wake or a focus checks, but not again within the hour.
@@ -1190,19 +1170,12 @@ mod tests {
         assert!(pending.wants("2.74.0"), "nothing pending");
 
         pending.set("2.74.0".into(), "2.74.0 bytes");
-        assert!(
-            !pending.wants("2.74.0"),
-            "already pending: no download, no prompt"
-        );
+        assert!(!pending.wants("2.74.0"), "already pending: no download, no prompt");
         assert!(pending.wants("2.75.0"));
 
         pending.set("2.75.0".into(), "2.75.0 bytes");
         assert!(!pending.wants("2.75.0"));
-        assert_eq!(
-            pending.take(),
-            Some("2.75.0 bytes"),
-            "the quit installs the newer one"
-        );
+        assert_eq!(pending.take(), Some("2.75.0 bytes"), "the quit installs the newer one");
         assert_eq!(pending.take(), None, "and only once");
         assert!(pending.wants("2.75.0"));
     }
@@ -1257,23 +1230,12 @@ mod tests {
     fn app_bundle_is_the_app_the_binary_runs_from() {
         use std::path::Path;
         assert_eq!(
-            app_bundle(Path::new(
-                "/Applications/Journal+.app/Contents/MacOS/journal"
-            )),
+            app_bundle(Path::new("/Applications/Journal+.app/Contents/MacOS/journal")),
             Some(Path::new("/Applications/Journal+.app"))
         );
-        assert_eq!(
-            app_bundle(Path::new("/repo/src-tauri/target/debug/journal")),
-            None
-        );
-        assert_eq!(
-            app_bundle(Path::new("/Applications/Journal/Contents/MacOS/journal")),
-            None
-        );
-        assert_eq!(
-            app_bundle(Path::new("/Journal.app/Contents/Resources/journal")),
-            None
-        );
+        assert_eq!(app_bundle(Path::new("/repo/src-tauri/target/debug/journal")), None);
+        assert_eq!(app_bundle(Path::new("/Applications/Journal/Contents/MacOS/journal")), None);
+        assert_eq!(app_bundle(Path::new("/Journal.app/Contents/Resources/journal")), None);
         assert_eq!(app_bundle(Path::new("journal")), None);
     }
 
@@ -1282,10 +1244,7 @@ mod tests {
         let args = |a: &[&str]| a.iter().map(|s| s.to_string()).collect::<Vec<_>>();
         assert!(is_port_error_invocation(args(&["journal", PORT_ERROR_ARG])));
         assert!(!is_port_error_invocation(args(&["journal"])));
-        assert!(!is_port_error_invocation(args(&[
-            "journal",
-            "journal://note/1"
-        ])));
+        assert!(!is_port_error_invocation(args(&["journal", "journal://note/1"])));
     }
 
     #[test]
@@ -1340,10 +1299,7 @@ mod tests {
         let squatter = TcpListener::bind(addr).unwrap();
         let rebound = std::thread::spawn(move || rebind(addr));
         std::thread::sleep(Duration::from_millis(300));
-        assert!(
-            !rebound.is_finished(),
-            "must not bind while the port is held"
-        );
+        assert!(!rebound.is_finished(), "must not bind while the port is held");
 
         drop(squatter);
         let server = rebound.join().unwrap();
