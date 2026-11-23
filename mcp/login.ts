@@ -43,9 +43,12 @@ function promptForIdentity(): Promise<string> {
 }
 
 function openBrowser(url: string): void {
-    const cmd = process.platform === 'darwin' ? 'open' : 'xdg-open';
+    // Windows: rundll32 opens the default browser without a shell, which would split the URL at its `&`s.
+    const [cmd, ...args] =
+        process.platform === 'darwin' ? ['open'] : process.platform === 'win32' ? ['rundll32', 'url.dll,FileProtocolHandler'] : ['xdg-open'];
     try {
-        spawn(cmd, [url], { stdio: 'ignore', detached: true }).unref();
+        // A missing command fails as an 'error' event, which would end the process (the MCP server too, #1457).
+        spawn(cmd, [...args, url], { stdio: 'ignore', detached: true }).on('error', () => {}).unref();
     } catch {
         // Ignore — the URL printed to stderr is still usable.
     }
@@ -132,10 +135,15 @@ async function loginWithPastedCode(identity: string, eccKey: Awaited<ReturnType<
  * YouAuth flow the app uses, using a throwaway localhost HTTP server as the finalize
  * redirect target. Saves the resulting credentials to the OS keychain (or a 0600 file) on success.
  *
+ * `onAuthUrl` gets the approval URL too (the Desktop Extension shows it in Claude, #1457).
+ *
  * With `noBrowser` (SSH / headless), no server is started: the finalize redirect is the
  * app's `/mcp/code` page, which shows a code the user pastes back into the terminal.
  */
-export async function login(identityArg?: string, { noBrowser = false }: { noBrowser?: boolean } = {}): Promise<void> {
+export async function login(
+    identityArg?: string,
+    { noBrowser = false, onAuthUrl }: { noBrowser?: boolean; onAuthUrl?: (url: string) => void } = {}
+): Promise<void> {
     if (!noBrowser && looksHeadless(process.env)) console.error(NO_BROWSER_HINT);
 
     const identity = getDomainFromUrl(identityArg || (await promptForIdentity())) ?? '';
@@ -201,6 +209,7 @@ export async function login(identityArg?: string, { noBrowser = false }: { noBro
                 const authUrl = await buildAuthUrl(identity, finalizeUrl, eccKey.publicKey);
 
                 console.error(`Open this URL to approve Journal MCP:\n${authUrl}\n`);
+                onAuthUrl?.(authUrl);
                 openBrowser(authUrl);
             })().catch((err: unknown) => finish(err instanceof Error ? err : new Error(String(err))));
         });

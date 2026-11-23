@@ -33,7 +33,9 @@ function faq(html: string) {
 
 /** The canonical link, og:url and JSON-LD for one page, to go at the end of its head. */
 export function headTags(id: string, html: string): string {
-  const p = PAGES.find((x) => x.id === id)!
+  const p = PAGES.find((x) => x.id === id)
+  // A page kept out of search and the sitemap (the invite redeem page, #1464) gets none of them.
+  if (!p) return ''
   const url = SITE_URL + p.path
   const data: object[] = []
   if (id === 'home') {
