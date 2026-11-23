@@ -86,10 +86,24 @@ const BILLING_URL = { test: 'https://journal-billing-test.cloudx.run', live: 'ht
 // It shares the app's installed packages but none of its code or config. The app is the root of
 // the origin, so the site is served under /landing/; functions/index.ts serves its home page at /
 // to a visitor who is not signed in (#913).
+// The download page holds its first paint until its script has picked the visitor's card (#1475), so the three
+// cards never jump to one. Vite rewrites the entry tag and drops a blocking attribute, so it is added here.
+// Browsers without render blocking paint at once, as before.
+function renderBlockingDownload(): Plugin {
+  return {
+    name: 'render-blocking-download',
+    transformIndexHtml: {
+      order: 'post',
+      handler: (html, { filename }) =>
+        filename.endsWith('download.html') ? html.replace(/<script type="module"(?= crossorigin src="[^"]*\/download-)/, '$& blocking="render"') : html,
+    },
+  }
+}
+
 export default defineConfig(({ mode }) => ({
   root: import.meta.dirname,
   base: '/landing/',
-  plugins: [partials(), textFiles()],
+  plugins: [partials(), textFiles(), renderBlockingDownload()],
   define: { __BILLING_URL__: JSON.stringify(mode === 'live' ? BILLING_URL.live : BILLING_URL.test) },
   build: {
     outDir: 'dist',

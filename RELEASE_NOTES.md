@@ -16,6 +16,24 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.73.23 (2026-11-23)
+
+### Changed
+
+- The Download page shows the download for your computer first. The downloads for other computers are below it, in "Other platforms".
+- On a Linux computer with an ARM processor, the Download page tells you that there is no ARM build yet and opens Journal in the browser. On a Windows computer with an ARM processor, it tells you that Journal for x64 runs through Windows 11 emulation.
+
+## 2.73.22 (2026-11-23)
+
+### New
+
+- The home page has a download button for your computer: Mac, Windows or Linux.
+
+### Fixed
+
+- On the Agents page, the setup steps for Claude Desktop show correctly again: the step number is at the left and each step is a short row.
+- On the download page, the "After you install" steps show correctly again.
+
 ## 2.73.21 (2026-11-23)
 
 ### New
