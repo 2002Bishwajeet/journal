@@ -1,3 +1,9 @@
+## [2.73.19](https://github.com/2002Bishwajeet/journal/compare/v2.73.18...v2.73.19) (2026-11-23)
+
+
+### Bug Fixes
+
+* **site:** remove the Daily notes claim, the feature is flagged off ([#1440](https://github.com/2002Bishwajeet/journal/issues/1440)) ([8450b26](https://github.com/2002Bishwajeet/journal/commit/8450b268f5a2ad04f18fdf23a9f2f388d540d5b1))
 ## [2.73.18](https://github.com/2002Bishwajeet/journal/compare/v2.73.17...v2.73.18) (2026-11-20)
 
 

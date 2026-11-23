@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.73.19 (2026-11-23)
+
+### New
+
+- On iPhone, iPad and Android, the app can ask you to rate it. It asks one time for each version, after you write some notes.
+
 ## 2.73.18 (2026-11-20)
 
 ### Changed
