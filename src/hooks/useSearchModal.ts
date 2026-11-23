@@ -136,7 +136,7 @@ export interface UseSearchModalReturn {
     searchText: string;
     chips: SearchChip[];
     inputRef: React.RefObject<HTMLInputElement | null>;
-    /** What a screen reader hears once the query settles: the result count, "No notes found", or nothing. */
+    /** What a screen reader hears once the query settles: the result count, "No results", or nothing. Not the visible empty-state text, so it is not on screen twice. */
     status: string;
 
     // Handlers
@@ -353,7 +353,7 @@ export function useSearchModal({
     const status = !trimmedQuery || isLoading
         ? ''
         : noteCount === 0
-            ? 'No notes found'
+            ? 'No results'
             : `${noteCount} ${noteCount === 1 ? 'result' : 'results'}`;
 
     const handleDialogKeyDown = useCallback((e: React.KeyboardEvent<HTMLElement>) => {

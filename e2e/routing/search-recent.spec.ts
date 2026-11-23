@@ -25,7 +25,7 @@ test('search shows recent notes and recent searches, and removes them', async ({
 
   await app.keyboard.press('ControlOrMeta+k');
   await expect(dialog.getByText('Recent searches')).toBeVisible();
-  await dialog.getByRole('option', { name: 'Bravo' }).click();
+  await dialog.getByRole('option', { name: 'Bravo', exact: true }).click();
   await expect(input).toHaveValue('Bravo');
   await expect(rows.first()).toContainText('Bravo plan');
   await input.fill('');
