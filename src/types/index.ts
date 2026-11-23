@@ -82,8 +82,11 @@ export interface AdvancedSearchResult {
     docId: string;
     title: string;
     metadata: DocumentMetadata;
-    matchType: 'title' | 'tag' | 'content' | 'fuzzy' | 'semantic';
+    /** Absent on a note found by search filters alone (#1230), which has `preview` instead. */
+    matchType?: 'title' | 'tag' | 'content' | 'fuzzy' | 'semantic';
     score: number;
+    /** The first 150 characters of the note, on a note found by filters alone. */
+    preview?: string;
     /** Highlighted title snippet with <mark> tags if title matched */
     titleHighlight?: string;
     /** Highlighted content snippet with <mark> tags showing match context */

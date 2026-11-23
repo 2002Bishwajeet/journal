@@ -27,6 +27,12 @@ export async function getAllTags(): Promise<string[]> {
     return result.rows.map(row => row.tag);
 }
 
+/** Every tag with its note count, for the search box's tag suggestions (#1230). */
+export async function getTagCounts(): Promise<{ tag: string; count: number }[]> {
+    const db = await getDatabase();
+    return (await db.query<{ tag: string; count: number }>(TAGS_SQL)).rows;
+}
+
 /**
  * Remove `tag` from every note that has it (trashed and archived included) and mark
  * each of those notes pending, in one transaction, so the next push uploads the new

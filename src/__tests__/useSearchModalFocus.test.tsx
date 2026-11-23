@@ -8,6 +8,7 @@ vi.mock('@/lib/db', () => ({
     getNotesByIds: vi.fn(async () => []),
     getRecentlyModifiedNotes: vi.fn(async () => []),
     getAllFolders: vi.fn(async () => []),
+    getTagCounts: vi.fn(async () => []),
 }));
 
 import { useSearchModal } from '@/hooks/useSearchModal';

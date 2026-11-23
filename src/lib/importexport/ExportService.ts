@@ -17,6 +17,8 @@ export interface ExportResult {
     count: number;
     size: number; // in bytes
     filename: string;
+    /** The ZIP; the caller saves it (useImportExport). */
+    blob: Blob;
     missingImages: number;
     /** Locked notes (#1427), left out of the export. */
     skippedLocked: number;
@@ -104,16 +106,14 @@ export const ExportService = {
             // Generate zip blob
             const blob = await zip.generateAsync({ type: 'blob' });
 
-            // Trigger download
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-            const downloadFilename = `journal-export-${timestamp}.zip`;
-            downloadBlob(blob, downloadFilename);
 
             return {
                 success: true,
                 count,
                 size: blob.size,
-                filename: downloadFilename,
+                filename: `journal-export-${timestamp}.zip`,
+                blob,
                 missingImages,
                 skippedLocked,
             };
@@ -222,7 +222,7 @@ export function generateMarkdown(note: SearchIndexEntry, body: string, id?: stri
 /**
  * Trigger browser download for a Blob
  */
-function downloadBlob(blob: Blob, filename: string): void {
+export function downloadBlob(blob: Blob, filename: string): void {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;

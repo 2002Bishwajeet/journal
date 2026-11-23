@@ -8,12 +8,17 @@ const handleClose = vi.fn();
 const setSelectedIndex = vi.fn();
 const handleRemoveEntry = vi.fn();
 const handleClearRecents = vi.fn();
+const handleRemoveChip = vi.fn();
+const handleFilterButton = vi.fn();
+// Rows a test puts above the default ones.
+let extraEntries: unknown[] = [];
 
 vi.mock('@/hooks/useSearchModal', () => ({
   isAdvancedResult: () => false,
   useSearchModal: () => ({
     query: 'ze',
     entries: [
+      ...extraEntries,
       { kind: 'note', section: 'recent', result: { docId: 'a', title: 'Alpha', metadata: { folderId: 'main', tags: ['x', 'y', 'z', 'w'], timestamps: { modified: new Date().toISOString() } } } },
       { kind: 'note', section: 'notes', result: { docId: 'b', title: 'Beta', preview: '', metadata: { folderId: 'gone' } } },
       { kind: 'note', section: 'notes', result: { docId: 'c', title: 'Zebra', metadata: { folderId: 'fc360190-4e23-b870-0ea4-ef233aad98ad' } } },
@@ -23,8 +28,13 @@ vi.mock('@/hooks/useSearchModal', () => ({
     status: '3 results',
     handleDialogKeyDown: vi.fn(),
     folderNames: new Map([['main', 'Main']]),
+    searchText: 'ze',
+    chips: [{ label: '#recipe', token: { kind: 'tag', value: 'recipe', start: 3, end: 13 } }],
     inputRef: { current: null },
     handleQueryChange: vi.fn(),
+    handleCaretChange: vi.fn(),
+    handleRemoveChip,
+    handleFilterButton,
     handleKeyDown: vi.fn(),
     handleClose,
     handleSelectEntry: vi.fn(),
@@ -137,10 +147,46 @@ describe('SearchModal', () => {
     for (const b of document.querySelectorAll('button')) expect(b.closest('[role="option"]')).toBeNull();
   });
 
+  it('lists filter suggestions as options in their own group, with no Remove button (#1230)', () => {
+    extraEntries = [{ kind: 'filter', section: 'filters', key: 'tag', label: '#recipe', count: 2, token: 'tag:recipe' }];
+    try {
+      renderAt(390, true);
+      const option = document.getElementById('search-result-0')!;
+      expect(option.getAttribute('role')).toBe('option');
+      expect(option.getAttribute('aria-selected')).toBe('true');
+      expect(option.closest('[role="group"]')!.getAttribute('aria-labelledby')).toBe('search-section-filters');
+      expect(document.querySelectorAll('[role="option"]')).toHaveLength(4);
+      expect(option.parentElement!.querySelector('button')).toBeNull();
+    } finally {
+      extraEntries = [];
+    }
+  });
+
   it('announces the status in a polite live region', () => {
     const status = document.querySelector('[role="status"]')!;
     expect(status.getAttribute('aria-live')).toBe('polite');
     expect(status.textContent).toBe('3 results');
+  });
+
+  it('shows the filters as chips and, on a phone, 44px filter buttons, which keep the input focused (#1230)', () => {
+    const chip = document.querySelector<HTMLButtonElement>('[aria-label="Remove filter #recipe"]')!;
+    const buttons = ['Folder', 'Tag', 'Date', 'Pinned'].map(button);
+    for (const b of [chip, ...buttons]) {
+      const down = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+      b.dispatchEvent(down);
+      expect(down.defaultPrevented).toBe(true);
+      expect(b.className).toMatch(/(pointer-coarse:)?h-11/);
+    }
+    expect(buttons[3].getAttribute('aria-pressed')).toBe('false');
+    act(() => chip.click());
+    expect(handleRemoveChip).toHaveBeenCalledWith(expect.objectContaining({ label: '#recipe' }));
+    act(() => buttons[1].click());
+    expect(handleFilterButton).toHaveBeenCalledWith('tag');
+
+    // The palette (a mouse) has the chips but not the buttons.
+    renderAt(1280, false);
+    expect(document.querySelector('[aria-label="Remove filter #recipe"]')).not.toBeNull();
+    expect(button('Pinned')).toBeUndefined();
   });
 
   it('Cancel closes the modal', () => {

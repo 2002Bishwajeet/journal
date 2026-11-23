@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef, useDeferredValue } from "react";
-import { advancedSearch, getAllFolders, getNotesByIds, getRecentlyModifiedNotes } from "@/lib/db";
+import { advancedSearch, getAllFolders, getNotesByIds, getRecentlyModifiedNotes, getTagCounts } from "@/lib/db";
 import type { SearchIndexEntry, AdvancedSearchResult, NoteListEntry } from "@/types";
 import {
     applyRecentBoost,
@@ -13,6 +13,7 @@ import {
     saveRecentSearches,
 } from "@/lib/recentItems";
 import { findTermForResult } from "@/lib/search/findReplace";
+import { IS_VALUES, parseSearchQuery, toSearchFilters, tokenAtCaret, type SearchToken } from "@/lib/search/searchPlan";
 
 // Type for results - either basic search index entry or advanced result with highlights
 export type SearchResult = SearchIndexEntry | NoteListEntry | AdvancedSearchResult;
@@ -21,10 +22,98 @@ export function isAdvancedResult(result: SearchResult): result is AdvancedSearch
     return 'matchType' in result;
 }
 
+/** A suggestion that completes the filter being typed (#1230). `token` replaces it in the query. */
+export interface FilterEntry {
+    kind: 'filter';
+    section: 'filters';
+    key: SearchToken['kind'];
+    label: string;
+    count?: number;
+    token: string;
+}
+
 /** One row of the flat list the arrow keys walk, in display order. */
 export type SearchEntry =
     | { kind: 'note'; section: 'recent' | 'notes'; result: SearchResult }
-    | { kind: 'search'; section: 'searches'; text: string };
+    | { kind: 'search'; section: 'searches'; text: string }
+    | FilterEntry;
+
+/** A filter in the query, shown as a removable chip under the input. */
+export interface SearchChip {
+    label: string;
+    token: SearchToken;
+}
+
+/** The phone's row of filter buttons: the first three start a token, Pinned toggles `is:pinned`. */
+export type FilterButton = 'folder' | 'tag' | 'date' | 'pinned';
+const BUTTON_PREFIX = { folder: 'folder:', tag: 'tag:', date: 'after:' } as const;
+
+const DATE_LABELS: Record<string, string> = { today: 'Today', yesterday: 'Yesterday', week: 'Last 7 days', month: 'Last 30 days' };
+const SUGGESTIONS_SHOWN = 8;
+const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+const asToken = (key: string, value: string) => {
+    const name = value.replaceAll('"', '');
+    return `${key}:${/\s/.test(name) ? `"${name}"` : name}`;
+};
+
+type Typing = NonNullable<ReturnType<typeof tokenAtCaret>>;
+
+function filterOptions(
+    typing: Typing,
+    tags: { tag: string; count: number }[],
+    folderNames: Map<string, string>,
+): { name: string; label: string; token: string; count?: number }[] {
+    switch (typing.key) {
+        case 'tag':
+            return tags.map(({ tag, count }) => ({
+                name: tag,
+                label: `#${tag}`,
+                count,
+                token: typing.hash && /^[^\s"#]+$/.test(tag) ? `#${tag}` : asToken('tag', tag),
+            }));
+        case 'folder':
+            return [
+                ...[...folderNames.values()].map((name) => ({ name, label: name, token: asToken('folder', name) })),
+                { name: 'shared', label: 'Shared with me', token: 'folder:shared' },
+            ];
+        case 'is':
+            return IS_VALUES.map((name) => ({ name, label: capitalize(name), token: `is:${name}` }));
+        case 'after':
+            return Object.entries(DATE_LABELS).map(([name, label]) => ({ name, label, token: `after:${name}` }));
+        default:
+            return [];
+    }
+}
+
+/** The tags, folders, flags or dates that complete the token at the caret; names that start with the typed text first. */
+function filterSuggestions(
+    typing: Typing,
+    query: string,
+    tags: { tag: string; count: number }[],
+    folderNames: Map<string, string>,
+): FilterEntry[] {
+    const value = typing.value.toLowerCase();
+    const typed = query.slice(typing.start, typing.end).toLowerCase();
+    const startsWith = (name: string) => (name.toLowerCase().startsWith(value) ? 0 : 1);
+    return filterOptions(typing, tags, folderNames)
+        // A token typed in full needs no suggestion.
+        .filter((option) => option.name.toLowerCase().includes(value) && option.token.toLowerCase() !== typed)
+        .sort((a, b) => startsWith(a.name) - startsWith(b.name))
+        .slice(0, SUGGESTIONS_SHOWN)
+        .map(({ label, count, token }) => ({ kind: 'filter', section: 'filters', key: typing.key, label, count, token }));
+}
+
+function chipLabel(token: SearchToken, folderNames: Map<string, string>): string {
+    const value = token.value.toLowerCase();
+    if (token.kind === 'tag') return `#${token.value}`;
+    if (token.kind === 'is') return capitalize(value);
+    if (token.kind === 'folder') {
+        if (value === 'shared') return 'Shared with me';
+        const names = [...folderNames.values()].filter((name) => name.toLowerCase().includes(value));
+        return names.length === 1 ? names[0] : token.value;
+    }
+    return token.kind === 'after' && DATE_LABELS[value] ? DATE_LABELS[value] : `${token.kind} ${token.value}`;
+}
 
 export interface UseSearchModalOptions {
     isOpen: boolean;
@@ -43,6 +132,9 @@ export interface UseSearchModalReturn {
     isLoading: boolean;
     /** Folder names by id, for the rows' meta line. */
     folderNames: Map<string, string>;
+    /** The query without its filters: the text the notes match. */
+    searchText: string;
+    chips: SearchChip[];
     inputRef: React.RefObject<HTMLInputElement | null>;
     /** What a screen reader hears once the query settles: the result count, "No notes found", or nothing. */
     status: string;
@@ -50,7 +142,11 @@ export interface UseSearchModalReturn {
     // Handlers
     /** Keeps Tab and Shift+Tab inside the dialog. */
     handleDialogKeyDown: (e: React.KeyboardEvent<HTMLElement>) => void;
-    handleQueryChange: (value: string) => void;
+    /** `caret`: where the caret is after the change; the end when not given. */
+    handleQueryChange: (value: string, caret?: number) => void;
+    handleCaretChange: (caret: number) => void;
+    handleRemoveChip: (chip: SearchChip) => void;
+    handleFilterButton: (button: FilterButton) => void;
     handleKeyDown: (e: React.KeyboardEvent) => void;
     handleClose: () => void;
     handleSelectResult: (docId: string, find?: string) => void;
@@ -75,7 +171,11 @@ export function useSearchModal({
     const [openedNotes, setOpenedNotes] = useState<NoteListEntry[]>([]);
     const [modifiedNotes, setModifiedNotes] = useState<NoteListEntry[]>([]);
     const [folderNames, setFolderNames] = useState(() => new Map<string, string>());
+    const [tags, setTags] = useState<{ tag: string; count: number }[]>([]);
+    const [caret, setCaret] = useState(0);
     const selectedDocIdRef = useRef<string | undefined>(undefined);
+    // Filter suggestions above the notes, so a note's row index is its result index plus this.
+    const suggestionCountRef = useRef(0);
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [pendingQuery, setPendingQuery] = useState<string | null>(null);
     const inputRef = useRef<HTMLInputElement | null>(null);
@@ -89,6 +189,13 @@ export function useSearchModal({
     const isLoading = Boolean(
         pendingQuery && pendingQuery === trimmedQuery && trimmedQuery
     );
+    const parsed = parseSearchQuery(query);
+    const typing = tokenAtCaret(query, caret);
+    const suggestions = typing ? filterSuggestions(typing, query, tags, folderNames) : [];
+    const chips = parsed.tokens
+        // The token being completed is not a chip yet.
+        .filter((token) => !(suggestions.length > 0 && token.start === typing?.start))
+        .map((token): SearchChip => ({ token, label: chipLabel(token, folderNames) }));
 
     const handleClose = useCallback(() => {
         setQuery("");
@@ -109,15 +216,15 @@ export function useSearchModal({
         [onSelectNote, handleClose, trimmedQuery]
     );
 
-    const handleQueryChange = useCallback((value: string) => {
+    const handleQueryChange = useCallback((value: string, at = value.length) => {
         const nextTrimmed = value.trim();
         setPendingQuery(nextTrimmed ? nextTrimmed : null);
         setQuery(value);
-        // A query keeps the selection on its note while results change (see below); clearing starts over.
-        if (!nextTrimmed) {
-            setResults(null);
-            setSelectedIndex(0);
-        }
+        setCaret(at);
+        // A query keeps the selection on its note while results change (see below); clearing starts over,
+        // and so does typing a filter, whose suggestions come first.
+        if (!nextTrimmed || tokenAtCaret(value, at)) setSelectedIndex(0);
+        if (!nextTrimmed) setResults(null);
     }, []);
 
     // Opened with a query (journal://search?q=)
@@ -168,10 +275,11 @@ export function useSearchModal({
         // Notes opened since the modal last opened.
         const openedIds = loadRecentNotes();
         (async () => {
-            const [opened, modified, folders] = await Promise.all([
+            const [opened, modified, folders, tagCounts] = await Promise.all([
                 getNotesByIds(openedIds.map((n) => n.docId)),
                 getRecentlyModifiedNotes(RECENT_MODIFIED_SHOWN),
                 getAllFolders(),
+                getTagCounts(),
             ]);
             if (cancelled) return;
             setRecentNotes(openedIds);
@@ -179,6 +287,7 @@ export function useSearchModal({
             setOpenedNotes(opened);
             setModifiedNotes(modified);
             setFolderNames(new Map(folders.map((f) => [f.id, f.name])));
+            setTags(tagCounts);
         })();
 
         return () => {
@@ -201,25 +310,32 @@ export function useSearchModal({
         const debounce = setTimeout(async () => {
             // Use advanced search with FTS, fuzzy matching, and highlighting.
             // Untrimmed: a trailing space ends the last word, so it stops matching as a prefix.
-            const searchResults = await advancedSearch(query);
+            const { text, tokens } = parseSearchQuery(query);
+            const filters = tokens.length ? toSearchFilters(tokens, folderNames) : undefined;
+            const searchResults = await advancedSearch(text, { filters });
             if (cancelled || requestSeqRef.current !== requestSeq) return;
             setPendingQuery((current) => (current === trimmed ? null : current));
             const next = applyRecentBoost(searchResults, loadRecentNotes().map((n) => n.docId));
             setResults(next);
-            setSelectedIndex(Math.max(0, next.findIndex((r) => r.docId === selectedDocIdRef.current)));
+            const at = next.findIndex((r) => r.docId === selectedDocIdRef.current);
+            setSelectedIndex(at === -1 ? 0 : at + suggestionCountRef.current);
         }, 150);
 
         return () => {
             cancelled = true;
             clearTimeout(debounce);
         };
-    }, [query, isOpen]);
+        // folderNames: a `folder:` filter resolves to ids once the folders load.
+    }, [query, isOpen, folderNames]);
 
     const deferredResults = useDeferredValue(results ?? []);
 
     let entries: SearchEntry[];
     if (trimmedQuery) {
-        entries = deferredResults.map((result) => ({ kind: 'note', section: 'notes', result }));
+        entries = [
+            ...suggestions,
+            ...deferredResults.map((result): SearchEntry => ({ kind: 'note', section: 'notes', result })),
+        ];
     } else {
         const recent = resolveRecentNotes(recentNotes, openedNotes);
         const recentIds = new Set(recent.map((r) => r.docId));
@@ -232,11 +348,13 @@ export function useSearchModal({
         ];
     }
 
+    // Filter suggestions are not results.
+    const noteCount = entries.length - suggestions.length;
     const status = !trimmedQuery || isLoading
         ? ''
-        : entries.length === 0
+        : noteCount === 0
             ? 'No notes found'
-            : `${entries.length} ${entries.length === 1 ? 'result' : 'results'}`;
+            : `${noteCount} ${noteCount === 1 ? 'result' : 'results'}`;
 
     const handleDialogKeyDown = useCallback((e: React.KeyboardEvent<HTMLElement>) => {
         if (e.key !== 'Tab') return;
@@ -254,22 +372,51 @@ export function useSearchModal({
     const selectedEntry = entries[selectedIndex];
     useEffect(() => {
         selectedDocIdRef.current = selectedEntry?.kind === 'note' ? selectedEntry.result.docId : undefined;
-    }, [selectedEntry]);
+        suggestionCountRef.current = suggestions.length;
+    }, [selectedEntry, suggestions.length]);
 
-    const handleSelectEntry = useCallback(
-        (entry: SearchEntry) => {
-            if (entry.kind === 'search') handleQueryChange(entry.text);
-            else handleSelectResult(entry.result.docId, findTermForResult(entry.result, trimmedQuery));
-        },
-        [handleQueryChange, handleSelectResult, trimmedQuery]
-    );
+    /** Sets the query and puts the caret at `at` in the focused input. */
+    const editQuery = (value: string, at = value.length) => {
+        handleQueryChange(value, at);
+        inputRef.current?.focus();
+        // After React has written the new value, which moves the caret to the end.
+        setTimeout(() => inputRef.current?.setSelectionRange(at, at), 0);
+    };
+
+    // The filter suggestion's token replaces the one being typed, and a space ends it.
+    const completeFilter = (token: string) => {
+        if (!typing) return;
+        const rest = query.slice(typing.end).trimStart();
+        editQuery(`${query.slice(0, typing.start)}${token} ${rest}`, typing.start + token.length + 1);
+    };
+
+    const removeToken = ({ start, end }: SearchToken) => {
+        const left = query.slice(0, start).trimEnd();
+        const right = query.slice(end).trimStart();
+        editQuery(left && right ? `${left} ${right}` : left + right);
+    };
+
+    const handleRemoveChip = (chip: SearchChip) => removeToken(chip.token);
+
+    const handleFilterButton = (button: FilterButton) => {
+        const pinned = parsed.tokens.find((token) => token.kind === 'is' && token.value === 'pinned');
+        if (button === 'pinned' && pinned) return removeToken(pinned);
+        const base = query && !/\s$/.test(query) ? `${query} ` : query;
+        editQuery(base + (button === 'pinned' ? 'is:pinned ' : BUTTON_PREFIX[button]));
+    };
+
+    const handleSelectEntry = (entry: SearchEntry) => {
+        if (entry.kind === 'search') handleQueryChange(entry.text);
+        else if (entry.kind === 'filter') completeFilter(entry.token);
+        else handleSelectResult(entry.result.docId, findTermForResult(entry.result, parsed.text));
+    };
 
     const handleRemoveEntry = (entry: SearchEntry) => {
         if (entry.kind === 'search') {
             const next = removeRecentSearch(loadRecentSearches(), entry.text);
             saveRecentSearches(next);
             setRecentSearches(next);
-        } else {
+        } else if (entry.kind === 'note') {
             const next = removeRecentNote(loadRecentNotes(), entry.result.docId);
             saveRecentNotes(next);
             setRecentNotes(next);
@@ -283,45 +430,42 @@ export function useSearchModal({
         setRecentSearches([]);
     };
 
-    const handleKeyDown = useCallback(
-        (e: React.KeyboardEvent) => {
-            switch (e.key) {
-                case "ArrowDown": {
-                    e.preventDefault();
-                    if (entries.length === 0) return;
-                    const nextIndex = Math.min(selectedIndex + 1, entries.length - 1);
-                    setSelectedIndex(nextIndex);
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        switch (e.key) {
+            case "ArrowDown": {
+                e.preventDefault();
+                if (entries.length === 0) return;
+                const nextIndex = Math.min(selectedIndex + 1, entries.length - 1);
+                setSelectedIndex(nextIndex);
 
-                    // Scroll active item into view
-                    const nextEl = document.getElementById(`search-result-${nextIndex}`);
-                    nextEl?.scrollIntoView({ block: 'nearest' });
-                    break;
-                }
-                case "ArrowUp": {
-                    e.preventDefault();
-                    if (entries.length === 0) return;
-                    const prevIndex = Math.max(selectedIndex - 1, 0);
-                    setSelectedIndex(prevIndex);
-
-                    // Scroll active item into view
-                    const prevEl = document.getElementById(`search-result-${prevIndex}`);
-                    prevEl?.scrollIntoView({ block: 'nearest' });
-                    break;
-                }
-                case "Enter":
-                    e.preventDefault();
-                    if (entries[selectedIndex]) {
-                        handleSelectEntry(entries[selectedIndex]);
-                    }
-                    break;
-                case "Escape":
-                    e.preventDefault();
-                    handleClose();
-                    break;
+                // Scroll active item into view
+                const nextEl = document.getElementById(`search-result-${nextIndex}`);
+                nextEl?.scrollIntoView({ block: 'nearest' });
+                break;
             }
-        },
-        [entries, selectedIndex, handleSelectEntry, handleClose]
-    );
+            case "ArrowUp": {
+                e.preventDefault();
+                if (entries.length === 0) return;
+                const prevIndex = Math.max(selectedIndex - 1, 0);
+                setSelectedIndex(prevIndex);
+
+                // Scroll active item into view
+                const prevEl = document.getElementById(`search-result-${prevIndex}`);
+                prevEl?.scrollIntoView({ block: 'nearest' });
+                break;
+            }
+            case "Enter":
+                e.preventDefault();
+                if (entries[selectedIndex]) {
+                    handleSelectEntry(entries[selectedIndex]);
+                }
+                break;
+            case "Escape":
+                e.preventDefault();
+                handleClose();
+                break;
+        }
+    };
 
     // Handle keyboard shortcut (Cmd+K or Ctrl+K)
     useEffect(() => {
@@ -343,10 +487,15 @@ export function useSearchModal({
         selectedIndex,
         isLoading,
         folderNames,
+        searchText: parsed.text,
+        chips,
         inputRef,
         status,
         handleDialogKeyDown,
         handleQueryChange,
+        handleCaretChange: setCaret,
+        handleRemoveChip,
+        handleFilterButton,
         handleKeyDown,
         handleClose,
         handleSelectResult,
