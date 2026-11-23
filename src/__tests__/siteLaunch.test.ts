@@ -102,6 +102,25 @@ describe('the download page', () => {
         expect(steps).toEqual(['Install', 'Create a Homebase identity', 'Sign in']);
         expect(html).toContain('<a href="https://homebase.id">homebase.id</a>, where sign-up is in <strong>closed beta</strong>');
     });
+
+    // #1456: what the apps add, only features with a released entry in RELEASE_NOTES.md, right after the hero.
+    it('lists what the apps add, after the hero and before getting started', () => {
+        const section = /<section[^>]*id="apps-add"[\s\S]*?<\/section>/.exec(html)?.[0] ?? '';
+        const heads = [...section.matchAll(/<h3 class="h3">([^<]+)<\/h3>/g)].map(([, title]) => title);
+        expect(heads).toEqual([
+            'Your notes are encrypted on this device too',
+            'Lock the app, or one note or folder',
+            'Jot a note from anywhere',
+            'Stays running, starts at login, updates itself',
+            'Share links open straight in the app',
+            "Writing help from Apple's on-device model",
+        ]);
+        expect(section).toMatch(/Everything else is the same Journal you use in the browser, which stays free\.<\/p>\s*<\/div>\s*<\/section>$/);
+        // The native export save (#1205) is listed only once its release note is out of release-notes/.
+        expect(section).not.toMatch(/share sheet|Save dialog/i);
+        expect(html.indexOf('id="apps-add"')).toBeGreaterThan(html.indexOf('id="download-title"'));
+        expect(html.indexOf('id="apps-add"')).toBeLessThan(html.indexOf('id="start-title"'));
+    });
 });
 
 describe('the store badges', () => {
