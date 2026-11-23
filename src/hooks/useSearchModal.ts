@@ -139,10 +139,19 @@ export function useSearchModal({
         inerted.forEach((el) => el.setAttribute('inert', ''));
         return () => {
             inerted.forEach((el) => el.removeAttribute('inert'));
-            const target = pickedNoteRef.current
-                ? document.querySelector<HTMLElement>('textarea[placeholder="Untitled"]') ?? opener
-                : opener;
-            target?.focus();
+            if (!pickedNoteRef.current) {
+                opener?.focus();
+                return;
+            }
+            // The picked note's editor mounts after the route changes; wait a few frames for it.
+            let frames = 0;
+            const focusEditor = () => {
+                const editor = [...document.querySelectorAll<HTMLElement>('textarea[placeholder="Untitled"]')].find((el) => el.offsetParent !== null);
+                if (editor) editor.focus();
+                else if (++frames < 30) requestAnimationFrame(focusEditor);
+                else opener?.focus();
+            };
+            focusEditor();
         };
     }, [isOpen]);
 
