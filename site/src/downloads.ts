@@ -58,3 +58,42 @@ export function archNote(os: DesktopOS, arch: Arch | null): { text: string; noBu
   if (os === 'linux') return { text: 'There is no ARM build for Linux yet. Journal in the browser works on any computer.', noBuild: true }
   return null
 }
+
+/**
+ * Puts the visitor's OS card first and folds the other cards under "Other platforms". Returns the shown card,
+ * or null (page untouched) when there is no such card.
+ */
+export function layoutDownloads(doc: Document, os: DesktopOS | null): HTMLElement | null {
+  const list = doc.querySelector<HTMLElement>('.dl-list')
+  const shown = os && list?.querySelector<HTMLElement>(`.dl-item[data-os="${os}"]`)
+  if (!os || !list || !shown) return null
+  const rest = doc.createElement('ul')
+  rest.className = 'dl-list'
+  rest.append(...list.querySelectorAll(`.dl-item:not([data-os="${os}"])`))
+  const details = doc.createElement('details')
+  details.className = 'dl-other'
+  details.innerHTML = '<summary>Other platforms</summary>'
+  details.append(rest)
+  list.after(details)
+  shown.querySelector('.btn')?.classList.replace('btn-secondary', 'btn-primary')
+  return shown
+}
+
+/** Applies the CPU note to the shown card. With no build for the CPU, the note replaces the card's text and links. */
+export function applyArchNote(shown: HTMLElement, os: DesktopOS, arch: Arch | null): void {
+  const note = archNote(os, arch)
+  if (!note) return
+  const text = shown.firstElementChild!
+  if (note.noBuild) {
+    text.querySelector('p')!.textContent = note.text
+    const btn = shown.querySelector<HTMLAnchorElement>('.btn')!
+    btn.href = '/welcome'
+    btn.textContent = 'Open Journal in the browser'
+    btn.classList.replace('btn-primary', 'btn-secondary')
+    return
+  }
+  const p = shown.ownerDocument.createElement('p')
+  p.className = 'small'
+  p.textContent = note.text
+  text.append(p)
+}

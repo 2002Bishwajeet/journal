@@ -1,4 +1,4 @@
-import { archNote, cpuArch, desktopOS, type Arch } from './downloads'
+import { applyArchNote, cpuArch, desktopOS, layoutDownloads, type Arch } from './downloads'
 
 // Shows the visitor's OS as the one download and folds the other two under "Other platforms". Without script,
 // or on a phone or an unknown agent, the page keeps the plain list of all three.
@@ -11,32 +11,6 @@ async function detectArch(): Promise<Arch | null> {
 }
 
 const os = desktopOS(navigator.userAgent)
-const list = document.querySelector<HTMLElement>('.dl-list')
-const shown = os && list?.querySelector<HTMLElement>(`.dl-item[data-os="${os}"]`)
+const shown = layoutDownloads(document, os)
 
-if (os && list && shown) {
-  const rest = document.createElement('ul')
-  rest.className = 'dl-list'
-  rest.append(...list.querySelectorAll(`.dl-item:not([data-os="${os}"])`))
-  const details = document.createElement('details')
-  details.className = 'dl-other'
-  details.innerHTML = '<summary>Other platforms</summary>'
-  details.append(rest)
-  list.after(details)
-  shown.querySelector('.btn')?.classList.replace('btn-secondary', 'btn-primary')
-
-  void detectArch().then((arch) => {
-    const note = archNote(os, arch)
-    if (!note) return
-    const p = document.createElement('p')
-    p.className = 'small'
-    p.textContent = note.text
-    shown.firstElementChild!.append(p)
-    if (note.noBuild) {
-      const btn = shown.querySelector<HTMLAnchorElement>('.btn')!
-      btn.href = '/welcome'
-      btn.textContent = 'Open Journal in the browser'
-      btn.classList.replace('btn-primary', 'btn-secondary')
-    }
-  })
-}
+if (os && shown) void detectArch().then((arch) => applyArchNote(shown, os, arch))

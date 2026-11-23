@@ -1,10 +1,12 @@
+// @vitest-environment happy-dom
 /**
  * #1475: the download page shows the visitor's OS as the one download, the other two under "Other platforms".
  * The CPU logic, which card is shown and which are collapsed, and the built page without script.
  */
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { archNote, cpuArch } from '../../site/src/downloads';
+import { applyArchNote, archNote, cpuArch, desktopOS, layoutDownloads } from '../../site/src/downloads';
 import { render } from '../../site/vite.config';
 
 describe('cpuArch', () => {
@@ -46,7 +48,7 @@ describe('archNote', () => {
 });
 
 describe('the built download page without script', () => {
-    const source = readFileSync(new URL('../../site/download.html', import.meta.url), 'utf8');
+    const source = readFileSync(resolve(process.cwd(), 'site/download.html'), 'utf8');
     const html = render(source, { billing: true, downloads: true, renew: false, appstore: false, play: false });
 
     it('still lists all three platforms, with nothing collapsed', () => {
@@ -55,5 +57,56 @@ describe('the built download page without script', () => {
         expect(html).toContain('Journal-darwin-universal.dmg');
         expect(html).toContain('Journal-windows-x64-setup.exe');
         expect(html).toContain('Journal-linux-amd64.AppImage');
+    });
+});
+
+describe('layoutDownloads', () => {
+    const load = () => new DOMParser().parseFromString(render(source, flags), 'text/html');
+    const source = readFileSync(resolve(process.cwd(), 'site/download.html'), 'utf8');
+    const flags = { billing: true, downloads: true, renew: false, appstore: false, play: false };
+    const agents = {
+        mac: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15',
+        windows: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120 Safari/537.36',
+        linux: 'Mozilla/5.0 (X11; Linux x86_64) Chrome/120 Safari/537.36',
+    } as const;
+
+    it.each(['mac', 'windows', 'linux'] as const)('shows %s and collapses the other two', (os) => {
+        const doc = load();
+        const shown = layoutDownloads(doc, desktopOS(agents[os]));
+        expect(shown?.dataset.os).toBe(os);
+        expect(shown?.querySelector('.btn')?.classList.contains('btn-primary')).toBe(true);
+        const collapsed = [...doc.querySelectorAll('details.dl-other .dl-item')].map((li) => (li as HTMLElement).dataset.os);
+        expect(collapsed).toHaveLength(2);
+        expect(collapsed).not.toContain(os);
+        expect([...doc.querySelectorAll('.dl-item')].filter((li) => !li.closest('.dl-other'))).toHaveLength(1);
+    });
+
+    it.each([
+        ['a phone', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Safari/604.1'],
+        ['Android', 'Mozilla/5.0 (Linux; Android 14) Chrome/120 Mobile Safari/537.36'],
+        ['an unknown agent', 'curl/8.0'],
+    ])('leaves all three listed for %s', (_, ua) => {
+        const doc = load();
+        expect(layoutDownloads(doc, desktopOS(ua))).toBeNull();
+        expect([...doc.querySelectorAll('.dl-item')].filter((li) => !li.closest('.dl-other'))).toHaveLength(3);
+        expect(doc.querySelector('details.dl-other')).toBeNull();
+    });
+
+    it('adds an emulation note on Windows on ARM and keeps the installer', () => {
+        const doc = load();
+        const shown = layoutDownloads(doc, 'windows')!;
+        applyArchNote(shown, 'windows', 'arm');
+        expect(shown.textContent).toMatch(/x64 emulation/);
+        expect(shown.querySelector<HTMLAnchorElement>('.btn')?.href).toContain('Journal-windows-x64-setup.exe');
+    });
+
+    it('replaces the x64 text and the .deb link on Linux on ARM', () => {
+        const doc = load();
+        const shown = layoutDownloads(doc, 'linux')!;
+        applyArchNote(shown, 'linux', 'arm');
+        expect(shown.textContent).toMatch(/no ARM build/);
+        expect(shown.textContent).not.toMatch(/x64|\.deb/);
+        expect(shown.querySelector('.btn')?.textContent).toBe('Open Journal in the browser');
+        expect(shown.querySelector('a[href$=".deb"]')).toBeNull();
     });
 });
