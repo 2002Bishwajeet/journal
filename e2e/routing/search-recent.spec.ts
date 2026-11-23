@@ -25,14 +25,14 @@ test('search shows recent notes and recent searches, and removes them', async ({
 
   await app.keyboard.press('ControlOrMeta+k');
   await expect(dialog.getByText('Recent searches')).toBeVisible();
-  await dialog.getByRole('button', { name: 'Bravo', exact: true }).click();
+  await dialog.getByRole('option', { name: 'Bravo', exact: true }).click();
   await expect(input).toHaveValue('Bravo');
   await expect(rows.first()).toContainText('Bravo plan');
   await input.fill('');
 
-  const removes = dialog.getByRole('button', { name: 'Remove from recent' });
+  const removes = dialog.getByRole('button', { name: /^Remove .* from recent$/ });
   await expect(removes).toHaveCount(3);
-  await dialog.locator('div.relative').filter({ hasText: 'Alpha plan' }).getByRole('button', { name: 'Remove from recent' }).click();
+  await dialog.locator('div.relative').filter({ hasText: 'Alpha plan' }).getByRole('button', { name: /^Remove .* from recent$/ }).click();
   await expect(removes).toHaveCount(2);
 
   await dialog.getByRole('button', { name: 'Clear' }).click();

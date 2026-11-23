@@ -108,7 +108,7 @@ async function searchState(page: Page, open: () => Promise<void>) {
   const dialog = page.getByRole('dialog', { name: 'Search notes' });
   await dialog.getByPlaceholder('Search notes...').fill('weekly');
   // Any match will do: trashTwo() put two notes (the oldest, e.g. Note 01) in Trash, and search hides those (#1224).
-  await expect(dialog.getByRole('button', { name: /^Note \d+/ }).first()).toBeVisible();
+  await expect(dialog.getByRole('option', { name: /^Note \d+/ }).first()).toBeVisible();
   await shots(page, 'search-results');
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();

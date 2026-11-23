@@ -54,6 +54,15 @@ describe('useSearchModal filters', () => {
         await settle();
         // "recipe" starts with "re" and "bread" only contains it.
         expect(rows(api())).toEqual(['filter:#recipe 3', 'filter:#bread 1', 'note:n1']);
+        // The suggestions are not results (#1231).
+        expect(api().status).toBe('1 result');
+        advancedSearch.mockResolvedValueOnce([]);
+        await act(async () => { api().handleQueryChange('tag:re '); });
+        await settle();
+        // Not the visible "No notes found…" text, which would then be on screen twice.
+        expect(api().status).toBe('No results');
+        await act(async () => { api().handleQueryChange('tag:re'); });
+        await settle();
         await act(async () => { api().handleKeyDown(key('ArrowDown')); });
         expect(api().selectedIndex).toBe(1);
         await act(async () => { api().handleKeyDown(key('ArrowDown')); });
