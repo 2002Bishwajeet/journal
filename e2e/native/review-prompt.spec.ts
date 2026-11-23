@@ -2,7 +2,7 @@ import type { Browser, Page } from '@playwright/test';
 import { test, expect, waitForAppReady, withFencedPage } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
 import { fakeKeychain } from '../support/fakeKeychain';
-import { activeTitleInput, openNote, openSettingsSection, settingsPanel, typeInEditor } from '../support/actions';
+import { activeTitleInput, openSettingsSection, settingsPanel, typeInEditor } from '../support/actions';
 
 // #1439: the system rating dialog in the native app. The app is forced native through the init-script
 // globals, as in paywall.spec.ts, with the bridge plugin listed and its request_review command faked
@@ -58,9 +58,8 @@ test('asks for a rating once after the threshold and not again in the same versi
         }
         await expect.poll(() => requests(page)).toBe(1);
 
-        await openNote(page, 'One');
-        await closeNote(page);
-        await openNote(page, 'Two');
+        // A phone's Back lands on the folder list, so another saved note stands in for reopening one.
+        await writeNote(page, 'Six', 'Entry Six');
         await closeNote(page);
         await expect(page.getByRole('button', { name: 'New note' })).toBeVisible();
         expect(await requests(page)).toBe(1);
