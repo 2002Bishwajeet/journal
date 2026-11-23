@@ -18,6 +18,7 @@ vi.mock('@/lib/db', () => ({
     getNotesByIds: (ids: string[]) => getNotesByIds(ids),
     getRecentlyModifiedNotes: (limit: number) => getRecentlyModifiedNotes(limit),
     getAllFolders: async () => [],
+    getTagCounts: async () => [],
     advancedSearch: (q: string) => advancedSearch(q),
 }));
 
@@ -27,7 +28,7 @@ type Api = ReturnType<typeof useSearchModal>;
 
 const key = (k: string) => ({ key: k, preventDefault: () => {} }) as unknown as KeyboardEvent;
 const ids = (api: Api) =>
-    api.entries.map((e) => (e.kind === 'search' ? `q:${e.text}` : `${e.section}:${e.result.docId}`));
+    api.entries.map((e) => (e.kind === 'search' ? `q:${e.text}` : e.kind === 'filter' ? `filter:${e.token}` : `${e.section}:${e.result.docId}`));
 const stored = (k: string) => JSON.parse(localStorage.getItem(k)!).items;
 
 const onSelectNote = vi.fn();

@@ -342,6 +342,113 @@ describe('advancedSearch stages (#1225)', () => {
     });
 });
 
+describe('advancedSearch filters (#1230)', () => {
+    const uid = (n: number) => `70000000-0000-0000-0000-${String(n).padStart(12, '0')}`;
+    async function add(n: number, title: string, body: string, meta: Partial<DocumentMetadata> & { modified?: string } = {}) {
+        const { modified = '2026-10-10T12:00:00.000Z', ...rest } = meta;
+        await upsertSearchIndex({
+            docId: uid(n),
+            title,
+            plainTextContent: body,
+            metadata: { ...noteMetadata(title), timestamps: { created: modified, modified }, ...rest },
+        });
+    }
+
+    it('a tag filter keeps the notes with that tag in any case, with the text', async () => {
+        await add(1, 'Budget 2026', 'Plan the budget.', { tags: ['Work'] });
+        await add(2, 'Budget at home', 'The home budget.', { tags: ['home'] });
+        await add(3, 'Standup', 'Nothing about money.', { tags: ['work'] });
+
+        expect(ids(await advancedSearch('budget', { filters: { tags: ['work'] } }))).toEqual([uid(1)]);
+    });
+
+    it('several tags keep only the notes that have all of them', async () => {
+        await add(1, 'Both', 'x', { tags: ['work', 'urgent'] });
+        await add(2, 'One', 'x', { tags: ['work'] });
+
+        expect(ids(await advancedSearch('', { filters: { tags: ['work', 'urgent'] } }))).toEqual([uid(1)]);
+    });
+
+    it('filters and no text list the notes newest first, with a preview and no match type', async () => {
+        await add(1, 'Old pin', 'First body', { isPinned: true, modified: '2026-09-01T00:00:00.000Z' });
+        await add(2, 'New pin', 'Second body', { isPinned: true, modified: '2026-10-01T00:00:00.000Z' });
+        await add(3, 'Not pinned', 'Third body', { modified: '2026-10-05T00:00:00.000Z' });
+
+        const results = await advancedSearch('  ', { filters: { pinned: true } });
+
+        expect(ids(results)).toEqual([uid(2), uid(1)]);
+        expect(results[0].preview).toBe('Second body');
+        expect('matchType' in results[0]).toBe(false);
+    });
+
+    it('a folder filter keeps the notes in those folders', async () => {
+        await add(1, 'Trip plan', 'Plan the trip.', { folderId: 'f-travel' });
+        await add(2, 'Work plan', 'Plan the quarter.', { folderId: 'f-work' });
+
+        expect(ids(await advancedSearch('plan', { filters: { folderIds: ['f-travel'] } }))).toEqual([uid(1)]);
+        expect(await advancedSearch('plan', { filters: { folderIds: [] } })).toEqual([]);
+    });
+
+    it('is:public after a date keeps the public notes changed since then', async () => {
+        await add(1, 'Public new', 'x', { isPublic: true, modified: '2026-10-05T00:00:00.000Z' });
+        await add(2, 'Public old', 'x', { isPublic: true, modified: '2026-09-20T00:00:00.000Z' });
+        await add(3, 'Private new', 'x', { modified: '2026-10-06T00:00:00.000Z' });
+        // On or after: a note changed at the boundary is in.
+        await add(4, 'Public boundary', 'x', { isPublic: true, modified: '2026-10-01T00:00:00.000Z' });
+
+        const results = await advancedSearch('', { filters: { public: true, after: '2026-10-01T00:00:00.000Z' } });
+
+        expect(ids(results)).toEqual([uid(1), uid(4)]);
+    });
+
+    it('a before: date combines with a phrase', async () => {
+        await add(1, 'Taxes 2025', 'Filed the tax return in December.', { modified: '2025-12-10T00:00:00.000Z' });
+        await add(2, 'Taxes 2026', 'Filed the tax return in March.', { modified: '2026-03-01T00:00:00.000Z' });
+        await add(3, 'Old return', 'The tax office sent a return.', { modified: '2025-11-01T00:00:00.000Z' });
+
+        const results = await advancedSearch('"tax return"', { filters: { before: '2026-01-01T00:00:00.000Z' } });
+
+        expect(ids(results)).toEqual([uid(1)]);
+    });
+
+    it('is:shared keeps the collaborative notes', async () => {
+        await add(1, 'Shared doc', 'x', { isCollaborative: true });
+        await add(2, 'Mine', 'x');
+
+        expect(ids(await advancedSearch('', { filters: { shared: true } }))).toEqual([uid(1)]);
+    });
+
+    it('never returns trashed or archived notes', async () => {
+        await add(1, 'Active work', 'work note', { tags: ['work'] });
+        await add(2, 'Archived work', 'work note', { tags: ['work'], archivalStatus: 1 });
+        await add(3, 'Trashed work', 'work note', { tags: ['work'], archivalStatus: 2 });
+
+        expect(ids(await advancedSearch('', { filters: { tags: ['work'] } }))).toEqual([uid(1)]);
+        expect(ids(await advancedSearch('work', { filters: { tags: ['work'] } }))).toEqual([uid(1)]);
+    });
+
+    it('narrow the substring and typo stages too', async () => {
+        await add(1, 'Snake one', 'uses a_b here', { tags: ['code'] });
+        await add(2, 'Snake two', 'uses a_b too');
+        await add(3, 'Journal ideas', '', { folderId: 'f-a' });
+        await add(4, 'Journal ideas', '', { folderId: 'f-b' });
+
+        expect(ids(await advancedSearch('a_b', { filters: { tags: ['code'] } }))).toEqual([uid(1)]);
+        const fuzzy = await advancedSearch('jurnal', { filters: { folderIds: ['f-b'] } });
+        expect(ids(fuzzy)).toEqual([uid(4)]);
+        expect(fuzzy[0].matchType).toBe('fuzzy');
+    });
+
+    it('lists a locked note by its filters without its preview', async () => {
+        await add(1, 'Diary', 'Secret body', { tags: ['private'], locked: true });
+
+        const results = await advancedSearch('', { filters: { tags: ['private'] } });
+
+        expect(ids(results)).toEqual([uid(1)]);
+        expect(results[0].preview).toBe('');
+    });
+});
+
 /** Every query advancedSearch sends while `run` runs. */
 async function recordStatements(run: () => Promise<void>) {
     const db = getTestDatabase();

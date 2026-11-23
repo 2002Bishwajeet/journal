@@ -8,6 +8,8 @@ const handleClose = vi.fn();
 const setSelectedIndex = vi.fn();
 const handleRemoveEntry = vi.fn();
 const handleClearRecents = vi.fn();
+const handleRemoveChip = vi.fn();
+const handleFilterButton = vi.fn();
 
 vi.mock('@/hooks/useSearchModal', () => ({
   isAdvancedResult: () => false,
@@ -21,8 +23,13 @@ vi.mock('@/hooks/useSearchModal', () => ({
     selectedIndex: 0,
     isLoading: false,
     folderNames: new Map([['main', 'Main']]),
+    searchText: 'ze',
+    chips: [{ label: '#recipe', token: { kind: 'tag', value: 'recipe', start: 3, end: 13 } }],
     inputRef: { current: null },
     handleQueryChange: vi.fn(),
+    handleCaretChange: vi.fn(),
+    handleRemoveChip,
+    handleFilterButton,
     handleKeyDown: vi.fn(),
     handleClose,
     handleSelectEntry: vi.fn(),
@@ -113,6 +120,27 @@ describe('SearchModal', () => {
     const marks = [...host.querySelectorAll('mark')].map((m) => m.textContent);
     expect(marks).toEqual(['Ze']);
     expect(host.textContent).not.toContain('No preview available');
+  });
+
+  it('shows the filters as chips and, on a phone, 44px filter buttons, which keep the input focused (#1230)', () => {
+    const chip = host.querySelector<HTMLButtonElement>('[aria-label="Remove filter #recipe"]')!;
+    const buttons = ['Folder', 'Tag', 'Date', 'Pinned'].map(button);
+    for (const b of [chip, ...buttons]) {
+      const down = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+      b.dispatchEvent(down);
+      expect(down.defaultPrevented).toBe(true);
+      expect(b.className).toMatch(/(pointer-coarse:)?h-11/);
+    }
+    expect(buttons[3].getAttribute('aria-pressed')).toBe('false');
+    act(() => chip.click());
+    expect(handleRemoveChip).toHaveBeenCalledWith(expect.objectContaining({ label: '#recipe' }));
+    act(() => buttons[1].click());
+    expect(handleFilterButton).toHaveBeenCalledWith('tag');
+
+    // The palette (a mouse) has the chips but not the buttons.
+    renderAt(1280, false);
+    expect(host.querySelector('[aria-label="Remove filter #recipe"]')).not.toBeNull();
+    expect(button('Pinned')).toBeUndefined();
   });
 
   it('Cancel closes the modal', () => {

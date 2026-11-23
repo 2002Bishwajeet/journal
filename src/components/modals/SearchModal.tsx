@@ -1,14 +1,14 @@
 import { useSyncExternalStore } from "react";
 import { HighlightedText } from "@/components/ui/HighlightedText";
 import { Kbd } from "@/components/ui/kbd";
-import { Search, FileText, Loader2, Sparkles, Type, Tag, FileSearch, Wand2, Clock, X } from "lucide-react";
+import { Search, FileText, Loader2, Sparkles, Type, Tag, FileSearch, Wand2, Clock, X, Folder, Pin, Calendar } from "lucide-react";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { COLLABORATIVE_FOLDER_ID } from "@/lib/homebase/config";
 import type { AdvancedSearchResult, DocumentMetadata } from "@/types";
 import { followKeyboard } from "@/lib/keyboardViewport";
 import { proseOnly, CODE_SEPARATOR } from "@/lib/previewText";
 import { useOverlayHistory } from "@/hooks/useOverlayHistory";
-import { useSearchModal, isAdvancedResult, type SearchResult, type SearchEntry } from "@/hooks/useSearchModal";
+import { useSearchModal, isAdvancedResult, type SearchResult, type SearchEntry, type FilterEntry, type FilterButton } from "@/hooks/useSearchModal";
 
 // Phones, and touch screens below the desktop breakpoint, get the full-screen search; a mouse keeps
 // the palette from 640 px, where it always had it (#1289).
@@ -107,7 +107,7 @@ function SearchResultItem({
   const isAdvanced = isAdvancedResult(result);
   const matchType = isAdvanced ? result.matchType : undefined;
   const contentHighlight = isAdvanced ? result.contentHighlight?.replaceAll(CODE_SEPARATOR, ' ') : undefined;
-  const plainText = proseOnly('plainTextContent' in result ? result.plainTextContent : 'preview' in result ? result.preview : '');
+  const plainText = proseOnly('plainTextContent' in result ? result.plainTextContent : 'preview' in result ? result.preview ?? '' : '');
   const title = result.title || "Untitled";
   const markedTitle = markTitle(title, query, isAdvanced ? result.titleHighlight : undefined);
   const meta = metaLine(result.metadata, folderNames);
@@ -211,7 +211,50 @@ function RecentSearchRow({
   );
 }
 
-const SECTION_TITLES = { recent: 'Recent', searches: 'Recent searches', notes: 'Notes' } as const;
+const FILTER_ICONS = { tag: Tag, folder: Folder, is: Pin, before: Calendar, after: Calendar } as const;
+
+/** A suggestion that completes the filter being typed (#1230). Keeps the input focused, like the Remove button. */
+function FilterSuggestionRow({
+  entry,
+  index,
+  isSelected,
+  onSelect,
+  onHover,
+}: {
+  entry: FilterEntry;
+  index: number;
+  isSelected: boolean;
+  onSelect: () => void;
+  onHover: () => void;
+}) {
+  const Icon = FILTER_ICONS[entry.key];
+  return (
+    <button
+      type="button"
+      id={`search-result-${index}`}
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onSelect}
+      onPointerEnter={(e) => { if (e.pointerType === 'mouse') onHover(); }}
+      className={cn(
+        "press-row flex items-center gap-3 w-full px-3 py-2.5 pointer-coarse:min-h-11 text-left rounded-md transition-colors duration-(--duration-fade) touch-manipulation",
+        isSelected ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted/50"
+      )}
+    >
+      <Icon className="h-4 w-4 shrink-0" />
+      <span className="text-sm font-medium text-foreground truncate flex-1">{entry.label}</span>
+      {entry.count !== undefined && <span className="text-xs tabular-nums shrink-0">{entry.count}</span>}
+    </button>
+  );
+}
+
+const FILTER_BUTTONS: { button: FilterButton; label: string; icon: typeof Tag }[] = [
+  { button: 'folder', label: 'Folder', icon: Folder },
+  { button: 'tag', label: 'Tag', icon: Tag },
+  { button: 'date', label: 'Date', icon: Calendar },
+  { button: 'pinned', label: 'Pinned', icon: Pin },
+];
+
+const SECTION_TITLES = { recent: 'Recent', searches: 'Recent searches', notes: 'Notes', filters: 'Filters' } as const;
 
 /**
  * Props for the Remove and Clear buttons. They act without taking focus from the search input,
@@ -255,8 +298,13 @@ export default function SearchModal({
     selectedIndex,
     isLoading,
     folderNames,
+    searchText,
+    chips,
     inputRef,
     handleQueryChange,
+    handleCaretChange,
+    handleRemoveChip,
+    handleFilterButton,
     handleKeyDown,
     handleClose,
     setSelectedIndex,
@@ -299,7 +347,8 @@ export default function SearchModal({
             ref={inputRef}
             type="text"
             value={query}
-            onChange={(e) => handleQueryChange(e.target.value)}
+            onChange={(e) => handleQueryChange(e.target.value, e.target.selectionStart ?? undefined)}
+            onSelect={(e) => handleCaretChange(e.currentTarget.selectionStart ?? e.currentTarget.value.length)}
             onKeyDown={handleKeyDown}
             placeholder="Search notes..."
             className="flex-1 bg-transparent border-0 outline-none text-lg placeholder:text-muted-foreground"
@@ -321,25 +370,63 @@ export default function SearchModal({
           )}
         </div>
 
+        {/* The query's filters as chips (#1230), then on a phone the buttons that add one: one row, scrolled sideways. */}
+        {(chips.length > 0 || !palette) && (
+          <div className="flex items-center gap-1.5 px-3 py-1 pointer-coarse:py-0.5 border-b border-border shrink-0 overflow-x-auto overscroll-x-contain scrollbar-hide">
+            {chips.map((chip) => (
+              <button
+                key={`${chip.token.start}:${chip.label}`}
+                type="button"
+                aria-label={`Remove filter ${chip.label}`}
+                {...keepInputFocus(() => handleRemoveChip(chip))}
+                className="group flex items-center h-8 pointer-coarse:h-11 shrink-0 touch-manipulation"
+              >
+                <span className="flex items-center gap-1 h-7 pointer-coarse:h-8 pl-2.5 pr-1.5 rounded-full bg-accent text-accent-foreground text-xs font-medium whitespace-nowrap">
+                  {chip.label}
+                  <X className="h-3.5 w-3.5 opacity-70 group-hover:opacity-100" />
+                </span>
+              </button>
+            ))}
+            {!palette && FILTER_BUTTONS.map(({ button, label, icon: Icon }) => (
+              <button
+                key={button}
+                type="button"
+                aria-pressed={button === 'pinned' ? chips.some((c) => c.token.kind === 'is' && c.token.value === 'pinned') : undefined}
+                {...keepInputFocus(() => handleFilterButton(button))}
+                className="group flex items-center h-11 shrink-0 touch-manipulation"
+              >
+                <span className="flex items-center gap-1.5 h-8 px-3 rounded-full border border-border text-xs font-medium text-muted-foreground whitespace-nowrap group-aria-pressed:bg-accent group-aria-pressed:text-accent-foreground group-aria-pressed:border-transparent">
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Results */}
         <div className="flex-1 overflow-y-auto overscroll-contain min-h-0 py-2">
           {entries.length === 0 ? (
             // While a query is pending, an empty list is not yet an answer.
             isLoading ? null : (
               <div className="py-12 text-center text-sm text-muted-foreground">
-                {query ? 'No notes found matching your search.' : 'Start typing to search your notes.'}
+                {query ? 'No notes found matching your search.' : 'Search titles and text. Narrow with tag:, folder:, is:pinned, before:, after:'}
               </div>
             )
           ) : (
             <div className="px-2">
               {entries.map((entry, index) => {
                 const showHeader = entries[index - 1]?.section !== entry.section;
+                const recent = entry.section === 'recent' || entry.section === 'searches';
+                const key = entry.kind === 'search' ? `search:${entry.text}`
+                  : entry.kind === 'filter' ? `filter:${entry.token}`
+                  : `${entry.section}:${entry.result.docId}`;
                 return (
-                  <div key={entry.kind === 'search' ? `search:${entry.text}` : `${entry.section}:${entry.result.docId}`}>
+                  <div key={key}>
                     {showHeader && (
                       <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground px-2 py-2 mb-1 uppercase tracking-wider">
                         <span>{SECTION_TITLES[entry.section]}</span>
-                        {index === 0 && entry.section !== 'notes' && (
+                        {index === 0 && recent && (
                           <button
                             type="button"
                             {...keepInputFocus(handleClearRecents)}
@@ -351,11 +438,19 @@ export default function SearchModal({
                       </div>
                     )}
                     <div className="relative">
-                      {entry.kind === 'note' ? (
+                      {entry.kind === 'filter' ? (
+                        <FilterSuggestionRow
+                          entry={entry}
+                          index={index}
+                          isSelected={index === selectedIndex}
+                          onSelect={() => handleSelectEntry(entry)}
+                          onHover={() => setSelectedIndex(index)}
+                        />
+                      ) : entry.kind === 'note' ? (
                         <SearchResultItem
                           result={entry.result}
                           index={index}
-                          query={query}
+                          query={searchText}
                           folderNames={folderNames}
                           isSelected={index === selectedIndex}
                           onSelect={() => handleSelectEntry(entry)}
@@ -371,7 +466,7 @@ export default function SearchModal({
                           onHover={() => setSelectedIndex(index)}
                         />
                       )}
-                      {entry.section !== 'notes' && <RemoveButton {...keepInputFocus(() => handleRemoveEntry(entry))} />}
+                      {recent && <RemoveButton {...keepInputFocus(() => handleRemoveEntry(entry))} />}
                     </div>
                   </div>
                 );
