@@ -41,6 +41,8 @@ const mocks = {
   encryptedUnreadable: false,
   // What idb-keyval holds under the query cache's key: a sealed one is bytes.
   queryCache: undefined as unknown,
+  // The worker wins the leader election before PGliteWorker.create resolves (#1446).
+  leaderBeforeCreate: false,
 };
 
 /** Fake PGliteWorker instance: records the steps the migration depends on. */
@@ -84,7 +86,6 @@ function fakeDb(kind: 'plain' | 'encrypted' = 'plain') {
       return { rows: [] };
     },
     close: async () => void mocks.events.push('close'),
-    isLeader: true,
     waitReady: Promise.resolve(),
   };
 }
@@ -131,6 +132,7 @@ async function loadDatabaseModule() {
           const data = { type: 'journal-open-error', name: mocks.encryptedOpenError, message: 'simulated open failure' };
           setTimeout(() => worker.dispatchEvent(new MessageEvent('message', { data })));
         }
+        if (mocks.leaderBeforeCreate) worker.dispatchEvent(new MessageEvent('message', { data: { type: 'leader-now' } }));
         return fakeDb(kind);
       },
     },
@@ -195,6 +197,7 @@ beforeEach(() => {
   mocks.encryptedUnsynced = 0;
   mocks.encryptedUnreadable = false;
   mocks.queryCache = undefined;
+  mocks.leaderBeforeCreate = false;
   // pglite-cipher's IndexedDbBackend.destroy() deletes through this.
   vi.stubGlobal('indexedDB', {
     deleteDatabase: (name: string) => {
@@ -558,6 +561,15 @@ describe('boot timing (#901)', () => {
     mocks.worker!.dispatchEvent(new MessageEvent('message', { data: { type: 'leader-now' } }));
 
     expect(mocks.marks.filter((m) => m.startTime !== undefined)).toEqual([{ step: 'db-idb-loaded', startTime: 1234 }]);
+  });
+
+  it('marks the leader election when the worker wins it before PGliteWorker listens for it (#1446)', async () => {
+    mocks.dump = null;
+    mocks.leaderBeforeCreate = true;
+    const { getDatabase } = await loadDatabaseModule();
+    await getDatabase();
+
+    expect(mocks.marks.filter((m) => m.step === 'db-leader')).toHaveLength(1);
   });
 });
 
