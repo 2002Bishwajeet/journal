@@ -69,7 +69,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await section.locator('.adds-close').scrollIntoViewIfNeeded();
       await section.scrollIntoViewIfNeeded();
       await expect(section.getByRole('heading', { level: 2, name: 'What the apps add' })).toBeVisible();
-      await expect(section.getByRole('heading', { level: 3 })).toHaveCount(6);
+      await expect(section.getByRole('heading', { level: 3 })).toHaveCount(10);
       await expect(section.getByText('Everything else is the same Journal you use in the browser, which stays free.')).toBeVisible();
       await expect(section.locator('[data-reveal]:not(.in)')).toHaveCount(0);
       // Two items to a row on a desktop, one on a phone (offsetTop ignores the entrance transform).
@@ -77,6 +77,41 @@ for (const colorScheme of ['light', 'dark'] as const) {
       if (viewport.width >= 760) expect(second).toBe(first);
       else expect(second).toBeGreaterThan(first);
       await section.screenshot({ path: test.info().outputPath(`download-apps-add-${colorScheme}-${viewport.width}.png`), animations: 'disabled' });
+    });
+  }
+}
+
+// #1478: Pricing leads the apps column with what the apps add, the license terms below; the home teaser makes the same case.
+for (const colorScheme of ['light', 'dark'] as const) {
+  for (const viewport of [{ name: '1280', width: 1280, height: 800 }, { name: '390', width: 390, height: 844 }]) {
+    test(`pricing and home make the case for the apps, ${colorScheme}, ${viewport.name}`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme });
+      await page.setViewportSize(viewport);
+
+      await page.goto('/landing/pricing');
+      await expect(page.locator('body')).not.toContainText(/every feature/i);
+      const pro = page.locator('article.plan-pro');
+      const lists = pro.locator('ul.ticks');
+      await expect(lists).toHaveCount(2);
+      await expect(lists.first().locator('li').first()).toHaveText('Your notes encrypted on your device too');
+      await expect(pro.getByRole('heading', { level: 3, name: 'One purchase, no subscription' })).toBeVisible();
+      await expect(lists.nth(1)).toContainText('one license key for up to 5 devices');
+      // Scroll through once, so every entrance reveal has run, then back to the top for the full page.
+      await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }));
+      await expect(page.locator('[data-reveal]:not(.in)')).toHaveCount(0);
+      await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
+      const plans = page.locator('.plans');
+      await page.screenshot({ path: test.info().outputPath(`pricing-${colorScheme}-${viewport.name}.png`), fullPage: true, animations: 'disabled' });
+      await plans.screenshot({ path: test.info().outputPath(`pricing-plans-${colorScheme}-${viewport.name}.png`), animations: 'disabled' });
+
+      await page.goto('/');
+      await expect(page.locator('body')).not.toContainText(/every feature/i);
+      const teaser = page.locator('#pricing');
+      await teaser.scrollIntoViewIfNeeded();
+      await expect(teaser.getByText('The apps encrypt your notes on your device too', { exact: false })).toBeVisible();
+      await expect(teaser.getByRole('link', { name: 'See pricing' })).toHaveAttribute('href', '/landing/pricing');
+      await expect(teaser.locator('[data-reveal]:not(.in)')).toHaveCount(0);
+      await teaser.screenshot({ path: test.info().outputPath(`home-pricing-${colorScheme}-${viewport.name}.png`), animations: 'disabled' });
     });
   }
 }
