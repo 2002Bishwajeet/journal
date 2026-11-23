@@ -97,22 +97,22 @@ describe('maybeRequestReview', () => {
         expect(invoke).not.toHaveBeenCalled();
     });
 
-    it('does nothing, and keeps the counters, without the bridge plugin', async () => {
+    it('does nothing, and keeps the counters, without the store plugin', async () => {
         window.__JOURNAL_NATIVE__ = { platform: 'ios', plugins: [] };
         expect(await maybeRequestReview(9, false)).toBe(false);
         expect(readReviewState().lastAt).toBeNull();
     });
 
     it('asks once, then not again in the same version', async () => {
-        window.__JOURNAL_NATIVE__ = { platform: 'android', plugins: ['journal-bridge'] };
+        window.__JOURNAL_NATIVE__ = { platform: 'android', plugins: ['journal-iap'] };
         expect(await maybeRequestReview(9, false)).toBe(true);
-        expect(invoke).toHaveBeenCalledWith('plugin:journal-bridge|request_review', undefined);
+        expect(invoke).toHaveBeenCalledWith('plugin:journal-iap|request_review', undefined);
         expect(await maybeRequestReview(9, false)).toBe(false);
         expect(invoke).toHaveBeenCalledTimes(1);
     });
 
     it('does not ask while busy', async () => {
-        window.__JOURNAL_NATIVE__ = { platform: 'ios', plugins: ['journal-bridge'] };
+        window.__JOURNAL_NATIVE__ = { platform: 'ios', plugins: ['journal-iap'] };
         expect(await maybeRequestReview(9, true)).toBe(false);
         expect(invoke).not.toHaveBeenCalled();
     });
