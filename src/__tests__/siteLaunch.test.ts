@@ -6,8 +6,19 @@
  */
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
+import { Window } from 'happy-dom';
 import { describe, expect, it } from 'vitest';
 import { APPSTORE_LIVE, PLAY_LIVE, render } from '../../site/vite.config';
+
+/** The page's text nodes outside script, style and comments, parsed rather than regex-stripped (CodeQL). */
+const textNodes = (html: string) => {
+    const doc = new new Window().DOMParser().parseFromString(html, 'text/html');
+    doc.querySelectorAll('script, style').forEach((el) => el.remove());
+    const walker = doc.createTreeWalker(doc.documentElement, 4 /* NodeFilter.SHOW_TEXT */);
+    const out: string[] = [];
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) out.push(node.textContent ?? '');
+    return out;
+};
 
 const read = (file: string) => readFileSync(new URL(`../../${file}`, import.meta.url), 'utf8');
 type Stores = { appstore: boolean; play: boolean };
@@ -153,7 +164,7 @@ describe('the store badges', () => {
 
 describe('the app status', () => {
     const pages = ['index.html', 'download.html', 'pricing.html', 'buy.html'];
-    const text = (html: string) => html.replace(/<(script|style)\b[\s\S]*?<\/\1>/g, '').replace(/<!--[\s\S]*?-->/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+    const text = (html: string) => textNodes(html).join(' ').replace(/\s+/g, ' ');
 
     it.each(pages)('%s says no "coming soon" and no TestFlight as deployed', (file) => {
         const html = built(file, DEPLOYED);
@@ -217,9 +228,8 @@ describe('the pricing and buy copy', () => {
     // Owner, 2026-11-16: keep it simple, and never say the desktop key works on a phone.
     it('never names a phone in a sentence about the license key', () => {
         for (const file of ['pricing.html', 'buy.html']) {
-            const sentences = built(file, DEPLOYED)
-                .replace(/<(script|style)\b[\s\S]*?<\/\1>/g, '')
-                .replace(/<[^>]+>/g, '\n')
+            const sentences = textNodes(built(file, DEPLOYED))
+                .join('\n')
                 .split(/[.?!](?!\d)|\n/); // not inside a price
             const keyed = sentences.filter((s) => /\bkey\b/.test(s));
             expect(keyed.length).toBeGreaterThan(0);
