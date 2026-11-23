@@ -28,15 +28,18 @@ pub struct State {
 
 const MAX_W: f64 = 1600.0;
 const MIN_W: f64 = 1024.0;
-const MIN_H: f64 = 576.0;
+// Matches the window builder's min_inner_size height, which the OS enforces; 16:9 at this height.
+const MIN_H: f64 = 600.0;
 
 /// First-launch size in logical pixels for a work area of the given logical size: 16:9, 75% of
-/// the width capped at 1600x900 and at least 1024x576, shrunk to fit the work area's height.
+/// the width capped at 1600x900 and shrunk to fit the work area's height, but never below the window's 600 logical pixel minimum
+/// height (so 1067x600 at the smallest), or the OS would resize it off 16:9.
 pub fn default_size(work_w: f64, work_h: f64) -> (f64, f64) {
     let mut w = (work_w * 0.75).clamp(MIN_W, MAX_W);
     if w * 9.0 / 16.0 > work_h {
         w = work_h * 16.0 / 9.0;
     }
+    w = w.max(MIN_H * 16.0 / 9.0);
     (w, w * 9.0 / 16.0)
 }
 
@@ -125,7 +128,7 @@ pub fn first_launch_size<R: Runtime>(app: &tauri::AppHandle<R>) -> (f64, f64) {
             let a = m.work_area();
             default_size(a.size.width as f64 / s, a.size.height as f64 / s)
         })
-        .unwrap_or((MIN_W, MIN_H))
+        .unwrap_or((MIN_H * 16.0 / 9.0, MIN_H))
 }
 
 /// Puts a saved window back (on a visible monitor), then shows it. Without saved state the
@@ -213,7 +216,10 @@ mod tests {
     fn a_1280x720_work_area_shrinks_to_fit_its_height() {
         let (w, h) = check(1280.0, 680.0);
         assert!(h <= 680.0 && w > 0.0);
-        assert_eq!(check(1280.0, 720.0), (1024.0, 576.0));
+        // The window's minimum height is 600, so 16:9 is widened to match rather than shortened.
+        let (w, h) = check(1280.0, 720.0);
+        assert_eq!(h, 600.0);
+        assert!((w - 1066.6667).abs() < 1e-3);
     }
 
     const SCREEN: Rect = Rect {
