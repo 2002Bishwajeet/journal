@@ -15,9 +15,10 @@ export function redeemBody(code: string, email: string, requestId: string): { co
   return email ? { code, requestId, email } : { code, requestId };
 }
 
-/** What to say when the redeem fails: `status` is the HTTP status, or null when the Worker was not reached. Never the code. */
+/** What to say when the redeem fails: `status` is the HTTP status, or null when the Worker was not reached. Never the code.
+ *  A 409 still there after the retries (the first try never finished) reads as a lost connection. */
 export function redeemError(status: number | null): string {
-  if (status === null) return 'Could not reach Journal. Check your connection and try again.';
+  if (status === null || status === 409) return 'Could not reach Journal. Check your connection and try again.';
   if (status === 404) return "This invite link isn't valid any more. It may have been used already or expired. Ask the person who sent it for a new one.";
   if (status === 429) return 'Too many tries. Wait a minute and try again.';
   return 'Your key could not be made just now. Try again in a few minutes.';

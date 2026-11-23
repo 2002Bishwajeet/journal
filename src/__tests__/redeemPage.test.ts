@@ -55,6 +55,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+    vi.useRealTimers();
     for (const [type, listener] of added.splice(0)) window.removeEventListener(type, listener);
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
@@ -216,6 +217,47 @@ describe('the errors', () => {
         const [first, second] = fetchMock.mock.calls.map(([, init]) => JSON.parse(init!.body as string).requestId);
         expect(first).toMatch(/^[0-9a-f-]{36}$/);
         expect(second).toBe(first);
+    });
+
+    it('retries a 409 with the same request id, loading all the while, then offers a manual retry', async () => {
+        const busy = json(409, { error: 'redeem_in_progress' });
+        let answers = [busy, busy, json(200, { licenseKey: KEY })];
+        const fetchMock = await open(`?code=${CODE}`, () => answers.shift()!());
+        vi.useFakeTimers();
+        const button = $<HTMLButtonElement>('#redeem-form button[type="submit"]');
+        $<HTMLFormElement>('#redeem-form').requestSubmit();
+        await vi.advanceTimersByTimeAsync(2000);
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        expect(button.disabled).toBe(true);
+        expect(button.textContent).toBe('Getting your key…');
+        await vi.advanceTimersByTimeAsync(2000);
+        expect($('#redeem-key').textContent).toBe(KEY);
+        const ids = fetchMock.mock.calls.map(([, init]) => JSON.parse(init!.body as string).requestId);
+        expect(new Set(ids).size).toBe(1);
+
+        // Still busy after 3 retries: the connection message, and the button back for a manual try.
+        answers = [busy, busy, busy, busy];
+        const stuck = await open(`?code=${CODE}`, () => answers.shift()!());
+        $<HTMLFormElement>('#redeem-form').requestSubmit();
+        await vi.advanceTimersByTimeAsync(6000);
+        expect(stuck).toHaveBeenCalledTimes(4);
+        expect($('#redeem-status').textContent).toMatch(/Check your connection and try again/);
+        expect($<HTMLButtonElement>('#redeem-form button[type="submit"]').disabled).toBe(false);
+    });
+
+    it('makes a new request id when the email changes after a failed try', async () => {
+        const answers = [json(500, {}), json(500, {}), json(500, {})];
+        const fetchMock = await open(`?code=${CODE}`, () => answers.shift()!());
+        const email = $<HTMLInputElement>('#redeem-email');
+        email.value = 'alex@exmaple.com';
+        await getKey();
+        await getKey();
+        email.value = 'alex@example.com';
+        await getKey();
+        const ids = fetchMock.mock.calls.map(([, init]) => JSON.parse(init!.body as string).requestId);
+        expect(ids[1]).toBe(ids[0]);
+        expect(ids[2]).not.toBe(ids[0]);
+        expect(ids[2]).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
     });
 
     it('never repeat the code', () => {
