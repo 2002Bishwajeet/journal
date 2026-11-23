@@ -18,6 +18,7 @@ import {
 } from './pglite-migrate';
 import { initializeSchema, TRIGRAM_SEARCH_SQL } from './schema';
 import { reloadPage } from '../reloadReason';
+import { reportStorageError, trackCalls, watchDatabase } from './dbHealth';
 import { ENCRYPTED_STORE, encryptionOff, loadDatabaseKey, PassphraseNeededError, usesEncryptedDatabase, usesPassphrase } from './databaseKey';
 
 // PGlite 0.5 runs Postgres 18, which can't open the Postgres 17 data dir the
@@ -48,6 +49,11 @@ let workerOpenFailed: Promise<never> = new Promise(() => {});
 
 // Set when this native app launch runs on the database an older build left (#1362, #1435).
 let leftoverSession = false;
+
+// Whether the current worker won the leader election, for a hang's diagnostic (#1467).
+let leaderNow = false;
+// Stops the heartbeat on the open database (#1467), before it is closed on purpose.
+let stopWatching: (() => void) | null = null;
 
 /**
  * Whether this native app launch runs on the plain database an older build left, because it
@@ -115,6 +121,7 @@ export function getDatabase(): Promise<PGliteInterface> {
       .then((db) => {
         reportBootPhase('db-ready');
         clearBootError();
+        stopWatching = watchDatabase(db, { isLeader: () => leaderNow });
         return db;
       })
       .catch((err) => {
@@ -140,6 +147,7 @@ export function retryDatabase(): Promise<PGliteInterface> {
   if (!retryPromise) {
     const previous = dbPromise;
     dbPromise = null;
+    stopWatching?.();
     retryPromise = (async () => {
       if (previous) await previous.then((db) => db.close()).catch(() => {});
       return getDatabase();
@@ -179,6 +187,7 @@ export function bootWithoutLegacyData(): Promise<PGliteInterface> {
 export async function shutDownDatabase(): Promise<void> {
   const previous = dbPromise;
   dbPromise = new Promise(() => {});
+  stopWatching?.();
   await previous?.then((db) => db.close()).catch(() => {});
 }
 
@@ -236,6 +245,7 @@ async function createWorkerInstance(relaxedDurability = true, key: CryptoKey | n
     document.addEventListener('freeze', onFreeze);
   }
   currentWorker = new Worker(new URL('./pglite-worker.ts', import.meta.url), { type: 'module' });
+  leaderNow = false;
   // Android's encrypted open can take seconds on a large account: the splash shows how far it is (#1365).
   if (key && nativePlatform() === 'android') {
     startOpenProgress();
@@ -247,9 +257,14 @@ async function createWorkerInstance(relaxedDurability = true, key: CryptoKey | n
   // And this tab's worker won the leader election (#806). Listened for here, from the worker's
   // start: PGliteWorker only listens for `leader-now` once create() has taken its tab lock, so a
   // worker that wins the election first leaves db.isLeader false for good (#1446).
-  currentWorker.addEventListener('message', (event: MessageEvent<{ type?: string; step: string; at: number }>) => {
+  currentWorker.addEventListener('message', (event: MessageEvent<{ type?: string; step: string; at: number; text: string }>) => {
     if (event.data?.type === 'journal-boot-mark') markBoot(event.data.step, event.data.at - performance.timeOrigin);
-    if (event.data?.type === 'leader-now') markBoot('db-leader');
+    if (event.data?.type === 'leader-now') {
+      leaderNow = true;
+      markBoot('db-leader');
+    }
+    // The encrypted store can no longer write (workerFs.ts): a reload opens it again (#1467).
+    if (event.data?.type === 'journal-storage-error') reportStorageError(event.data.text, true);
   });
   const worker = currentWorker;
   workerOpenFailed = new Promise<never>((_, reject) => {
@@ -268,7 +283,8 @@ async function createWorkerInstance(relaxedDurability = true, key: CryptoKey | n
     // Boot timing mark (#806): the leader accepted this tab. The leader accepts it before its
     // engine has loaded: db-idb-read, db-idb-loaded and db-open (from the worker) time that load (#901).
     void db.waitReady.then(() => markBoot('db-connected'));
-    return db;
+    // Every call is recorded while it runs, for the heartbeat's diagnostic (#1467).
+    return trackCalls(db);
   });
 }
 
@@ -515,6 +531,7 @@ async function initDatabase(): Promise<PGliteInterface> {
 }
 
 export async function closeDatabase(): Promise<void> {
+  stopWatching?.();
   if (dbPromise) {
     try {
       const db = await dbPromise;

@@ -138,7 +138,17 @@ describe('pglite worker init', () => {
       key,
       mode: 'open-or-create',
       onProgress: expect.any(Function),
+      onFatal: expect.any(Function),
     });
+  });
+
+  it('tells the page when the encrypted store stops syncing for good, so it can reload (#1467)', async () => {
+    const init = await loadWorkerInit();
+    await init({ key: { type: 'secret' } as CryptoKey });
+    const { onFatal } = (mocks.pgliteArgs[0].fs as { options: { onFatal(error: Error): void } }).options;
+
+    onFatal(Object.assign(new Error('a newer store was written'), { name: 'StaleWriterError' }));
+    expect(postMessage).toHaveBeenCalledWith({ type: 'journal-storage-error', text: 'StaleWriterError: a newer store was written' });
   });
 
   it("tells the page how far the encrypted store's blocks are read, not its table (#1365)", async () => {

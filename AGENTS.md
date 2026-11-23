@@ -316,6 +316,7 @@ scripts/                        # check-precache, release-notes, check-doc-paths
 | `src/components/layout/SplashScreen.tsx` | Boot progress + boot-failure screen |
 | `src/lib/broadcast/DocumentBroadcast.ts` | Cross-tab messaging singleton |
 | `src/lib/db/pglite.ts` | PGlite singleton, boot, legacy migration |
+| `src/lib/db/dbHealth.ts` | In-flight PGlite calls, `SELECT 1` heartbeat, hang diagnostic (`db-hangs.log` via `src-tauri/src/diagnostics.rs`) and Reload recovery (#1467) |
 | `src/lib/db/pglite-migrate.ts` | Legacy (Postgres 17) dump for the 0.4 → 0.5 upgrade |
 | `src/lib/db/schema.ts` | Tables, migration chain, `schema_meta` revision |
 | `src/lib/db/queries/` | All SQL queries, one module per table (`@/lib/db/queries`) |

@@ -34,6 +34,13 @@ fn main() {
                 "confirm_owner",
             ])
             .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
+    )
+    // The page's db-hangs.log (diagnostics.rs, #1467), granted to the main window in capabilities/default.json.
+    .plugin(
+        "journal-diagnostics",
+        tauri_build::InlinedPlugin::new()
+            .commands(&["append_diagnostic"])
+            .default_permission(tauri_build::DefaultPermissionRule::AllowAllCommands),
     );
     let mut names = Vec::new();
     if Path::new("../native/rust/mod.rs").exists() {

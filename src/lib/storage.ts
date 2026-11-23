@@ -12,6 +12,8 @@ export const SESSION_STORAGE_KEY = 'journal-session-state';
 export const RESUME_STATE_KEY = 'journal-resume-state';
 /** Why the page last reloaded by itself, for the boot after it (#1368, reloadReason.ts). */
 export const LAST_RELOAD_KEY = 'journal-last-reload';
+/** The diagnostic line of the last time the database stopped responding (#1467, db/dbHealth.ts). */
+export const DB_HANG_KEY = 'journal-db-hang';
 export const RECENT_EMOJIS_KEY = 'journal-recent-emojis';
 export const RECENT_NOTES_KEY = 'journal-recent-notes';
 export const RECENT_SEARCHES_KEY = 'journal-recent-searches';

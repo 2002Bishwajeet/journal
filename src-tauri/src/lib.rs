@@ -39,6 +39,7 @@ mod premium {
 
 mod app_lock;
 mod db_key;
+mod diagnostics;
 mod ios_keyboard;
 #[cfg(any(target_os = "ios", target_os = "macos", target_os = "linux", test))]
 mod webview_recovery;
@@ -888,6 +889,8 @@ pub fn run() {
         .plugin(tauri_plugin_deep_link::init())
         .plugin(system_bars_plugin())
         .plugin(db_key::plugin())
+        // The page's db-hangs.log (diagnostics.rs, #1467).
+        .plugin(diagnostics::plugin())
         // Export's Save dialog or share sheet (plugins/export, #1205).
         .plugin(tauri_plugin_export::init());
     #[cfg(desktop)]

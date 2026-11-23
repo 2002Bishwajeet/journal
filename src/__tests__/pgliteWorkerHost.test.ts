@@ -11,6 +11,11 @@ class FakeLocks {
   private held = new Set<string>();
   private queues = new Map<string, Array<() => void>>();
 
+  /** How many requests wait for `name`. */
+  waiting(name: string): number {
+    return this.queues.get(name)?.length ?? 0;
+  }
+
   request<T>(name: string, callback: () => Promise<T> | T): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       const run = async () => {
@@ -32,21 +37,33 @@ class FakeLocks {
   }
 }
 
-// A fresh leader id per test: earlier tests' leaders are never torn down and
-// would otherwise answer this test's tabs too.
+// A fresh leader id per test, and tab ids under it: earlier tests' leaders are
+// never torn down, and one still connected to a tab of the same name answers
+// its calls too (calls are numbered the same way in every test).
 let ID = '';
 let run = 0;
-const tick = (ms = 50) => new Promise((resolve) => setTimeout(resolve, ms));
 const channels: BroadcastChannel[] = [];
+
+/** Resolves once `condition` holds; fails after `ms` rather than leaving the test to time out. */
+async function until(condition: () => boolean, what: string, ms = 2_000): Promise<void> {
+  const deadline = Date.now() + ms;
+  while (!condition()) {
+    if (Date.now() > deadline) throw new Error(`timed out waiting until ${what}`);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+}
 
 interface Tab {
   rpc: (method: string, ...args: unknown[]) => Promise<unknown>;
   close: () => void;
+  /** Gives up the tab-close lock while the tab keeps running, as if the browser had dropped it. */
+  loseCloseLock: () => void;
 }
 
 // What PGliteWorker does on the client: hold its tab-close lock for its
 // lifetime, announce itself until the leader connects it, then RPC.
-async function openTab(locks: FakeLocks, tabId: string): Promise<Tab> {
+async function openTab(locks: FakeLocks, name: string): Promise<Tab> {
+  const tabId = `${ID}-${name}`;
   let releaseCloseLock!: () => void;
   await new Promise<void>((held) => {
     void locks.request(`pglite-tab-close:${tabId}`, () => new Promise<void>((release) => {
@@ -64,8 +81,11 @@ async function openTab(locks: FakeLocks, tabId: string): Promise<Tab> {
     });
   });
   const announce = setInterval(() => broadcast.postMessage({ type: 'tab-here', id: tabId }), 16);
-  await connected;
-  clearInterval(announce);
+  try {
+    expect(await withinMs(connected, 2_000), `the leader never connected tab ${name}`).not.toBe('timed out');
+  } finally {
+    clearInterval(announce);
+  }
 
   let nextCall = 0;
   return {
@@ -86,8 +106,13 @@ async function openTab(locks: FakeLocks, tabId: string): Promise<Tab> {
       broadcast.close();
       releaseCloseLock();
     },
+    loseCloseLock: () => releaseCloseLock(),
   };
 }
+
+/** The leader has run the close handlers of the tab, and holds its close lock for good. */
+const leaderSawClose = (locks: FakeLocks, name: string) =>
+  until(() => locks.waiting(`pglite-tab-close:${ID}-${name}`) === 0, `the leader saw tab ${name} close`);
 
 function withinMs<T>(promise: Promise<T>, ms: number): Promise<T | 'timed out'> {
   return Promise.race([promise, new Promise<'timed out'>((resolve) => setTimeout(() => resolve('timed out'), ms))]);
@@ -126,10 +151,11 @@ describe('pgliteWorkerHost', () => {
       await holder.rpc(`_acquire${kind}Lock`);
 
       const leaving = await openTab(locks, 'leaving');
-      void leaving.rpc(`_acquire${kind}Lock`);
-      await tick(); // queued in the leader behind the holder
+      const queue = vi.spyOn(db, `_runExclusive${kind}` as `_runExclusiveQuery`);
+      void leaving.rpc(`_acquire${kind}Lock`).catch(() => {});
+      await until(() => queue.mock.calls.length === 1, 'the request queued in the leader behind the holder');
       leaving.close();
-      await tick(); // the leader has seen the tab close
+      await leaderSawClose(locks, 'leaving');
 
       await holder.rpc(`_release${kind}Lock`); // the closed tab's grant fires now
 
@@ -138,6 +164,38 @@ describe('pgliteWorkerHost', () => {
       await next.rpc(`_release${kind}Lock`);
     },
   );
+
+  // WebKit restarting its Networking process (#1467) can leave a running tab
+  // whose close lock the leader got: its calls must fail, not wait for good.
+  it.each(['Query', 'Transaction'])(
+    'rejects a %s lock request that was queued when its tab\'s close lock was granted',
+    async (kind) => {
+      const holder = await openTab(locks, 'holder');
+      await holder.rpc(`_acquire${kind}Lock`);
+
+      const dropped = await openTab(locks, 'dropped');
+      const queue = vi.spyOn(db, `_runExclusive${kind}` as `_runExclusiveQuery`);
+      const pending = dropped.rpc(`_acquire${kind}Lock`);
+      await until(() => queue.mock.calls.length === 1, 'the request queued in the leader behind the holder');
+      dropped.loseCloseLock();
+      await leaderSawClose(locks, 'dropped');
+
+      await holder.rpc(`_release${kind}Lock`);
+      await expect(withinMs(pending, 2_000)).rejects.toThrow(/connection to the database worker was closed/);
+      await expect(withinMs(dropped.rpc('getDebugLevel'), 2_000)).rejects.toThrow(/connection to the database worker was closed/);
+    },
+  );
+
+  it('answers every later call of a tab whose close lock was granted with an error', async () => {
+    const tab = await openTab(locks, 'dropped');
+    tab.loseCloseLock();
+    await leaderSawClose(locks, 'dropped');
+    await expect(withinMs(tab.rpc('_acquireQueryLock'), 2_000)).rejects.toThrow(/connection to the database worker was closed/);
+
+    const other = await openTab(locks, 'other');
+    expect(await withinMs(other.rpc('_acquireQueryLock'), 2_000)).not.toBe('timed out');
+    await other.rpc('_releaseQueryLock');
+  });
 
   it('still serves queries from other tabs after one closes', async () => {
     const tab = await openTab(locks, 'a');
