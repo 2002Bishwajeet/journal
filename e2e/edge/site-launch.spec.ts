@@ -57,6 +57,30 @@ for (const colorScheme of ['light', 'dark'] as const) {
   }
 }
 
+// #1456: the download page's "What the apps add" section, saved on its own for the PR.
+for (const colorScheme of ['light', 'dark'] as const) {
+  for (const viewport of VIEWPORTS) {
+    test(`download page, what the apps add, ${colorScheme}, ${viewport.name}`, async ({ page }) => {
+      await page.emulateMedia({ colorScheme });
+      await page.setViewportSize(viewport);
+      await page.goto('/landing/download');
+      const section = page.locator('#apps-add');
+      // Scroll past the whole section once, so every entrance reveal in it has run.
+      await section.locator('.adds-close').scrollIntoViewIfNeeded();
+      await section.scrollIntoViewIfNeeded();
+      await expect(section.getByRole('heading', { level: 2, name: 'What the apps add' })).toBeVisible();
+      await expect(section.getByRole('heading', { level: 3 })).toHaveCount(6);
+      await expect(section.getByText('Everything else is the same Journal you use in the browser, which stays free.')).toBeVisible();
+      await expect(section.locator('[data-reveal]:not(.in)')).toHaveCount(0);
+      // Two items to a row on a desktop, one on a phone (offsetTop ignores the entrance transform).
+      const [first, second] = await section.locator('.adds > li').evaluateAll((items) => items.map((li) => (li as HTMLElement).offsetTop));
+      if (viewport.width >= 760) expect(second).toBe(first);
+      else expect(second).toBeGreaterThan(first);
+      await section.screenshot({ path: test.info().outputPath(`download-apps-add-${colorScheme}-${viewport.width}.png`), animations: 'disabled' });
+    });
+  }
+}
+
 // The device frames are pictures flattened by scripts/device-frames.ts: the one shown must have loaded.
 async function expectLoaded(page: Page, selector: string) {
   const picture = page.locator(selector);

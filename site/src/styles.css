@@ -707,6 +707,13 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .dl-item { display: grid; gap: 12px; padding: 16px 20px; border-radius: 12px; background: var(--bg); }
 .dl-item .btn { width: 100%; }
 
+/* What the apps add: a heading, one sentence and where it works, two to a row on wider screens. */
+.adds { display: grid; gap: 32px var(--gap); }
+@media (min-width: 760px) { .adds { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.adds li { display: grid; gap: 8px; align-content: start; }
+.adds li p { max-width: 52ch; }
+.adds-close { margin-top: clamp(36px, 4vw, 56px); font-size: var(--fs-sub); line-height: 1.45; max-width: 56ch; }
+
 /* ---- Contact page: the claim beside the address, set large ---- */
 .contact { display: grid; gap: 40px var(--gap); }
 .contact-head { display: grid; gap: 24px; align-content: start; }
