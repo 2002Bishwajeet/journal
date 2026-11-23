@@ -38,6 +38,9 @@ time = { version = "0.3", features = ["parsing"] }
 # stores below on the phone. Both are in the tree already, through keyring.
 getrandom = "0.4"
 keyring-core = "1"
+# External links and the macOS sign-in open in the default browser (src/lib/native.ts); on iOS and
+# Android it opens the store listing's itms-apps:// and market:// links (#1439).
+tauri-plugin-opener = "2"
 
 # Native error dialog when the asset server can't bind (lib.rs). Same library
 # and GTK backend tauri-plugin-dialog uses, without that plugin's tauri bump and
@@ -53,8 +56,6 @@ tauri-plugin-notification = "2"
 tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 # The quick-capture hotkey, used by the capture code in native/.
 tauri-plugin-global-shortcut = "2"
-# External links and the macOS sign-in open in the default browser (src/lib/native.ts).
-tauri-plugin-opener = "2"
 # The database key (db_key.rs, #1361): kept in the macOS Keychain, Windows Credential Manager or
 # Linux Secret Service.
 keyring = "4"
