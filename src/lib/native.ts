@@ -1,5 +1,6 @@
 import type { InvokeArgs } from '@tauri-apps/api/core';
 import { permissionReturnLink, permissionReturnRoute } from '@/lib/permissionReturn';
+import { uint8ArrayToBase64 } from '@/lib/utils';
 
 // The Tauri shell's initialization script (src-tauri/src/lib.rs) sets
 // `window.__JOURNAL_NATIVE__` before any app code runs. The web never sets it.
@@ -60,6 +61,16 @@ export function publicOrigin(): string {
 async function invoke<T>(cmd: string, args: Record<string, unknown>): Promise<T> {
   const { invoke } = await import('@tauri-apps/api/core');
   return invoke<T>(cmd, args);
+}
+
+/**
+ * Native app: saves `blob` as `filename` where the user picks, through our `export` plugin
+ * (src-tauri/plugins/export): a Save dialog on desktop, the share sheet on iOS and Android.
+ * Resolves to false when the user cancels. The bytes go as base64: Android's IPC carries JSON only.
+ */
+export async function saveFile(blob: Blob, filename: string): Promise<boolean> {
+  const data = uint8ArrayToBase64(new Uint8Array(await blob.arrayBuffer()));
+  return invoke<boolean>('plugin:export|save', { name: filename, data });
 }
 
 /**

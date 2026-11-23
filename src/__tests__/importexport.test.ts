@@ -77,21 +77,14 @@ describe('ExportService.exportAllAsZip', () => {
     });
     afterAll(async () => { await closeTestDatabase(); });
 
-    let capturedBlob: Blob | undefined;
     beforeEach(async () => {
         await resetTestDatabase();
         vi.clearAllMocks();
-        capturedBlob = undefined;
-        vi.spyOn(URL, 'createObjectURL').mockImplementation((obj: Blob | MediaSource) => {
-            capturedBlob = obj as Blob;
-            return 'blob:mock-url';
-        });
-        vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
     });
 
     async function exportedZip(dotYouClient: DotYouClient) {
         const result = await ExportService.exportAllAsZip(dotYouClient);
-        const buffer = await capturedBlob!.arrayBuffer();
+        const buffer = await result.blob.arrayBuffer();
         const zip = await JSZip.loadAsync(buffer);
         return { result, zip };
     }
