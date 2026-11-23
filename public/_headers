@@ -52,6 +52,13 @@
   Referrer-Policy: no-referrer
   Cache-Control: no-store
 
+# The invite redeem page (#1464): the invite link carries its code in the address, and the page shows
+# a license key once. Neither may reach a referrer or a cache, and the page stays out of search.
+/landing/redeem*
+  Referrer-Policy: no-referrer
+  Cache-Control: no-store
+  X-Robots-Tag: noindex
+
 # App link files (deep links into the native app): JSON, served as is. Apple's CDN
 # reads apple-app-site-association (no extension) and needs this type; Android reads
 # assetlinks.json. Neither may redirect.

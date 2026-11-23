@@ -1,17 +1,17 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
 
-// #1294: the landing site's launch pages, as the deploy serves them (store badges off by default).
+// #1294: the landing site's launch pages, as the deploy serves them: the App Store badge on, Google Play off (#1455).
 // Each page at desktop and phone width, in light and dark, saved for the PR.
 
 const PAGES = [
-  { name: 'home', path: '/' },
-  { name: 'download', path: '/landing/download' },
-  { name: 'pricing', path: '/landing/pricing' },
-  { name: 'buy', path: '/landing/buy' },
+  { name: 'home', path: '/', badges: true },
+  { name: 'download', path: '/landing/download', badges: true },
+  { name: 'pricing', path: '/landing/pricing', badges: false },
+  { name: 'buy', path: '/landing/buy', badges: true },
 ];
 const VIEWPORTS = [
-  { name: 'desktop', width: 1440, height: 900 },
+  { name: 'desktop', width: 1280, height: 800 },
   { name: 'phone', width: 390, height: 844 },
 ];
 
@@ -30,10 +30,21 @@ for (const colorScheme of ['light', 'dark'] as const) {
       // Default motion, as most visitors see it: reduced motion would give the hero video its player controls.
       await page.emulateMedia({ colorScheme });
       await page.setViewportSize(viewport);
-      for (const { name, path } of PAGES) {
+      for (const { name, path, badges } of PAGES) {
         await page.goto(path);
         await expect(page.locator('h1')).toBeVisible();
-        await expect(page.locator('.store-badges')).toHaveCount(0);
+        await expect(page.locator('.store-badges')).toHaveCount(badges ? 1 : 0);
+        await expect(page.locator('a[href*="play.google.com"]')).toHaveCount(0);
+        await expect(page.locator('header.nav a[href="/landing/download"]')).toHaveCount(2); // the bar and the phone menu
+        await expect(page.getByRole('contentinfo').getByRole('link', { name: 'Download', exact: true })).toBeVisible();
+        await expect(page.locator('body')).not.toContainText(/coming soon|TestFlight/i);
+        if (badges) {
+          const badge = page.getByRole('link', { name: 'Download on the App Store' });
+          await badge.scrollIntoViewIfNeeded();
+          await expect(badge).toBeVisible();
+          expect((await badge.boundingBox())!.height).toBeGreaterThanOrEqual(40);
+          await expect(page.locator('.store-badges').getByText('Android: coming later')).toBeVisible();
+        }
         await loadAllPictures(page);
         // Scroll through once, so every entrance reveal (data-reveal) has run, then back to the top.
         await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }));

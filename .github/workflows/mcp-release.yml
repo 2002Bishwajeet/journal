@@ -3,7 +3,9 @@ name: Release MCP package
 # Bumps journal-mcp (mcp/package/package.json), builds and smoke-tests it, publishes it to npm as
 # `journal-mcp` through trusted publishing (OIDC: no token, provenance is automatic), then commits,
 # tags and pushes the bump (with the RELEASE_DEPLOY_KEY deploy key, like manual-release.yml) and
-# attaches the package to an `mcp-v<version>` GitHub release. The Claude Code plugin
+# attaches the package and the Claude Desktop extension (journal-mcp-<version>.mcpb, `npm run mcp:mcpb`, #1457) to an
+# `mcp-v<version>` GitHub release. dry_run builds, validates and packs both, attaches them to a draft release
+# `mcp-v<version>-dry-run` (delete it after) and stops: no npm publish, no push. The Claude Code plugin
 # (plugins/journal/.mcp.json) and the site's setup guide run `npx -y journal-mcp@latest`, so they
 # need no bump; the plugin's own version changes only when the plugin does.
 # Releases made with GITHUB_TOKEN don't trigger the `release: published` deploy workflows.
@@ -20,6 +22,10 @@ on:
           - patch
           - minor
           - major
+      dry_run:
+        description: 'Build and pack, attach to a draft release, and stop: no npm publish, no push'
+        type: boolean
+        default: false
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -73,8 +79,12 @@ jobs:
       - name: Smoke test the packed server
         run: npx -y --package=file:$PWD/mcp/journal-mcp-${{ steps.version.outputs.version }}.tgz journal-mcp --help
 
+      - name: Build and pack the Claude Desktop extension
+        run: npm run mcp:mcpb
+
       # Before the push: if this fails, nothing is tagged and the workflow can simply be re-run.
       - name: Publish to npm
+        if: ${{ !inputs.dry_run }}
         run: |
           # The .npmrc above only serves @homebase-id from GitHub Packages; drop it so nothing redirects or authenticates the publish.
           rm .npmrc
@@ -83,6 +93,7 @@ jobs:
           npm publish "./mcp/journal-mcp-${{ steps.version.outputs.version }}.tgz" --access public --registry https://registry.npmjs.org
 
       - name: Commit, tag and push
+        if: ${{ !inputs.dry_run }}
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
@@ -94,10 +105,22 @@ jobs:
           git push origin HEAD:main "mcp-v$VERSION"
 
       - name: Create release
+        if: ${{ !inputs.dry_run }}
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          gh release create "mcp-v$VERSION" "mcp/journal-mcp-$VERSION.tgz" \
-            --title "Journal MCP $VERSION" --notes "Journal MCP server $VERSION for the Claude Code plugin." \
+          gh release create "mcp-v$VERSION" "mcp/journal-mcp-$VERSION.tgz" "mcp/journal-mcp-$VERSION.mcpb" \
+            --title "Journal MCP $VERSION" \
+            --notes "Journal MCP server $VERSION for the Claude Code plugin, and journal-mcp-$VERSION.mcpb to install in Claude Desktop." \
             --verify-tag --latest=false
+
+      - name: Create draft release (dry run)
+        if: ${{ inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "mcp-v$VERSION-dry-run" "mcp/journal-mcp-$VERSION.tgz" "mcp/journal-mcp-$VERSION.mcpb" \
+            --draft --target "$GITHUB_SHA" --title "Journal MCP $VERSION (dry run)" \
+            --notes "Dry run of the Journal MCP release: nothing was published. Delete this draft when done." --latest=false

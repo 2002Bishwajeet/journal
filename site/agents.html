@@ -28,7 +28,7 @@
               <h2 class="h3">What you need</h2>
               <dl>
                 <dt>A Homebase identity</dt><dd>Such as <code>alex.dotyou.cloud</code>, signed in to <a href="/welcome">Journal</a> at least once. <a href="https://homebase.id/sign-up">Join the wait list</a> if you have none.</dd>
-                <dt>Node.js 20 or newer</dt><dd>Free from <a href="https://nodejs.org">nodejs.org</a>. The server runs on your computer through <code>npx</code>. Check with <code>node --version</code>.</dd>
+                <dt>Node.js 20 or newer</dt><dd>Free from <a href="https://nodejs.org">nodejs.org</a>. Not needed for the Claude Desktop extension. The other setups run the server on your computer through <code>npx</code>. Check with <code>node --version</code>.</dd>
                 <dt>A Claude app</dt><dd>Claude Desktop or Claude Code. Cursor, Codex CLI and any other client that can start a local command work too.</dd>
               </dl>
             </div>
@@ -114,6 +114,17 @@
                 </div>
 
                 <div class="tab-panel" role="tabpanel" id="panel-desktop" aria-labelledby="tab-desktop">
+                  <div class="mcpb">
+                    <a class="btn btn-primary" href="https://github.com/2002Bishwajeet/journal/releases?q=mcp-v&amp;expanded=true" data-mcpb>Download for Claude Desktop</a>
+                    <p class="code-note">For Claude Desktop on Mac and Windows. It downloads one file, named like <code>journal-mcp-1.14.0.mcpb</code>, and there is nothing else to install.</p>
+                  </div>
+                  <ol class="cmds">
+                    <li class="step"><p class="code-note">Double-click the downloaded <code>.mcpb</code> file. Claude Desktop opens it: click Install.</p></li>
+                    <li class="step"><p class="code-note">Type your Homebase address, <span class="identity">type.your.identity.here</span>, in the Homebase address box and click Save.</p></li>
+                    <li class="step"><p class="code-note">Your browser opens a Homebase page. Approve Journal MCP there, and Claude Desktop is connected. If no page opens, ask Claude to list your Journal folders: its reply has the link.</p></li>
+                  </ol>
+                  <details class="alt-setup">
+                  <summary>Or set it up from a terminal<svg class="icon alt-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
                   <ol class="cmds">
                     <li class="snippet">
                       <p class="code-note">Open Terminal on a Mac or PowerShell on Windows, paste this and press Enter. It opens your browser to approve Journal:</p>
@@ -138,6 +149,7 @@
                       </button>
                     </li>
                   </ol>
+                  </details>
                 </div>
 
                 <div class="tab-panel" role="tabpanel" id="panel-claude-code" aria-labelledby="tab-claude-code" hidden>
@@ -234,6 +246,7 @@ args = ["-y", "journal-mcp@latest"]</code></pre>
               <h3 class="h3">Approve Journal MCP on your identity</h3>
               <p>Signing in opens your Homebase owner console. Approve the app called Journal MCP: it asks for Read + write on your notes drive and nothing else. The terminal then says you're logged in.</p>
               <p>Reload the server so it picks up the login: run <code>/mcp</code> in Claude Code and reconnect <code>journal</code>, quit and reopen Claude Desktop, or restart Cursor or Codex.</p>
+              <p>With the Claude Desktop extension, the approval page opens by itself after you install it, and there is nothing to reload.</p>
               <p class="small">On a computer with no browser, such as over SSH, add <code>--no-browser</code> to the login command. It prints a link to open on any device; approve there, and paste the code Journal shows at the <code>Paste code:</code> prompt.</p>
             </div>
             <figure class="code-panel terminal" data-ui aria-labelledby="terminal-cap">

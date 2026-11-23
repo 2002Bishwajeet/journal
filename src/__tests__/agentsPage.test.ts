@@ -8,11 +8,11 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from '../../site/vite.config';
-import { IDENTITY_PLACEHOLDER, identityFrom, startInstallCard } from '../../site/src/agents';
+import { IDENTITY_PLACEHOLDER, identityFrom, latestMcpbUrl, startInstallCard } from '../../site/src/agents';
 
 // A path, not new URL(`…${file}`, import.meta.url): Vite turns that into a glob of the whole repo under happy-dom.
 const read = (file: string) => readFileSync(resolve(import.meta.dirname, '../..', file), 'utf8');
-const html = render(read('site/agents.html'), { billing: false, downloads: false, stores: false, renew: false });
+const html = render(read('site/agents.html'), { billing: false, downloads: false, appstore: false, play: false, renew: false });
 const body = /<body[^>]*>([\s\S]*)<\/body>/.exec(html)![1];
 
 const writeText = vi.fn<(text: string) => Promise<void>>();
@@ -62,7 +62,7 @@ describe('the install card', () => {
 
     it('has one numbered row and one Copy button per command, in every tab', () => {
         for (const panel of $$('.install [role="tabpanel"]')) {
-            const rows = [...panel.querySelectorAll(':scope > ol.cmds > li')];
+            const rows = [...panel.querySelectorAll('ol.cmds > li.snippet')];
             expect(rows.length).toBeGreaterThan(1);
             for (const row of rows) {
                 expect(row.querySelectorAll('[data-copy]')).toHaveLength(1);
@@ -96,8 +96,8 @@ describe('the install card', () => {
     it('writes the address into every command and the revoke text as you type', async () => {
         startInstallCard(document);
         const identities = $$('.identity');
-        // Every login command (four tabs), the terminal output (two) and the revoke text.
-        expect(identities.length).toBe(7);
+        // Every login command (four tabs), the Claude Desktop extension's address step, the terminal output (two) and the revoke text.
+        expect(identities.length).toBe(8);
         expect($$('.identity-hint').every((hint) => !(hint as HTMLElement).hidden)).toBe(true);
 
         expect(identities.some((el) => el.hasAttribute('data-filled'))).toBe(false);
@@ -157,6 +157,57 @@ describe('the install card', () => {
             expect(text).not.toContain('mcpServers');
             expect($(`#${id}`).closest('li')!.querySelector('.code-note')!.textContent).toContain('inside "mcpServers"');
         }
+    });
+});
+
+describe('the Claude Desktop extension (#1457)', () => {
+    const release = (tag_name: string, names: string[], extra = {}) => ({
+        tag_name,
+        ...extra,
+        assets: names.map((name) => ({ name, browser_download_url: `https://github.com/dl/${tag_name}/${name}` })),
+    });
+    const RELEASES = [
+        release('v2.80.0', ['Journal-darwin-universal.dmg']),
+        release('mcp-v1.15.0-dry-run', ['journal-mcp-1.15.0.mcpb'], { draft: true }),
+        release('mcp-v1.14.0', ['journal-mcp-1.14.0.tgz', 'journal-mcp-1.14.0.mcpb']),
+        release('mcp-v1.13.0', ['journal-mcp-1.13.0.tgz', 'journal-mcp-1.13.0.mcpb']),
+    ];
+
+    it('leads the Claude Desktop tab with the download and three steps, and folds the terminal route away', () => {
+        const panel = $('#panel-desktop');
+        const link = panel.querySelector<HTMLAnchorElement>('a[data-mcpb]')!;
+        expect(link.textContent).toBe('Download for Claude Desktop');
+        expect(link.href).toContain('github.com/2002Bishwajeet/journal/releases');
+        const steps = [...panel.querySelectorAll(':scope > ol.cmds > li')].map((li) => li.textContent!.replace(/\s+/g, ' '));
+        expect(steps).toHaveLength(3);
+        expect(steps[0]).toContain('Double-click the downloaded .mcpb file');
+        expect(steps[1]).toContain('Type your Homebase address');
+        expect(steps[2]).toContain('Approve Journal MCP');
+        expect(panel.querySelector('details.alt-setup #install-desktop-login')).not.toBeNull();
+    });
+
+    it('finds the newest published MCP release with a .mcpb', () => {
+        expect(latestMcpbUrl(RELEASES)).toBe('https://github.com/dl/mcp-v1.14.0/journal-mcp-1.14.0.mcpb');
+        expect(latestMcpbUrl([release('v2.80.0', ['x.dmg'])])).toBeNull();
+        expect(latestMcpbUrl({ message: 'API rate limit exceeded' })).toBeNull();
+    });
+
+    it('downloads the newest .mcpb on a click, and keeps the releases page when GitHub does not answer', async () => {
+        const assign = vi.spyOn(window.location, 'assign').mockImplementation(() => {});
+        const fetch = vi.fn(async () => new Response(JSON.stringify(RELEASES)));
+        vi.stubGlobal('fetch', fetch);
+        startInstallCard(document);
+        const link = $<HTMLAnchorElement>('a[data-mcpb]');
+
+        link.click();
+        await vi.waitFor(() => expect(assign).toHaveBeenCalledWith('https://github.com/dl/mcp-v1.14.0/journal-mcp-1.14.0.mcpb'));
+        expect(fetch).toHaveBeenCalledWith('https://api.github.com/repos/2002Bishwajeet/journal/releases?per_page=30');
+
+        fetch.mockRejectedValueOnce(new Error('offline'));
+        link.click();
+        await vi.waitFor(() => expect(assign).toHaveBeenLastCalledWith(link.href));
+        vi.unstubAllGlobals();
+        assign.mockRestore();
     });
 });
 

@@ -9,7 +9,46 @@ export function identityFrom(value: string): string {
   return value.replace(/\s/g, '').replace(/^[a-z]+:\/\//i, '').split('/')[0].toLowerCase();
 }
 
+// The Claude Desktop extension (#1457) is attached to each `mcp-v*` release, which is never GitHub's "latest"
+// (the app's releases are), so no fixed link reaches it. Its link goes to the MCP releases on GitHub; a click
+// asks GitHub for the newest one and downloads its .mcpb instead. Nothing is asked until the click.
+const RELEASES_API = 'https://api.github.com/repos/2002Bishwajeet/journal/releases?per_page=30';
+
+interface Release {
+  tag_name?: string;
+  draft?: boolean;
+  prerelease?: boolean;
+  assets?: { name?: string; browser_download_url?: string }[];
+}
+
+/** The newest journal-mcp release's .mcpb in GitHub's releases list (newest first), or null. */
+export function latestMcpbUrl(releases: unknown): string | null {
+  if (!Array.isArray(releases)) return null;
+  for (const release of releases as Release[]) {
+    if (release.draft || release.prerelease || !release.tag_name?.startsWith('mcp-v')) continue;
+    const asset = release.assets?.find((a) => a.name?.endsWith('.mcpb'));
+    if (asset?.browser_download_url) return asset.browser_download_url;
+  }
+  return null;
+}
+
 export function startInstallCard(root: ParentNode): void {
+  root.querySelectorAll<HTMLAnchorElement>('a[data-mcpb]').forEach((link) => {
+    link.addEventListener('click', async (event) => {
+      // A click to open a new tab or window keeps the plain link.
+      if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      event.preventDefault();
+      let url = link.href;
+      try {
+        const res = await fetch(RELEASES_API);
+        if (res.ok) url = latestMcpbUrl(await res.json()) ?? url;
+      } catch {
+        // Offline or rate-limited: the releases page still has the file.
+      }
+      location.assign(url);
+    });
+  });
+
   // Without script the field can't do anything, so the page ships it hidden and the placeholder stays.
   const field = root.querySelector<HTMLElement>('.identity-field');
   const input = field?.querySelector('input');
