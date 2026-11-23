@@ -44,8 +44,12 @@ export interface UseSearchModalReturn {
     /** Folder names by id, for the rows' meta line. */
     folderNames: Map<string, string>;
     inputRef: React.RefObject<HTMLInputElement | null>;
+    /** What a screen reader hears once the query settles: the result count, "No notes found", or nothing. */
+    status: string;
 
     // Handlers
+    /** Keeps Tab and Shift+Tab inside the dialog. */
+    handleDialogKeyDown: (e: React.KeyboardEvent<HTMLElement>) => void;
     handleQueryChange: (value: string) => void;
     handleKeyDown: (e: React.KeyboardEvent) => void;
     handleClose: () => void;
@@ -78,6 +82,8 @@ export function useSearchModal({
     const [recentNotes, setRecentNotes] = useState(loadRecentNotes);
     const [recentSearches, setRecentSearches] = useState(loadRecentSearches);
     const requestSeqRef = useRef(0);
+    // Set when a note is picked: focus then goes to the editor, not back to the opener.
+    const pickedNoteRef = useRef(false);
 
     const trimmedQuery = query.trim();
     const isLoading = Boolean(
@@ -96,6 +102,7 @@ export function useSearchModal({
         (docId: string, find?: string) => {
             // A query is worth remembering once it led to a note.
             if (trimmedQuery) saveRecentSearches(pushRecentSearch(loadRecentSearches(), trimmedQuery));
+            pickedNoteRef.current = true;
             onSelectNote(docId, find);
             handleClose();
         },
@@ -118,6 +125,26 @@ export function useSearchModal({
         // eslint-disable-next-line react-hooks/set-state-in-effect -- seeds the field once when the search opens with a query
         if (isOpen && initialQuery) handleQueryChange(initialQuery);
     }, [isOpen, initialQuery, handleQueryChange]);
+
+    // While open, the rest of the page is inert (the dialog is portalled to body, so it is a sibling);
+    // on close, focus returns to whatever had it when search opened, or to the editor after a pick.
+    useEffect(() => {
+        if (!isOpen) return;
+        const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        pickedNoteRef.current = false;
+        const root = document.querySelector('[data-search-root]');
+        const inerted = [...document.body.children].filter(
+            (el): el is HTMLElement => el instanceof HTMLElement && el !== root && !el.hasAttribute('inert')
+        );
+        inerted.forEach((el) => el.setAttribute('inert', ''));
+        return () => {
+            inerted.forEach((el) => el.removeAttribute('inert'));
+            const target = pickedNoteRef.current
+                ? document.querySelector<HTMLElement>('textarea[placeholder="Untitled"]') ?? opener
+                : opener;
+            target?.focus();
+        };
+    }, [isOpen]);
 
     // Focus input when modal opens
     useEffect(() => {
@@ -195,6 +222,25 @@ export function useSearchModal({
                 .map((result): SearchEntry => ({ kind: 'note', section: 'notes', result })),
         ];
     }
+
+    const status = !trimmedQuery || isLoading
+        ? ''
+        : entries.length === 0
+            ? 'No notes found'
+            : `${entries.length} ${entries.length === 1 ? 'result' : 'results'}`;
+
+    const handleDialogKeyDown = useCallback((e: React.KeyboardEvent<HTMLElement>) => {
+        if (e.key !== 'Tab') return;
+        const focusable = [...e.currentTarget.querySelectorAll<HTMLElement>('input, button')].filter((el) => !el.hasAttribute('disabled'));
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (!first || !last) return;
+        const active = document.activeElement;
+        if (e.shiftKey ? active === first : active === last) {
+            e.preventDefault();
+            (e.shiftKey ? last : first).focus();
+        }
+    }, []);
 
     const selectedEntry = entries[selectedIndex];
     useEffect(() => {
@@ -289,6 +335,8 @@ export function useSearchModal({
         isLoading,
         folderNames,
         inputRef,
+        status,
+        handleDialogKeyDown,
         handleQueryChange,
         handleKeyDown,
         handleClose,

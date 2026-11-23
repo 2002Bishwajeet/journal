@@ -20,6 +20,8 @@ vi.mock('@/hooks/useSearchModal', () => ({
     ],
     selectedIndex: 0,
     isLoading: false,
+    status: '3 results',
+    handleDialogKeyDown: vi.fn(),
     folderNames: new Map([['main', 'Main']]),
     inputRef: { current: null },
     handleQueryChange: vi.fn(),
@@ -74,17 +76,17 @@ describe('SearchModal', () => {
   });
 
   const button = (text: string) =>
-    [...host.querySelectorAll('button')].find((b) => b.textContent?.includes(text))!;
+    [...document.querySelectorAll('button')].find((b) => b.textContent?.includes(text))!;
 
   it('is a labelled modal dialog', () => {
-    const dialog = host.querySelector('[role="dialog"]')!;
+    const dialog = document.querySelector('[role="dialog"]')!;
     expect(dialog.getAttribute('aria-label')).toBe('Search notes');
     expect(dialog.getAttribute('aria-modal')).toBe('true');
   });
 
   it('Remove and Clear act without taking focus from the input, and are 44px on touch', () => {
-    const input = host.querySelector('input')!;
-    const remove = host.querySelector<HTMLButtonElement>('[aria-label="Remove from recent"]')!;
+    const input = document.querySelector('input')!;
+    const remove = document.querySelector<HTMLButtonElement>('[aria-label="Remove Alpha from recent"]')!;
     for (const b of [remove, button('Clear')]) {
       const down = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
       b.dispatchEvent(down);
@@ -102,7 +104,7 @@ describe('SearchModal', () => {
   });
 
   it('shows folder, date and up to 3 tags under the title, "Shared" for the collaborative folder', () => {
-    const rows = host.querySelectorAll('[id^="search-result-"]');
+    const rows = document.querySelectorAll('[id^="search-result-"]');
     expect(rows[0].textContent).toMatch(/Main · .+ · #x #y #z/);
     expect(rows[0].textContent).not.toContain('#w');
     expect(rows[1].textContent).toBe('Beta');
@@ -110,9 +112,35 @@ describe('SearchModal', () => {
   });
 
   it('marks the typed part of the title and never says "No preview available"', () => {
-    const marks = [...host.querySelectorAll('mark')].map((m) => m.textContent);
+    const marks = [...document.querySelectorAll('mark')].map((m) => m.textContent);
     expect(marks).toEqual(['Ze']);
-    expect(host.textContent).not.toContain('No preview available');
+    expect(document.body.textContent).not.toContain('No preview available');
+  });
+
+  it('is a combobox over a listbox of grouped options, with the selected one as the active descendant', () => {
+    const input = document.querySelector('input')!;
+    expect(input.getAttribute('role')).toBe('combobox');
+    expect(input.getAttribute('aria-label')).toBe('Search notes');
+    expect(input.getAttribute('aria-expanded')).toBe('true');
+    expect(input.getAttribute('aria-autocomplete')).toBe('list');
+    expect(input.getAttribute('enterkeyhint')).toBe('search');
+    const listbox = document.querySelector('[role="listbox"]')!;
+    expect(input.getAttribute('aria-controls')).toBe(listbox.id);
+    const options = [...document.querySelectorAll('[role="option"]')];
+    expect(options.map((o) => o.getAttribute('aria-selected'))).toEqual(['true', 'false', 'false']);
+    expect(document.getElementById(input.getAttribute('aria-activedescendant')!)).toBe(options[0]);
+    const groups = [...listbox.querySelectorAll('[role="group"]')];
+    expect(groups.map((g) => document.getElementById(g.getAttribute('aria-labelledby')!)?.textContent)).toEqual(['Recent', 'Notes']);
+  });
+
+  it('keeps Remove and Clear out of the options', () => {
+    for (const b of document.querySelectorAll('button')) expect(b.closest('[role="option"]')).toBeNull();
+  });
+
+  it('announces the status in a polite live region', () => {
+    const status = document.querySelector('[role="status"]')!;
+    expect(status.getAttribute('aria-live')).toBe('polite');
+    expect(status.textContent).toBe('3 results');
   });
 
   it('Cancel closes the modal', () => {
@@ -129,8 +157,8 @@ describe('SearchModal', () => {
   const isPalette = () => button('Cancel') === undefined;
 
   it('is the full-screen search without keyboard hints on a touch screen, the palette for a mouse from 640 px (#1289)', () => {
-    expect(host.querySelector('kbd')).toBeNull();
-    expect(host.textContent).not.toContain('navigate');
+    expect(document.querySelector('kbd')).toBeNull();
+    expect(document.body.textContent).not.toContain('navigate');
 
     // iPhone Duo's inner display and a portrait iPad: touch below 1024 px gets the full-screen search.
     renderAt(669, true);
@@ -144,8 +172,8 @@ describe('SearchModal', () => {
     // A mouse keeps the palette from 640 px, as it had with the old sm: breakpoint.
     renderAt(700, false);
     expect(isPalette()).toBe(true);
-    expect([...host.querySelectorAll('kbd')].map((k) => k.textContent)).toContain('Esc');
-    expect(host.textContent).toContain('navigate');
+    expect([...document.querySelectorAll('kbd')].map((k) => k.textContent)).toContain('Esc');
+    expect(document.body.textContent).toContain('navigate');
     renderAt(640, false);
     expect(isPalette()).toBe(true);
 
@@ -155,7 +183,7 @@ describe('SearchModal', () => {
   });
 
   it('hover selects a result for a mouse but not for touch', () => {
-    const beta = button('Beta');
+    const beta = document.querySelector<HTMLElement>('#search-result-1')!;
     const enter = (pointerType: string) =>
       act(() => {
         const e = new Event('pointerover', { bubbles: true });
@@ -178,7 +206,7 @@ describe('SearchModal', () => {
     // Reopen, so the sheet mounts with the viewport above.
     render(false);
     render(true);
-    const sheet = host.querySelector<HTMLElement>('[role="dialog"]')!;
+    const sheet = document.querySelector<HTMLElement>('[role="dialog"]')!;
     const vars = () => [sheet.style.getPropertyValue('--dialog-top'), sheet.style.getPropertyValue('--dialog-max-h')];
     expect(vars()).toEqual(['', '']);
 
