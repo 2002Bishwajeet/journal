@@ -1,8 +1,8 @@
-//! The page's diagnostic lines (#1467): a database that stopped answering, or a navigation that
-//! never rendered (src/lib/db/dbHealth.ts, src/lib/navWatch.ts). `append_diagnostic` adds one
+//! The page's diagnostic lines (#1467): a database that stopped answering
+//! (src/lib/db/dbHealth.ts). `append_diagnostic` adds one
 //! timestamped line to `db-hangs.log` in the platform log dir (`~/Library/Logs/<bundle id>/` on
 //! macOS), where it outlives the page and the app. The page sends no note content: SQL prefixes
-//! without their literal values, paths, lock names. Past `MAX_LOG_BYTES` the log moves to
+//! without their literal values, lock names. Past `MAX_LOG_BYTES` the log moves to
 //! `db-hangs.log.1`, replacing the one there. Granted to the main window (capabilities/default.json).
 
 use std::fs::{self, OpenOptions};
@@ -63,10 +63,10 @@ mod tests {
     fn appends_one_timestamped_line_per_call() {
         let path = temp_log("append");
         append(&path, "2026-11-23 10:00:00", "db-unresponsive: a").unwrap();
-        append(&path, "2026-11-23 10:00:30", "nav-stuck /f/n\nsecond line").unwrap();
+        append(&path, "2026-11-23 10:00:30", "db-unresponsive: b\nsecond line").unwrap();
         assert_eq!(
             fs::read_to_string(&path).unwrap(),
-            "2026-11-23 10:00:00 db-unresponsive: a\n2026-11-23 10:00:30 nav-stuck /f/n second line\n"
+            "2026-11-23 10:00:00 db-unresponsive: a\n2026-11-23 10:00:30 db-unresponsive: b second line\n"
         );
     }
 

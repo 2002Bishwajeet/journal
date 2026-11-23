@@ -12,7 +12,8 @@ import { inTauriApp } from './databaseKey';
  * Every PGlite call is recorded while it runs (trackCalls). While the page is visible, a
  * heartbeat runs `SELECT 1` every 30 s, and when the page comes back, the network comes back
  * or the window gets the focus. One that gets no answer for 5 s, with no other call settling
- * in that time (a long sync transaction is progress, not a hang), or that fails, writes a
+ * in that time (a long sync transaction is progress, not a hang) and no call ahead of it younger
+ * than a minute (one big exec, as an import runs, holds the lock), or that fails, writes a
  * diagnostic line (console, localStorage for the next boot, and the native app's
  * db-hangs.log), rejects every call still waiting and every later one, and asks the user to
  * reload; a hidden page reloads by itself. The unload copies of open notes are written first.
@@ -21,6 +22,12 @@ import { inTauriApp } from './databaseKey';
 export const HEARTBEAT_EVERY_MS = 30_000;
 /** How long the heartbeat waits with no PGlite call settling before the database counts as stuck. */
 export const HEARTBEAT_TIMEOUT_MS = 5_000;
+/**
+ * How long a call the heartbeat queued behind may run before the database counts as stuck: one
+ * long query or exec holds the exclusive lock without settling anything, and a lost reply looks
+ * the same from here.
+ */
+export const LONG_CALL_MS = 60_000;
 /** The longest the reload waits for the unload copies of open notes. */
 const SAVE_BEFORE_RELOAD_MS = 1_500;
 /** The in-flight calls and storage errors a diagnostic line names. */
@@ -197,11 +204,14 @@ export async function checkDatabase(db: PGliteInterface): Promise<void> {
   if (beating || stuck) return;
   beating = true;
   const startedAt = Date.now();
+  const ahead = [...inFlight];
   const ping = db.query('SELECT 1').then(() => 'ok' as const, (error: unknown) => ({ error }));
   let answer: Awaited<typeof ping> | 'waiting' = 'waiting';
   try {
     while (answer === 'waiting') {
-      const left = Math.max(startedAt, lastSettledAt) + HEARTBEAT_TIMEOUT_MS - Date.now();
+      const running = ahead.filter((call) => inFlight.has(call));
+      const busyUntil = running.length ? Math.min(...running.map((call) => call.startedAt)) + LONG_CALL_MS : 0;
+      const left = Math.max(Math.max(startedAt, lastSettledAt) + HEARTBEAT_TIMEOUT_MS, busyUntil) - Date.now();
       if (left <= 0) break;
       answer = await Promise.race([ping, sleep(left).then(() => 'waiting' as const)]);
     }

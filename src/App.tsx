@@ -37,7 +37,6 @@ import { useCloseOtherAppNotifications } from "@/hooks/useCloseOtherAppNotificat
 import { useDeepLinks } from "@/hooks/useDeepLinks";
 import { useOpenedNotifications } from "@/hooks/useOpenedNotifications";
 import { useNativeDeepLink } from "@/hooks/useNativeDeepLink";
-import { useNavWatch } from "@/hooks/useNavWatch";
 
 // Computed once at boot, not per route: UpdatePrompt sits outside BrowserRouter.
 // A visitor who clicks from a share page into the app gets the SW registered
@@ -60,9 +59,8 @@ const persister = createAsyncStoragePersister({
   key: QUERY_CACHE_KEY,
 });
 
-// Inside the router: a deep link navigates, and a navigation that never renders is logged (#1467).
+// Inside the router: a deep link navigates.
 function DeepLinks() {
-  useNavWatch();
   useDeepLinks();
   useOpenedNotifications();
   useNativeDeepLink();

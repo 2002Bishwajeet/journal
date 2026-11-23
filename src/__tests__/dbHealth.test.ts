@@ -110,14 +110,14 @@ describe('heartbeat', () => {
     db.query("SELECT content FROM document_updates WHERE doc_id = 'n1'").catch(() => {});
 
     const beat = health.checkDatabase(db);
-    await vi.advanceTimersByTimeAsync(5_000);
+    await vi.advanceTimersByTimeAsync(health.LONG_CALL_MS);
     await beat;
 
     const line = lastLine();
-    expect(line).toMatch(/^db-unresponsive: SELECT 1 got no answer in 5\.0s/);
+    expect(line).toMatch(/^db-unresponsive: SELECT 1 got no answer in 60\.0s/);
     expect(line).toContain('leader yes');
     expect(line).toContain('last ok query never');
-    expect(line).toContain('in flight 2: query 5.0s "SELECT content FROM document_updates WHERE doc_id = ?", query 5.0s "SELECT ?"');
+    expect(line).toContain('in flight 2: query 60.0s "SELECT content FROM document_updates WHERE doc_id = ?", query 60.0s "SELECT ?"');
     expect(line).toContain('locks held: pglite-election-lock:journal-pglite-pg18; pending: pglite-tab-close:t1');
     expect(line).toContain('storage errors: none');
     expect(line).not.toContain('n1');
@@ -149,7 +149,7 @@ describe('heartbeat', () => {
     const waiting = db.query('SELECT 2');
     waiting.catch(() => {});
     const beat = health.checkDatabase(db);
-    await vi.advanceTimersByTimeAsync(5_000);
+    await vi.advanceTimersByTimeAsync(health.LONG_CALL_MS);
     await beat;
     await expect(waiting).rejects.toThrow(health.DatabaseUnresponsiveError);
     await expect(db.exec('SELECT 3')).rejects.toThrow(/stopped responding/);
@@ -180,6 +180,33 @@ describe('heartbeat', () => {
     await beat;
     expect(toastError).not.toHaveBeenCalled();
     expect(lastLine()).toBeUndefined();
+  });
+
+  it('waits up to a minute for one long exec ahead of it, as an import runs, and no longer', async () => {
+    let finishExec!: () => void;
+    let answerPing!: () => void;
+    const db = fakeDatabase(() => new Promise((resolve) => { answerPing = () => resolve({ rows: [] }); }));
+    db.exec.mockImplementationOnce(() => new Promise((resolve) => { finishExec = () => resolve([]); }));
+    health.trackCalls(db);
+
+    const exec = db.exec('CREATE INDEX search_trgm ON search_index USING gin (title gin_trgm_ops)');
+    const beat = health.checkDatabase(db);
+    await vi.advanceTimersByTimeAsync(40_000);
+    expect(lastLine()).toBeUndefined();
+    finishExec();
+    await exec;
+    answerPing();
+    await beat;
+    expect(toastError).not.toHaveBeenCalled();
+
+    // An exec that never settles is a hang once it has run a minute.
+    db.exec('VACUUM').catch(() => {});
+    const stuckBeat = health.checkDatabase(db);
+    await vi.advanceTimersByTimeAsync(health.LONG_CALL_MS - 1_000);
+    expect(lastLine()).toBeUndefined();
+    await vi.advanceTimersByTimeAsync(1_000);
+    await stuckBeat;
+    expect(lastLine()).toContain('exec 60.0s "VACUUM"');
   });
 
   it('does not count a leader change as a hang', async () => {
