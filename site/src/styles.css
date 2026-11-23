@@ -205,7 +205,8 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .nav-open { display: none; }
 @media (min-width: 520px) { .nav-open { display: inline-flex; } }
 .nav-right { display: flex; align-items: center; gap: 8px; }
-@media (min-width: 720px) {
+/* 800px, not the 720px gutter step: four links, the theme toggle and Open Journal need the room (#1455). */
+@media (min-width: 800px) {
   .nav-links { display: flex; }
   .menu { display: none; }
 }
