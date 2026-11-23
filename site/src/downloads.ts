@@ -42,9 +42,12 @@ export function downloadButton(os: VisitorOS | null): { label: string; href: str
 
 export type Arch = 'x64' | 'arm'
 
-/** The CPU from userAgentData's high-entropy values, or null when not exposed (Safari, Firefox) or not x64 or ARM. */
-export function cpuArch(values: { architecture?: string; bitness?: string } | null): Arch | null {
-  if (values?.architecture === 'arm') return 'arm'
+/**
+ * The CPU from userAgentData's high-entropy values, or null when not exposed (Safari, Firefox) or not x64 or ARM.
+ * Firefox on Linux names an ARM CPU in its user agent ("Linux aarch64"), so that counts too.
+ */
+export function cpuArch(values: { architecture?: string; bitness?: string } | null, userAgent = ''): Arch | null {
+  if (values?.architecture === 'arm' || /Linux (aarch64|armv)/.test(userAgent)) return 'arm'
   return values?.architecture === 'x86' && values.bitness === '64' ? 'x64' : null
 }
 
@@ -54,7 +57,7 @@ export function cpuArch(values: { architecture?: string; bitness?: string } | nu
  */
 export function archNote(os: DesktopOS, arch: Arch | null): { text: string; noBuild?: true } | null {
   if (arch !== 'arm') return null
-  if (os === 'windows') return { text: "Your PC has an ARM processor. The x64 installer runs under Windows' x64 emulation." }
+  if (os === 'windows') return { text: "Your PC has an ARM processor. Journal for x64 runs on it through Windows 11's x64 emulation." }
   if (os === 'linux') return { text: 'There is no ARM build for Linux yet. Journal in the browser works on any computer.', noBuild: true }
   return null
 }

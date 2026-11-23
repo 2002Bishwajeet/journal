@@ -709,10 +709,10 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .dl-list { display: grid; gap: 8px; }
 .dl-item { display: grid; gap: 12px; padding: 16px 20px; border-radius: 12px; background: var(--bg); }
 .dl-item .btn { width: 100%; }
-.dl-other summary { cursor: pointer; padding: 4px 0; font-size: 14px; color: var(--muted); list-style: none; }
+.dl-other summary { display: flex; align-items: center; min-height: 44px; cursor: pointer; font-size: 14px; color: var(--muted); list-style: none; }
 .dl-other summary::-webkit-details-marker { display: none; }
-.dl-other summary::after { content: " +"; }
-.dl-other[open] summary::after { content: " \2212"; }
+.dl-other summary::after { content: "\00a0+"; content: "\00a0+" / ""; } /* the details element already says open or closed */
+.dl-other[open] summary::after { content: "\00a0\2212"; content: "\00a0\2212" / ""; }
 .dl-other .dl-list { margin-top: 12px; }
 
 /* What the apps add: a heading, one sentence and where it works, two to a row on wider screens. */

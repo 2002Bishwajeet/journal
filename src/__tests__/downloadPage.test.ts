@@ -20,6 +20,11 @@ describe('cpuArch', () => {
         expect(cpuArch({})).toBeNull();
         expect(cpuArch({ architecture: 'x86', bitness: '32' })).toBeNull();
     });
+
+    it('reads ARM from the user agent of Firefox on Linux', () => {
+        expect(cpuArch(null, 'Mozilla/5.0 (X11; Linux aarch64; rv:133.0) Gecko/20100101 Firefox/133.0')).toBe('arm');
+        expect(cpuArch(null, 'Mozilla/5.0 (X11; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0')).toBeNull();
+    });
 });
 
 describe('archNote', () => {
