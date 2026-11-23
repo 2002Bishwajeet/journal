@@ -37,6 +37,9 @@ export default defineConfig({
   reporter: [['list'], ['html', { open: 'never' }]],
   workers: process.env.CI ? 2 : 1,
   retries: process.env.CI ? 2 : 0,
+  // CI never writes a missing screenshot baseline, or a retry would pass against the one the first try wrote (#1477).
+  // The update-snapshots workflow passes --update-snapshots, which overrides this.
+  updateSnapshots: process.env.CI ? 'none' : 'missing',
   fullyParallel: false,
   use: {
     baseURL,

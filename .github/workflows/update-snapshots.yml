@@ -1,0 +1,129 @@
+name: Update screenshot baselines
+
+# The `update-snapshots` label on a PR regenerates the landing site's screenshot baselines
+# (e2e/edge/site-visual.spec.ts-snapshots, #1477) on the same Linux image as the E2E check, commits
+# the changed ones to the PR's branch and takes the label off. The reviewer then sees the image diff
+# in the PR. Baselines only ever come from here: another machine's fonts would draw them differently.
+#
+# Two jobs, so the PR's code never runs beside the deploy key: `regenerate` runs the spec with no
+# secret, and `commit` only copies its PNGs in and pushes them with RELEASE_DEPLOY_KEY. A push with
+# github.token would start no E2E run, so the PR's required check would never report.
+on:
+  pull_request:
+    types: [labeled]
+
+concurrency:
+  group: update-snapshots-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  regenerate:
+    if: github.event.label.name == 'update-snapshots' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Authenticate to Github packages
+        run: |
+          echo "@homebase-id:registry=https://npm.pkg.github.com" > .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${{ github.token }}" >> .npmrc
+
+      - name: Install dependencies
+        run: npm ci --include=optional
+
+      # The same browser and OS packages as e2e.yml, so the baselines match what the E2E check draws.
+      - name: Get installed Playwright version
+        id: playwright-version
+        run: |
+          echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+          echo "image=${ImageOS}" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Playwright chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium
+
+      - name: Cache Playwright OS packages
+        uses: actions/cache@v6
+        with:
+          path: ~/apt-archives
+          key: playwright-apt-chromium-${{ runner.os }}-${{ steps.playwright-version.outputs.image }}-offline
+          restore-keys: playwright-apt-chromium-${{ runner.os }}-${{ steps.playwright-version.outputs.image }}-
+
+      - name: Install Playwright OS dependencies
+        run: .github/scripts/playwright-deps.sh chromium
+
+      # `changed` rewrites only the baselines that no longer match (and the missing ones), so antialiasing noise
+      # does not churn the others.
+      - name: Regenerate the baselines
+        run: npx playwright test --project=edge e2e/edge/site-visual.spec.ts --update-snapshots=changed
+        env:
+          CI: true
+
+      - name: Upload the baselines
+        uses: actions/upload-artifact@v7
+        with:
+          name: site-visual-baselines
+          path: e2e/edge/site-visual.spec.ts-snapshots/
+          retention-days: 3
+
+  commit:
+    needs: regenerate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout the PR branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.head_ref }}
+          # Pushes over SSH, so the push starts the E2E check on the new commit.
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
+
+      - name: Download the baselines
+        uses: actions/download-artifact@v8
+        with:
+          name: site-visual-baselines
+          path: ${{ runner.temp }}/baselines
+
+      - name: Commit and push the changed baselines
+        run: |
+          dir=e2e/edge/site-visual.spec.ts-snapshots
+          mkdir -p "$dir"
+          find "$RUNNER_TEMP/baselines" -maxdepth 1 -name '*.png' -exec cp {} "$dir/" \;
+          git add "$dir"
+          if git diff --cached --quiet; then
+            echo "The baselines already match."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "test(site): update screenshot baselines"
+          git push origin "HEAD:$GITHUB_HEAD_REF"
+
+      - name: Take the label off
+        if: always()
+        run: gh pr edit "$PR_NUMBER" --remove-label update-snapshots
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}

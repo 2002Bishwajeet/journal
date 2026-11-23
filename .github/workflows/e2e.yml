@@ -15,7 +15,9 @@ jobs:
   # lightest hermetic shards; `e2e` below is the required check. Playwright splits
   # by test count, not time, and three shards put 15+ min of slow specs on one
   # (#1347). Step caps are about 1.5x the measured p90 (#868); they sum to 44 min,
-  # plus 2 min for the uncapped steps that take a second each.
+  # plus 2 min for the uncapped steps that take a second each. The edge suite (the
+  # landing site and the Pages Functions, with the site's screenshot baselines, #1477)
+  # runs on shard 2, which has no mobile half, so its cap stays under the mobile one.
   e2e-shard:
     runs-on: ubuntu-latest
     timeout-minutes: 46
@@ -33,6 +35,8 @@ jobs:
         include:
           - shard: 1
             mobile: 1
+          - shard: 2
+            edge: true
           - shard: 3
             mobile: 2
     steps:
@@ -105,6 +109,17 @@ jobs:
         timeout-minutes: 14
         # Its own output folder: a run empties its folder first, and the hermetic run's screenshots stay.
         run: npm run e2e:mobile -- --shard=${{ matrix.mobile }}/2 --output=test-results/mobile
+        env:
+          CI: true
+
+      # A page that no longer matches its baseline in e2e/edge/site-visual.spec.ts-snapshots fails here; the
+      # report artifact below then has its -expected, -actual and -diff images under test-results/edge/.
+      # A look changed on purpose: add the `update-snapshots` label to the PR (update-snapshots.yml).
+      - name: Run edge E2E (landing site, Pages Functions, visual baselines)
+        if: matrix.edge
+        timeout-minutes: 12
+        # Its own output folder, like the mobile run's.
+        run: npm run e2e:edge -- --output=test-results/edge
         env:
           CI: true
 

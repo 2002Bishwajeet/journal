@@ -35,9 +35,9 @@ This is the full epic contract (#196) — other issues rely on these names, so d
 
 ## CI
 
-The `E2E` GitHub Actions check (`.github/workflows/e2e.yml`) runs the `hermetic` project (the same `npm run e2e`) on every push/PR to `main`, with 2 retries. It also runs `npm run e2e:quarantine` as a following, `continue-on-error` step — its result is informational only and never blocks the check.
+The `E2E` GitHub Actions check (`.github/workflows/e2e.yml`) runs the `hermetic` project (the same `npm run e2e`) on every push/PR to `main`, with 2 retries. It also runs `npm run e2e:quarantine` as a following, `continue-on-error` step — its result is informational only and never blocks the check. Shard 2 also runs the `edge` project (`npm run e2e:edge`), the landing site's screenshot baselines included (see `e2e/edge/README.md`); its failures block the check.
 
-On failure, the job uploads `playwright-report/` and `test-results/` (traces, screenshots, videos; the mobile run's are in `test-results/mobile/`) as an artifact named `playwright-report-<shard>-<run attempt>`, kept for 14 days. Download it from the failed run's Summary page (Artifacts section), unzip, then open `index.html` for the report or run `npx playwright show-trace <trace.zip>` for a specific trace.
+On failure, the job uploads `playwright-report/` and `test-results/` (traces, screenshots, videos; the mobile run's are in `test-results/mobile/`, the edge run's, with any screenshot diffs, in `test-results/edge/`) as an artifact named `playwright-report-<shard>-<run attempt>`, kept for 14 days. Download it from the failed run's Summary page (Artifacts section), unzip, then open `index.html` for the report or run `npx playwright show-trace <trace.zip>` for a specific trace.
 
 **Screenshot evidence (#1324):** on a PR from an `agent/…` branch or labelled `agent-harness`, the `e2e-evidence` job (never a required check) takes the PNGs that passing tests of the specs the PR changes wrote on purpose (`test.info().outputPath(...)`; a failed attempt's folder is left out), pushes them to the `agent-evidence` branch under `<issue>/` (the issue from the PR's `Closes #N`), and posts or updates one PR comment, "E2E screenshots", that shows them from their raw URLs. The logic is `scripts/harness/evidence.mjs`.
 
