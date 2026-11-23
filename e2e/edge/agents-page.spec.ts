@@ -42,9 +42,12 @@ test('the agents page install card, at 1280 and 390, light and dark', async ({ p
     for (const colorScheme of ['light', 'dark'] as const) {
       await page.emulateMedia({ colorScheme });
       await page.evaluate(() => document.querySelectorAll('img').forEach((img) => (img.loading = 'eager')));
-      // Scroll through once, so every entrance reveal (data-reveal) has run, then back to the top.
-      await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }));
-      await expect(page.locator('[data-reveal]:not(.in)')).toHaveCount(0);
+      // Scroll through once, so every entrance reveal (data-reveal) has run, then back to the top. Again until they
+      // have: the page can still grow under the first jump and leave the closing section below the fold.
+      await expect(async () => {
+        await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }));
+        await expect(page.locator('[data-reveal]:not(.in)')).toHaveCount(0, { timeout: 1000 });
+      }).toPass();
       await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
       await page.screenshot({ path: test.info().outputPath(`agents-${colorScheme}-${viewport.name}.png`), fullPage: true, animations: 'disabled' });
       await page.locator('#setup .setup-step').first().screenshot({ path: test.info().outputPath(`agents-install-${colorScheme}-${viewport.name}.png`), animations: 'disabled' });

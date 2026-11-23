@@ -34,7 +34,7 @@ for (const viewport of VIEWPORTS) {
           await expect(panel.locator('> .dl-list .btn-primary')).toHaveText(shown);
           const details = panel.locator('details.dl-other');
           await expect(details.locator('.dl-item')).toHaveCount(2);
-          await expect(details.locator('.dl-item')).toBeHidden();
+          await expect(details.locator('.dl-item:visible')).toHaveCount(0);
           await page.screenshot({ path: test.info().outputPath(`download-${name}-${theme}-${viewport.name}-closed.png`) });
           await details.locator('summary').click();
           for (const o of other) await expect(details.getByRole('heading', { name: o })).toBeVisible();
