@@ -141,6 +141,7 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .btn-secondary { background: var(--band); color: var(--ink); }
 .band .btn-secondary, .band-2 .btn-secondary, .plan .btn-secondary { background: var(--bg); }
 .btn-small { min-height: 44px; padding: 0 16px; font-size: var(--fs-small); }
+.btn[hidden] { display: none; } /* .btn sets display, which would beat the hidden attribute */
 @media (hover: hover) and (pointer: fine) {
   .btn-primary:hover { background: color-mix(in srgb, var(--btn) 86%, var(--bg)); }
   .btn-secondary:hover { background: color-mix(in srgb, var(--band) 70%, var(--line)); }
@@ -160,6 +161,7 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .store-badge img { height: 48px; width: auto; }
 .store-badge-play img { height: calc(48px * 250 / 168); margin: calc(-48px * 41 / 168); }
 .hero-actions .store-badges { grid-column: 1 / -1; }
+.hero-other { margin-top: 8px; }
 
 /* ---- Navigation ---- */
 .nav {
