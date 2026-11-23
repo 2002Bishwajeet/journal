@@ -153,7 +153,7 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
   .ctas { display: grid; grid-template-columns: 1fr; width: 100%; }
   .ctas .btn { width: 100%; }
 }
-/* The App Store and Google Play badges (VITE_STORES_LIVE), at one visible height with a quarter of it between them.
+/* The App Store and Google Play badges (VITE_APPSTORE_LIVE, VITE_PLAY_LIVE), at one visible height with a quarter of it between them.
    The Google Play artwork has its own clear space (41 of its 250px each side), taken back by the negative margin. */
 .store-badges { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .store-badge { display: inline-flex; border-radius: 8px; }
@@ -205,7 +205,8 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 .nav-open { display: none; }
 @media (min-width: 520px) { .nav-open { display: inline-flex; } }
 .nav-right { display: flex; align-items: center; gap: 8px; }
-@media (min-width: 720px) {
+/* 800px, not the 720px gutter step: four links, the theme toggle and Open Journal need the room (#1455). */
+@media (min-width: 800px) {
   .nav-links { display: flex; }
   .menu { display: none; }
 }
@@ -672,6 +673,25 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 /* The app's name beside the app itself, on a phone. */
 .buy-phone { width: min(100%, 320px); justify-self: center; }
 @media (min-width: 980px) { .buy-name { grid-template-columns: 7fr 5fr; } }
+
+/* ---- Invite redeem page: the buy page's layout, with the key set large once it comes ---- */
+.redeem-field { display: grid; gap: 8px; width: 100%; }
+.redeem-optional { font-weight: 450; color: var(--muted); }
+.redeem-code strong { font-weight: 650; letter-spacing: 0.04em; white-space: nowrap; }
+.redeem-done { display: grid; gap: 16px; }
+.redeem-done h2:focus { outline: none; }
+/* The key itself, as the issue asks: monospaced so 0 and O, 1 and l read apart. taste-skill-ignore: a key, not a label */
+.redeem-key {
+  padding: 16px; border-radius: 12px; background: var(--bg);
+  font-family: var(--font-mono); font-size: clamp(17px, 4.4vw, 22px); font-weight: 600; line-height: 1.35;
+  overflow-wrap: anywhere; user-select: all; -webkit-user-select: all;
+}
+.redeem-warn { font-size: var(--fs-sub); line-height: 1.3; font-weight: 650; }
+.redeem-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.redeem-actions .btn { flex: 1 1 12em; }
+.redeem-done .small:empty { display: none; }
+.redeem-done .h3 + .redeem-steps { margin-top: -8px; }
+.redeem-steps { display: grid; gap: 8px; padding-left: 1.4em; list-style: decimal; }
 
 /* ---- Download page: the claim beside the installers, the app below them ---- */
 .dl { display: grid; gap: 40px var(--gap); }

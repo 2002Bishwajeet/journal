@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
 import { activeTitleInput, createNote, screenshotInBothThemes } from '../support/actions';
 import { assertTestOrigin } from '../support/origin-guard';
-import { openShareDialog, shareDialog } from '../support/shareDialog';
+import { addToShare, openShareDialog, shareDialog } from '../support/shareDialog';
 
 // #1002: one link for a note, whatever its general access. The share route picks its page
 // from the guest read's status: a 403 (the note exists, this viewer can't read it) is
@@ -13,6 +13,7 @@ import { openShareDialog, shareDialog } from '../support/shareDialog';
 
 const AUTHOR = 'e2e-author.homebase.test';
 const RESTRICTED_ID = '7c2e9a41-5b3d-4f86-a0e1-3d9b6f2c8a57';
+const CONNECTION = 'e2e-sam.homebase.test';
 const MISSING_ID = '0b8e4c27-5d1a-4f93-a6e2-7c3d9f1b5e40';
 
 /** Answers every *.homebase.test guest read with `status`, as odin-core does for that case. */
@@ -83,17 +84,38 @@ test('the Share dialog copies a restricted note\'s link, and a viewer who has th
   await assertTestOrigin(app);
   await app.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   const title = `Restricted link ${Date.now()}`;
+  // The owner's connection list is a stub: there is no backend to ask.
+  await app.route('**/circles/connections/connected**', (route) =>
+    route.fulfill({ json: { cursor: null, results: [{ odinId: CONNECTION }] } }));
   await createNote(app, { title, body: 'Only for the people it is shared with.' });
   const notePath = new URL(app.url()).pathname;
   const docId = notePath.split('/').pop()!;
 
   await openShareDialog(app, title);
   const dialog = shareDialog(app);
+  const copyLink = dialog.getByRole('button', { name: 'Copy link' });
+  const help = dialog.getByText('Only people with access can open this link.');
+  const shots = async (state: string) => {
+    for (const [viewport, size] of [['1280', { width: 1280, height: 800 }], ['393', { width: 393, height: 852 }]] as const) {
+      await app.setViewportSize(size);
+      await expect(dialog).toBeVisible();
+      await screenshotInBothThemes(app, (theme) => `share-dialog-${state}-${theme}-${viewport}.png`);
+    }
+    await app.setViewportSize({ width: 1280, height: 800 });
+  };
+
+  // Only the owner has access: a link no one else can open is no use, so there is none to copy.
   await expect(dialog.getByText('Restricted (only people with access)')).toBeVisible();
-  await expect(dialog.getByText('Only people with access can open this link.')).toBeVisible();
-  await dialog.getByRole('button', { name: 'Copy link' }).click();
+  await expect(copyLink).toHaveCount(0);
+  await expect(help).toHaveCount(0);
+  await shots('restricted-owner-only');
+
+  // Shared with one person (a stubbed connection): the link and its help appear.
+  await addToShare(app, CONNECTION);
+  await expect(help).toBeVisible();
+  await shots('restricted-shared-with-one-person');
+  await copyLink.click();
   await expect(dialog.getByRole('button', { name: 'Copied' })).toBeVisible();
-  await screenshotInBothThemes(app, (theme) => `share-dialog-restricted-copy-link-${theme}.png`);
   const link = new URL(await app.evaluate(() => navigator.clipboard.readText()));
   expect(link.origin).toBe(new URL(app.url()).origin);
   expect(link.pathname).toMatch(new RegExp(`^/share/[^/]+/${docId}$`));
