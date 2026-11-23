@@ -11,8 +11,8 @@ export function looksLikeEmail(value: string): boolean {
 }
 
 /** The POST /invite/redeem body: the email only when one was given. */
-export function redeemBody(code: string, email: string): { code: string; email?: string } {
-  return email ? { code, email } : { code };
+export function redeemBody(code: string, email: string, requestId: string): { code: string; requestId: string; email?: string } {
+  return email ? { code, requestId, email } : { code, requestId };
 }
 
 /** What to say when the redeem fails: `status` is the HTTP status, or null when the Worker was not reached. Never the code. */

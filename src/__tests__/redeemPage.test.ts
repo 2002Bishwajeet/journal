@@ -42,11 +42,20 @@ async function getKey() {
 
 const json = (status: number, body: unknown) => () => Promise.resolve(new Response(JSON.stringify(body), { status }));
 
+// Each test runs the page's script again on the same window: drop the listeners an earlier run left behind.
+const added: [string, EventListenerOrEventListenerObject][] = [];
+const addListener = window.addEventListener.bind(window);
+
 beforeEach(() => {
     (globalThis as { __BILLING_URL__?: string }).__BILLING_URL__ = WORKER;
+    vi.spyOn(window, 'addEventListener').mockImplementation((type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions) => {
+        added.push([type, listener]);
+        addListener(type, listener, options);
+    });
 });
 
 afterEach(() => {
+    for (const [type, listener] of added.splice(0)) window.removeEventListener(type, listener);
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
 });
@@ -60,6 +69,16 @@ describe('the invite link', () => {
         expect($('#redeem-code-masked').textContent).toBe('K7Q2-••••-••••');
         expect($('#redeem-code-field').hidden).toBe(true);
         expect(document.body.textContent).not.toContain('9XMA');
+    });
+
+    it('reads the code from the fragment first, and strips the fragment and the query', async () => {
+        const fetchMock = await open(`?code=OTHER-CODE#code=${CODE}`, json(200, { licenseKey: KEY }));
+        expect(location.href).not.toContain(CODE);
+        expect(location.search).toBe('');
+        expect(location.hash).toBe('');
+        expect($('#redeem-code-masked').textContent).toBe('K7Q2-••••-••••');
+        await getKey();
+        expect(JSON.parse(fetchMock.mock.calls[0][1]!.body as string).code).toBe(CODE);
     });
 
     it('shows a code field when the address has no code', async () => {
@@ -76,7 +95,7 @@ describe('the invite link', () => {
 
         $<HTMLInputElement>('#redeem-code-input').value = ` ${CODE} `;
         await getKey();
-        expect(JSON.parse(fetchMock.mock.calls[0][1]!.body as string)).toEqual({ code: CODE });
+        expect(JSON.parse(fetchMock.mock.calls[0][1]!.body as string)).toEqual({ code: CODE, requestId: expect.any(String) });
     });
 });
 
@@ -87,7 +106,7 @@ describe('getting the key', () => {
         const [url, init] = fetchMock.mock.calls[0];
         expect(url).toBe(`${WORKER}/invite/redeem`);
         expect(init?.method).toBe('POST');
-        expect(JSON.parse(init!.body as string)).toEqual({ code: CODE });
+        expect(JSON.parse(init!.body as string)).toEqual({ code: CODE, requestId: expect.any(String) });
     });
 
     it('posts the email when one is given, and catches an incomplete one first', async () => {
@@ -100,7 +119,7 @@ describe('getting the key', () => {
 
         email.value = 'alex@example.com';
         await getKey();
-        expect(JSON.parse(fetchMock.mock.calls[0][1]!.body as string)).toEqual({ code: CODE, email: 'alex@example.com' });
+        expect(JSON.parse(fetchMock.mock.calls[0][1]!.body as string)).toEqual({ code: CODE, requestId: expect.any(String), email: 'alex@example.com' });
     });
 
     it('shows the key once it comes, and hides the form', async () => {
@@ -111,6 +130,32 @@ describe('getting the key', () => {
         expect($('#redeem-key').textContent).toBe(KEY);
         expect($('#redeem-done').textContent).toContain("Save this key now. It's only shown once.");
         expect($('#redeem-done a[href="/landing/download"]')).not.toBeNull();
+    });
+
+    it('asks before leaving until the key is copied or saved', async () => {
+        await open(`?code=${CODE}`, json(200, { licenseKey: KEY }));
+        Object.defineProperty(navigator, 'clipboard', { value: { writeText: () => Promise.resolve() }, configurable: true });
+        const leave = () => !window.dispatchEvent(new Event('beforeunload', { cancelable: true }));
+        expect(leave()).toBe(false);
+        await getKey();
+        expect(leave()).toBe(true);
+        $('#redeem-copy').click();
+        await flush();
+        expect(leave()).toBe(false);
+    });
+
+    it('stops asking once the key is saved, and opens the download page in a new tab', async () => {
+        await open(`?code=${CODE}`, json(200, { licenseKey: KEY }));
+        vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:key');
+        vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+        await getKey();
+        const download = $<HTMLAnchorElement>('#redeem-done a[href="/landing/download"]');
+        expect(download.target).toBe('_blank');
+        expect(download.rel).toBe('noopener');
+        const leave = () => !window.dispatchEvent(new Event('beforeunload', { cancelable: true }));
+        expect(leave()).toBe(true);
+        $('#redeem-save').click();
+        expect(leave()).toBe(false);
     });
 
     it('copies the key', async () => {
@@ -139,6 +184,7 @@ describe('getting the key', () => {
         expect(clicked).toHaveBeenCalledOnce();
         expect($('#redeem-saved').textContent).toContain('journal-license-key.txt');
         expect(await blobs[0].text()).toContain(KEY);
+        expect(URL.revokeObjectURL).not.toHaveBeenCalled(); // kept a minute, so a slow download still starts
         expect(fetchMock).toHaveBeenCalledOnce();
     });
 });
@@ -158,7 +204,7 @@ describe('the errors', () => {
 
     it('lets a network error be retried', async () => {
         let reachable = false;
-        await open(`?code=${CODE}`, () => (reachable ? json(200, { licenseKey: KEY })() : Promise.reject(new TypeError('Failed to fetch'))));
+        const fetchMock = await open(`?code=${CODE}`, () => (reachable ? json(200, { licenseKey: KEY })() : Promise.reject(new TypeError('Failed to fetch'))));
         await getKey();
         expect($('#redeem-status').textContent).toMatch(/Check your connection and try again/);
         expect($<HTMLButtonElement>('#redeem-form button[type="submit"]').disabled).toBe(false);
@@ -166,6 +212,10 @@ describe('the errors', () => {
         reachable = true;
         await getKey();
         expect($('#redeem-key').textContent).toBe(KEY);
+        // The same request id on the retry, so the Worker can replay the key a lost answer carried.
+        const [first, second] = fetchMock.mock.calls.map(([, init]) => JSON.parse(init!.body as string).requestId);
+        expect(first).toMatch(/^[0-9a-f-]{36}$/);
+        expect(second).toBe(first);
     });
 
     it('never repeat the code', () => {
@@ -180,8 +230,8 @@ describe('the rules', () => {
     });
 
     it('builds the body and the file', () => {
-        expect(redeemBody(CODE, '')).toEqual({ code: CODE });
-        expect(redeemBody(CODE, 'a@b.example')).toEqual({ code: CODE, email: 'a@b.example' });
+        expect(redeemBody(CODE, '', 'r1')).toEqual({ code: CODE, requestId: 'r1' });
+        expect(redeemBody(CODE, 'a@b.example', 'r1')).toEqual({ code: CODE, requestId: 'r1', email: 'a@b.example' });
         expect(keyFile(KEY)).toContain(KEY);
     });
 });

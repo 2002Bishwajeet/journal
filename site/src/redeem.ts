@@ -17,9 +17,13 @@ const copy = done.querySelector<HTMLButtonElement>('#redeem-copy')!;
 const save = done.querySelector<HTMLButtonElement>('#redeem-save')!;
 const saved = done.querySelector<HTMLElement>('#redeem-saved')!;
 
-// Read the code, then drop the whole query at once so it stays out of the address bar, the history and any referrer.
-const linkCode = new URLSearchParams(location.search).get('code')?.trim() || null;
-if (location.search) history.replaceState(null, '', location.pathname);
+// Read the code (the fragment first, #code=…, which never reaches a server; then ?code=…), then drop both at
+// once. This cleans the address bar and this tab's history entry; it can't reach history a browser already synced.
+const fromLink = (params: string) => new URLSearchParams(params).get('code')?.trim() || null;
+const linkCode = fromLink(location.hash.slice(1)) ?? fromLink(location.search);
+if (location.search || location.hash) history.replaceState(null, '', location.pathname);
+// One per page load, sent with every try: the Worker answers a retry of the same code and request with the same key.
+const requestId = crypto.randomUUID();
 if (linkCode) {
   codeShown.querySelector('strong')!.textContent = maskCode(linkCode);
   codeShown.hidden = false;
@@ -47,11 +51,20 @@ function showKey(key: string): void {
   done.hidden = false;
   done.querySelector<HTMLElement>('h2')!.focus();
 
+  // The key is shown once: ask before the page goes away, until it has been copied or saved.
+  const keepKey = (e: BeforeUnloadEvent) => {
+    e.preventDefault();
+    e.returnValue = ''; // older Safari asks only when this is set
+  };
+  window.addEventListener('beforeunload', keepKey);
+  const kept = () => window.removeEventListener('beforeunload', keepKey);
+
   let timer: number | undefined;
   copy.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(key);
       copy.textContent = 'Copied';
+      kept();
       saved.textContent = 'Key copied. Keep a copy somewhere safe too, like your notes or a password manager.';
     } catch {
       getSelection()?.selectAllChildren(keyText);
@@ -67,8 +80,10 @@ function showKey(key: string): void {
     link.href = url;
     link.download = 'journal-license-key.txt';
     link.click();
+    kept();
     saved.textContent = 'Saved as journal-license-key.txt, in your downloads.';
-    setTimeout(() => URL.revokeObjectURL(url));
+    // Long enough for a slow device to start the download.
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   });
 }
 
@@ -87,7 +102,7 @@ form.addEventListener('submit', async (e) => {
     res = await fetch(`${__BILLING_URL__}/invite/redeem`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(redeemBody(code, email)),
+      body: JSON.stringify(redeemBody(code, email, requestId)),
     });
   } catch {
     // Not reached: the message below asks to try again.
