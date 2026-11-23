@@ -7,6 +7,7 @@ import { installConsoleCapture } from './lib/diagnostics/logBuffer';
 import { addOriginTrialToken } from './lib/agent/modelContext';
 import { installResumeRestore } from './lib/resumeRestore';
 import { installReloadLog } from './lib/reloadReason';
+import { logLastHang } from './lib/db/dbHealth';
 import { keepPageInPlace } from './lib/keyboardViewport';
 import { routeExternalLinks } from './lib/native';
 import { inTauriApp } from './lib/db/databaseKey';
@@ -49,6 +50,8 @@ addOriginTrialToken(import.meta.env.VITE_WEBMCP_OT_TOKEN);
 
 // Logs why the page reloaded by itself, after the console capture so Diagnostics keeps it (#1368).
 installReloadLog();
+// The last session's database hang, in the same log (#1467).
+logLastHang();
 
 // Puts a page iOS reloaded in the background back where it was (#1187).
 installResumeRestore();

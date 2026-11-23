@@ -17,14 +17,20 @@
  *      close handler has already run, so the lock is never released and every
  *      tab's queries hang until the leader tab goes away.
  *   2. The tab-close handler marks the tab closed (`tabClosed`), which is what
- *      change 1 checks.
- *   3. No RPC reply is posted to a closed tab's channel. Upstream throws an
- *      unhandled InvalidStateError there.
+ *      change 1 checks. That lock request is rejected, not left waiting, so its
+ *      tab gets an error (change 3).
+ *   3. A closed tab's channel stays open and answers every call with an error.
+ *      Upstream closes it, so a tab still running when its close lock is granted
+ *      (WebKit's Networking process restarting, #1467) waits on every query for
+ *      good, with no error. A tab that is really gone hears nothing, and its
+ *      channel costs the leader one idle BroadcastChannel.
  */
 import type { PGlite } from '@electric-sql/pglite';
 import type { PGliteWorkerOptions, WorkerOptions } from '@electric-sql/pglite/worker';
 
 export const ADAPTED_FROM_PGLITE_VERSION = '0.5.16';
+
+const TAB_CLOSED = 'PGlite: this tab\'s connection to the database worker was closed';
 
 export async function worker({ init }: WorkerOptions) {
   // Send a message to the main thread to let it know we are here
@@ -96,15 +102,14 @@ function connectTab(tabId: string, pg: PGlite, connectedTabs: Set<string>) {
   const tabChannelId = `pglite-tab:${tabId}`;
   const tabCloseLockId = `pglite-tab-close:${tabId}`;
   const tabChannel = new BroadcastChannel(tabChannelId);
-  // Change 3: set once the tab closes, so late replies are dropped.
+  // Change 3: set once the tab closes; later calls get an error.
   let channelClosed = false;
 
   // Use a tab close lock to unsubscribe the tab
   navigator.locks.request(tabCloseLockId, () => {
     return new Promise<void>((resolve) => {
-      // The tab has been closed, unsubscribe the tab broadcast channel
+      // The tab has been closed (change 3: its channel stays open to answer)
       channelClosed = true;
-      tabChannel.close();
       connectedTabs.delete(tabId);
       resolve();
     });
@@ -119,13 +124,13 @@ function connectTab(tabId: string, pg: PGlite, connectedTabs: Set<string>) {
         await pg.waitReady;
         const { callId, method, args } = msg as { callId: string; method: keyof WorkerApi; args: unknown[] };
         try {
+          // Change 3: a closed tab's call fails rather than waiting for good.
+          if (channelClosed) throw new Error(TAB_CLOSED);
           const result = await (api[method] as (...a: unknown[]) => Promise<unknown>)(...args);
-          if (!channelClosed) tabChannel.postMessage({ type: 'rpc-return', callId, result });
+          tabChannel.postMessage({ type: 'rpc-return', callId, result });
         } catch (error) {
           console.error(error);
-          if (!channelClosed) {
-            tabChannel.postMessage({ type: 'rpc-error', callId, error: { message: (error as Error).message } });
-          }
+          tabChannel.postMessage({ type: 'rpc-error', callId, error: { message: (error as Error).message } });
         }
         break;
       }
@@ -213,11 +218,14 @@ function makeWorkerApi(tabId: string, db: PGlite) {
       return await db._checkReady();
     },
     async _acquireQueryLock() {
-      return new Promise<void>((resolve) => {
+      return new Promise<void>((resolve, reject) => {
         db._runExclusiveQuery(() => {
           return new Promise<void>((release) => {
             // Change 1: the tab closed while this request was queued.
-            if (tabClosed) return release();
+            if (tabClosed) {
+              reject(new Error(TAB_CLOSED));
+              return release();
+            }
             queryLockRelease = release;
             resolve();
           });
@@ -229,11 +237,14 @@ function makeWorkerApi(tabId: string, db: PGlite) {
       queryLockRelease = null;
     },
     async _acquireTransactionLock() {
-      return new Promise<void>((resolve) => {
+      return new Promise<void>((resolve, reject) => {
         db._runExclusiveTransaction(() => {
           return new Promise<void>((release) => {
             // Change 1: the tab closed while this request was queued.
-            if (tabClosed) return release();
+            if (tabClosed) {
+              reject(new Error(TAB_CLOSED));
+              return release();
+            }
             transactionLockRelease = release;
             resolve();
           });

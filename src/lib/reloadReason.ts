@@ -14,6 +14,8 @@ import { LAST_RELOAD_KEY, readJson, writeJson } from '@/lib/storage';
  * - `service-worker-update`: a new service worker took over (UpdatePrompt.tsx).
  * - `chunk-error`, `stale-bundle`: a lazy chunk failed to load, or React broke the way a
  *   stale bundle does (chunkReload.ts, sw-safety.ts).
+ * - `db-unresponsive`: the database stopped answering, and the user picked Reload, or the
+ *   page was hidden (#1467, src/lib/db/dbHealth.ts).
  */
 export type ReloadReason =
     | 'content-process-terminated'
@@ -21,7 +23,8 @@ export type ReloadReason =
     | 'freeze-resume'
     | 'service-worker-update'
     | 'chunk-error'
-    | 'stale-bundle';
+    | 'stale-bundle'
+    | 'db-unresponsive';
 
 interface LastReload {
     reason: ReloadReason;

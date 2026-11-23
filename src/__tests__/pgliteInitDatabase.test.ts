@@ -212,6 +212,7 @@ beforeEach(() => {
   // pglite.ts constructs a Worker before PGliteWorker.create sees it.
   page = new EventTarget();
   vi.stubGlobal('addEventListener', page.addEventListener.bind(page));
+  vi.stubGlobal('removeEventListener', page.removeEventListener.bind(page));
   doc = Object.assign(new EventTarget(), { visibilityState: 'visible' });
   vi.stubGlobal('document', doc);
   vi.stubGlobal('Worker', class FakeWorker extends EventTarget {

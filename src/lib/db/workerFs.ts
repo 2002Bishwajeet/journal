@@ -60,6 +60,8 @@ export async function createWorkerFs(dataDir: string | undefined, key: CryptoKey
     onProgress: ({ phase, done, total }) => {
       if (phase === 'blocks') postMessage({ type: 'journal-open-progress', done, total });
     },
+    // The store stopped syncing for good: tell the page, whose recovery reloads (#1467, dbHealth.ts).
+    onFatal: (error) => postMessage({ type: 'journal-storage-error', text: `${error.name}: ${error.message}` }),
   });
   // Strict: the engine's own syncs under relaxedDurability are relaxed ones.
   return { fs, flush: () => fs.syncToFs(false) };
