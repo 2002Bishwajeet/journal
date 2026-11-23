@@ -16,6 +16,24 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.73.20 (2026-11-23)
+
+### New
+
+- In Search, you can narrow the results with filters: `tag:recipe` or `#recipe`, `folder:work`, `is:pinned`, `is:shared`, `is:public`, `before:2026-10-01` and `after:2026-10` (or `after:today`, `yesterday`, `week`, `month`). You can use filters with text or alone.
+- While you type a filter, Search shows the tags, folders or values that complete it. Each filter shows as a chip below the search box. Tap the chip to remove the filter.
+- On a phone, the Folder, Tag, Date and Pinned buttons below the search box add a filter.
+- You can connect Claude Desktop to Journal without a terminal. On the "Use with Claude" page, download the Claude Desktop extension, open it, type your Homebase address and approve Journal MCP in your browser.
+
+### Changed
+
+- Search works with a screen reader: it announces the selected result and the result count, and Tab stays inside the search. Closing it returns focus to where you were.
+
+### Fixed
+
+- On Android, you can activate a license key. The app can now connect to the license server.
+- In the iOS and Android apps, Export opens the share sheet. You can save the ZIP file to Files or Drive, or send it with AirDrop. In the desktop app, Export asks where to save the ZIP file.
+
 ## 2.73.19 (2026-11-23)
 
 ### New
