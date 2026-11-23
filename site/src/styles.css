@@ -440,13 +440,29 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
   grid-template-areas: 'num note copy' '. cmd cmd' '. hint hint';
   padding: 0 8px 0 12px; border-radius: var(--radius); background: rgb(255 255 255 / 0.04); counter-increment: cmd;
 }
-.snippet::before {
+.snippet::before, .step::before {
   content: counter(cmd); content: counter(cmd) / ''; /* the list already says the number to a screen reader */
   grid-area: num; display: grid; place-items: center; width: 26px; height: 26px; margin-top: 12px; border-radius: 50%;
   background: rgb(255 255 255 / 0.1); color: var(--code-ink); font-size: 14px; font-weight: 650; line-height: 1;
   font-variant-numeric: tabular-nums;
 }
 .snippet .code-note { grid-area: note; }
+/* Claude Desktop (#1457): the extension's download, then its steps, numbered like the command rows but with
+   no command; the terminal route folds away under them. On the dark panel the button takes the panel's ink. */
+.mcpb { display: grid; justify-items: start; gap: 4px; padding: 8px 12px 12px; }
+.code-panel .btn-primary { background: var(--code-ink); color: var(--code-bg); }
+@media (hover: hover) and (pointer: fine) { .code-panel .btn-primary:hover { background: color-mix(in srgb, var(--code-ink) 86%, var(--code-bg)); } }
+.step {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; padding: 0 12px 12px;
+  border-radius: var(--radius); background: rgb(255 255 255 / 0.04); counter-increment: cmd;
+}
+.step .code-note { color: var(--code-ink); }
+.alt-setup summary {
+  display: flex; align-items: center; min-height: 44px; margin: 0 8px 8px; padding: 0 12px; border-radius: var(--radius);
+  font-size: var(--fs-small); color: #B9B6AE; cursor: pointer; user-select: none; -webkit-user-select: none;
+}
+.alt-setup[open] summary { color: var(--code-ink); }
+@media (hover: hover) and (pointer: fine) { .alt-setup summary:hover { color: var(--code-ink); } }
 .snippet .copy-btn { grid-area: copy; }
 .code-note { padding-top: 12px; font-size: var(--fs-small); line-height: 1.5; color: #B9B6AE; }
 .code-note code { color: var(--code-ink); white-space: normal; overflow-wrap: anywhere; }

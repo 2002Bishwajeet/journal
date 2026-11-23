@@ -7,15 +7,22 @@ import { createJournalMcpServer } from './createServer';
 // The npm package's README (#1035): mcp/README.npm.md with the tool list read from the real server, so it can't drift.
 // `npm run mcp:pack` runs this with --write, which also copies the repo's LICENSE into the package.
 
-/** The server's tools as a markdown table: name, whether it writes, and the first sentence of its description. */
-async function toolTable(): Promise<string> {
+/** The tools the real server lists (also the Desktop Extension's manifest, mcp/mcpb.ts). */
+export async function serverTools() {
     const server = createJournalMcpServer({} as Parameters<typeof createJournalMcpServer>[0]);
     const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
     const client = new Client({ name: 'npm-readme', version: '0' });
     await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
     const { tools } = await client.listTools();
     await client.close();
-    const rows = tools.map((t) => `| \`${t.name}\` | ${t.annotations?.readOnlyHint ? 'Reads' : 'Writes'} | ${(t.description ?? '').split(/(?<=\.)\s/)[0]} |`);
+    return tools;
+}
+
+export const firstSentence = (text = '') => text.split(/(?<=\.)\s/)[0];
+
+/** The server's tools as a markdown table: name, whether it writes, and the first sentence of its description. */
+async function toolTable(): Promise<string> {
+    const rows = (await serverTools()).map((t) => `| \`${t.name}\` | ${t.annotations?.readOnlyHint ? 'Reads' : 'Writes'} | ${firstSentence(t.description)} |`);
     return ['| Tool | Access | What it does |', '| --- | --- | --- |', ...rows].join('\n');
 }
 

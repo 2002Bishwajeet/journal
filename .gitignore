@@ -64,3 +64,5 @@ mcp/package/dist/
 mcp/package/README.md
 mcp/package/LICENSE
 mcp/*.tgz
+mcp/mcpb-build/
+mcp/*.mcpb

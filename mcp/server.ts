@@ -1,6 +1,7 @@
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { createJournalMcpServer } from './createServer';
 import { loadCredentials, deleteCredentials } from './credentials';
+import { firstRunDeps } from './firstRun';
 import { checkForUpdate, updateNotice } from './updateCheck';
 
 const USAGE = `Usage: journal-mcp [login [--no-browser] [identity] | logout | --help]
@@ -48,8 +49,10 @@ async function main(): Promise<void> {
         process.exit(1);
     }
 
+    // Set by the Claude Desktop extension (mcp/mcpb.ts): the address typed at install, signed in on first run.
+    const identity = process.env.JOURNAL_MCP_IDENTITY;
     const creds = loadCredentials();
-    if (!creds) {
+    if (!creds && !identity) {
         console.error('Not logged in. Run: journal-mcp login <identity> (Claude Code plugin: /journal:login)');
         process.exit(1);
     }
@@ -57,9 +60,16 @@ async function main(): Promise<void> {
     // Deferred: pulls in the Homebase drive providers and Yjs markdown extraction, which
     // --help/login/logout have no need for.
     const { createDriveDeps } = await import('./drive');
+    const deps = identity
+        ? firstRunDeps(identity, {
+              loadCredentials,
+              login: async (id, onAuthUrl) => (await import('./login')).login(id, { onAuthUrl }),
+              createDriveDeps,
+          })
+        : createDriveDeps(creds!);
     // The packaged build defines JOURNAL_MCP_VERSION (mcp/vite.config.ts); a checkout has none and skips the check.
     const version = process.env.JOURNAL_MCP_VERSION;
-    const server = createJournalMcpServer(createDriveDeps(creds), updateNotice(version));
+    const server = createJournalMcpServer(deps, updateNotice(version));
     if (version) void checkForUpdate();
     await server.connect(new StdioServerTransport());
     // Correct stdio behaviour for an MCP server: exit when the client closes our stdin
