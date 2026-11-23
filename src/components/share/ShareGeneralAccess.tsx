@@ -100,6 +100,8 @@ interface ShareGeneralAccessProps {
     /** The "links to private notes" step is open. Held by the dialog, so it survives the dialog/sheet switch. */
     askingAboutLinks: boolean;
     setAskingAboutLinks: (asking: boolean) => void;
+    /** Someone besides the owner has access (a person or circle, a pending invite included). */
+    hasOtherAccess: boolean;
 }
 
 /**
@@ -107,7 +109,7 @@ interface ShareGeneralAccessProps {
  * the note's link for the people with access (#1002). On, it shows the link with copy, the
  * link-card settings and the way to turn it off (the old Share dialog).
  */
-export function ShareGeneralAccess({ noteId, metadata, publishing, onMakePublic, askingAboutLinks, setAskingAboutLinks }: ShareGeneralAccessProps) {
+export function ShareGeneralAccess({ noteId, metadata, publishing, onMakePublic, askingAboutLinks, setAskingAboutLinks, hasOtherAccess }: ShareGeneralAccessProps) {
     const { getIdentity } = useAuth();
     const { setShareCard } = useNotes();
     const { syncNote } = useSyncService();
@@ -202,15 +204,18 @@ export function ShareGeneralAccess({ noteId, metadata, publishing, onMakePublic,
                 {!isPublic ? (
                     <div className="flex flex-col gap-4">
                         {/* The same link as the public one (#1002): it opens the note for the people
-                            with access, and keeps working if the note is made public later. */}
-                        <div className="flex flex-col gap-2">
-                            <Button variant="outline" className="w-full max-sm:h-11" onClick={handleCopyLink} aria-describedby="share-restricted-link-help">
-                                {copyLabel}
-                            </Button>
-                            <p id="share-restricted-link-help" className="text-xs leading-relaxed text-muted-foreground">
-                                Only people with access can open this link.
-                            </p>
-                        </div>
+                            with access, and keeps working if the note is made public later. With only
+                            the owner having access it is no use to anyone, and reads as "make public". */}
+                        {hasOtherAccess && (
+                            <div className="flex flex-col gap-2">
+                                <Button variant="outline" className="w-full max-sm:h-11" onClick={handleCopyLink} aria-describedby="share-restricted-link-help">
+                                    {copyLabel}
+                                </Button>
+                                <p id="share-restricted-link-help" className="text-xs leading-relaxed text-muted-foreground">
+                                    Only people with access can open this link.
+                                </p>
+                            </div>
+                        )}
 
                         <Notice icon={Eye}>
                             Making this note public will allow anyone with the link to view it, along with what its html and react blocks have saved.
