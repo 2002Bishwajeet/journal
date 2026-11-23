@@ -279,7 +279,7 @@ describe('the pricing and buy copy', () => {
         const benefits = [
             'Your notes encrypted on your device too',
             'Lock the app, or one note or folder, with Face ID, Touch ID or Windows Hello',
-            'Jot a note from anywhere on your computer with Cmd+Shift+J, or Ctrl+Shift+J on Windows and Linux',
+            'Jot a note from anywhere on your computer with Cmd+Shift+J, or Ctrl+Shift+J on Windows and Linux (not yet on Linux Wayland)',
             'Keeps syncing from the tray or menu bar, and starts at login',
             'Share links that open in the app',
             "Writing help from Apple's on-device model on iPhone and iPad",
