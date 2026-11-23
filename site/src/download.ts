@@ -1,4 +1,4 @@
-import { archNote, cpuArch, desktopOS, downloadLayout, type Arch } from './downloads'
+import { archNote, cpuArch, desktopOS, type Arch } from './downloads'
 
 // Shows the visitor's OS as the one download and folds the other two under "Other platforms". Without script,
 // or on a phone or an unknown agent, the page keeps the plain list of all three.
@@ -17,7 +17,7 @@ const shown = os && list?.querySelector<HTMLElement>(`.dl-item[data-os="${os}"]`
 if (os && list && shown) {
   const rest = document.createElement('ul')
   rest.className = 'dl-list'
-  for (const o of downloadLayout(os).other) rest.append(list.querySelector(`.dl-item[data-os="${o}"]`)!)
+  rest.append(...list.querySelectorAll(`.dl-item:not([data-os="${os}"])`))
   const details = document.createElement('details')
   details.className = 'dl-other'
   details.innerHTML = '<summary>Other platforms</summary>'

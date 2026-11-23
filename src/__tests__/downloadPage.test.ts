@@ -4,7 +4,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { archNote, cpuArch, downloadLayout } from '../../site/src/downloads';
+import { archNote, cpuArch } from '../../site/src/downloads';
 import { render } from '../../site/vite.config';
 
 describe('cpuArch', () => {
@@ -42,16 +42,6 @@ describe('archNote', () => {
 
     it('says there is no ARM build on Linux on ARM', () => {
         expect(archNote('linux', 'arm')).toMatchObject({ noBuild: true, text: expect.stringMatching(/no ARM build/) });
-    });
-});
-
-describe('downloadLayout', () => {
-    it.each([
-        ['mac', ['windows', 'linux']],
-        ['windows', ['mac', 'linux']],
-        ['linux', ['mac', 'windows']],
-    ] as const)('shows %s and collapses the other two', (os, other) => {
-        expect(downloadLayout(os)).toEqual({ shown: os, other });
     });
 });
 

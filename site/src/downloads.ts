@@ -48,13 +48,6 @@ export function cpuArch(values: { architecture?: string; bitness?: string } | nu
   return values?.architecture === 'x86' && values.bitness === '64' ? 'x64' : null
 }
 
-const OS_ORDER: DesktopOS[] = ['mac', 'windows', 'linux']
-
-/** The download page shows the visitor's OS as one card; the other two go under "Other platforms". */
-export function downloadLayout(os: DesktopOS): { shown: DesktopOS; other: DesktopOS[] } {
-  return { shown: os, other: OS_ORDER.filter((o) => o !== os) }
-}
-
 /**
  * A short note under the shown card for a CPU that needs one. A Mac needs no check, its build is universal.
  * Windows on ARM runs the x64 installer under emulation. Linux on ARM has no build yet, so `noBuild` is set.
