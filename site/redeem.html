@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <!-- The invite link puts its code in this page's address: never send it on as a referrer, and keep the page out of search. -->
+  <meta name="referrer" content="no-referrer" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>You've been invited to Journal</title>
+  <meta name="description" content="A free lifetime license for the Journal apps on Mac, Windows, Linux, iPhone and iPad." />
+  <meta property="og:title" content="You've been invited to Journal" />
+  <meta property="og:description" content="A free lifetime license for the Journal apps on Mac, Windows, Linux, iPhone and iPad." />
+  <!-- head -->
+</head>
+<body data-page="redeem">
+  <!-- header -->
+
+  <main id="main">
+    <section class="page-hero" aria-labelledby="redeem-title">
+      <div class="wrap buy">
+        <div class="buy-head">
+          <h1 class="display page-title" id="redeem-title" data-reveal>You've been invited to Journal</h1>
+          <p class="lede" data-reveal style="--i:1">A lifetime license for the Journal apps on Mac, Windows, Linux, iPhone and iPad. Every update, up to 5 devices. Free, no card.</p>
+        </div>
+
+        <div class="buy-panel" data-reveal style="--i:2">
+          <form class="buy-form" id="redeem-form" novalidate>
+            <h2 class="h3">Get your license key</h2>
+            <p class="redeem-code" id="redeem-code" hidden>Invite code <strong id="redeem-code-masked"></strong></p>
+            <div class="redeem-field" id="redeem-code-field">
+              <label class="buy-label" for="redeem-code-input">Invite code</label>
+              <input class="buy-input" id="redeem-code-input" name="code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-describedby="redeem-status" />
+            </div>
+            <div class="redeem-field">
+              <label class="buy-label" for="redeem-email">Email <span class="redeem-optional">(optional)</span></label>
+              <input class="buy-input" id="redeem-email" name="email" type="email" autocomplete="email" inputmode="email" spellcheck="false" aria-describedby="redeem-email-hint redeem-status" />
+              <p class="small" id="redeem-email-hint">So the key is linked to you. We don't email you.</p>
+            </div>
+            <p class="buy-status" id="redeem-status" role="alert"></p>
+            <button class="btn btn-primary" type="submit">Get my key</button>
+          </form>
+
+          <div class="redeem-done" id="redeem-done" hidden>
+            <h2 class="h3" id="redeem-done-title" tabindex="-1">Your license key</h2>
+            <p class="redeem-key" id="redeem-key"></p>
+            <p class="redeem-warn">Save this key now. It's only shown once.</p>
+            <div class="redeem-actions">
+              <button class="btn btn-primary" id="redeem-copy" type="button">Copy</button>
+              <button class="btn btn-secondary" id="redeem-save" type="button">Save as text file</button>
+            </div>
+            <h3 class="h3">Start using it</h3>
+            <ol class="redeem-steps">
+              <li><a href="/landing/download">Download the Journal app</a>.</li>
+              <li>Open Journal.</li>
+              <li>Enter the key. On a computer it goes on the license screen. On iPhone or iPad, tap “Have a license key?” at the bottom of the paywall.</li>
+            </ol>
+          </div>
+        </div>
+
+        <div class="buy-includes" data-reveal style="--i:3">
+          <h2 class="h3">What the key gives you</h2>
+          <ul class="ticks">
+            <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Every update to the apps, with nothing to renew</li>
+            <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Up to 5 of your devices at once</li>
+            <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>The apps check the key about once a week, and keep working offline for 60 days</li>
+            <li><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Journal in the browser stays free, with or without a key</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- footer -->
+  <script type="module" src="/src/redeem.ts"></script>
+</body>
+</html>
