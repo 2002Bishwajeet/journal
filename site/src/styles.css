@@ -458,9 +458,12 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 }
 .step .code-note { color: var(--code-ink); }
 .alt-setup summary {
-  display: flex; align-items: center; min-height: 44px; margin: 0 8px 8px; padding: 0 12px; border-radius: var(--radius);
-  font-size: var(--fs-small); color: #B9B6AE; cursor: pointer; user-select: none; -webkit-user-select: none;
+  display: flex; align-items: center; gap: 8px; min-height: 44px; margin: 0 8px 8px; padding: 0 12px; border-radius: var(--radius);
+  font-size: var(--fs-small); color: #B9B6AE; cursor: pointer; list-style: none; user-select: none; -webkit-user-select: none;
 }
+.alt-setup summary::-webkit-details-marker { display: none; }
+.alt-chev { width: 18px; height: 18px; transition: transform 200ms var(--ease-out); }
+.alt-setup[open] .alt-chev { transform: rotate(180deg); }
 .alt-setup[open] summary { color: var(--code-ink); }
 @media (hover: hover) and (pointer: fine) { .alt-setup summary:hover { color: var(--code-ink); } }
 .snippet .copy-btn { grid-area: copy; }
@@ -513,6 +516,7 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
   .install .snippet pre { padding: 4px 0 10px; }
   .code-hint { margin-top: -4px; padding-bottom: 10px; }
   .cmds { padding: 0 4px 4px; }
+  .mcpb .btn { width: 100%; }
 }
 .copy-btn {
   display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 4px; padding: 0 14px;
