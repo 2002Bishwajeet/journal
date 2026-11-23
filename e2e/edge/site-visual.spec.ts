@@ -32,8 +32,11 @@ async function settle(page: Page) {
     window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' });
   });
   await expect(page.locator('[data-reveal]:not(.in)')).toHaveCount(0);
-  // The home page's Mermaid playground draws once it has been scrolled to.
-  if (await page.locator('#pg-output').count()) await expect(page.locator('.pg-status')).toHaveText('Rendered');
+  // The home page's Mermaid playground draws once it has been scrolled near: the jump to the bottom skips past it.
+  if (await page.locator('#pg-output').count()) {
+    await page.locator('.playground').scrollIntoViewIfNeeded();
+    await expect(page.locator('.pg-status')).toHaveText('Rendered');
+  }
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
 }
 
