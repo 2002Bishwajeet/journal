@@ -18,12 +18,14 @@ export const BILLING_LIVE = process.env.VITE_BILLING_LIVE === 'true'
 // The download page's installer links stay off ("coming soon") until the first desktop release is out
 // (desktop-release.yml). Turn them on with VITE_DOWNLOADS_LIVE=true, like VITE_BILLING_LIVE.
 export const DOWNLOADS_LIVE = process.env.VITE_DOWNLOADS_LIVE === 'true'
-// The App Store and Google Play badges stay off until the phone apps are in the stores.
-// Turn them on with VITE_STORES_LIVE=true, like VITE_BILLING_LIVE.
-export const STORES_LIVE = process.env.VITE_STORES_LIVE === 'true'
+// The App Store badge stays off until the iPhone app is in the App Store (VITE_APPSTORE_LIVE=true turns it on, like
+// VITE_BILLING_LIVE), the Google Play badge until the Android app is in Google Play (VITE_PLAY_LIVE=true). While Play is
+// off the pages say "Android: coming later" instead. The Play badge shows only beside the App Store one.
+export const APPSTORE_LIVE = process.env.VITE_APPSTORE_LIVE === 'true'
+export const PLAY_LIVE = process.env.VITE_PLAY_LIVE === 'true'
 // The buy page's renew form stays off until the first keys can be renewed (November 2027). Turn it on with VITE_RENEW_LIVE=true.
 export const RENEW_LIVE = process.env.VITE_RENEW_LIVE === 'true'
-const LIVE = { billing: BILLING_LIVE, downloads: DOWNLOADS_LIVE, stores: STORES_LIVE, renew: RENEW_LIVE }
+const LIVE = { billing: BILLING_LIVE, downloads: DOWNLOADS_LIVE, appstore: APPSTORE_LIVE, play: PLAY_LIVE, renew: RENEW_LIVE }
 
 /** Keeps a page's `<!-- <flag>-live -->…<!-- /<flag>-live -->` parts when the flag is on, its `<flag>-soon` parts when it is off. */
 export function flagBlocks(html: string, flag: string, live: boolean): string {
