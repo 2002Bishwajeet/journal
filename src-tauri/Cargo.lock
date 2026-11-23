@@ -2232,6 +2232,7 @@ dependencies = [
  "tauri-plugin-biometric",
  "tauri-plugin-browser",
  "tauri-plugin-deep-link",
+ "tauri-plugin-export",
  "tauri-plugin-global-shortcut",
  "tauri-plugin-notification",
  "tauri-plugin-opener",
@@ -4533,6 +4534,17 @@ dependencies = [
  "url",
  "windows-registry",
  "windows-result",
+]
+
+[[package]]
+name = "tauri-plugin-export"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "rfd",
+ "serde",
+ "tauri",
+ "tauri-plugin",
 ]
 
 [[package]]

@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { toast } from "sonner";
 import { useDotYouClientContext } from "@/components/auth";
 import { useSyncService } from "@/hooks/useSyncService";
+import { isNativeApp, saveFile } from "@/lib/native";
 
 export interface UseImportExportReturn {
     // State
@@ -22,8 +23,15 @@ export function useImportExport(): UseImportExportReturn {
     const handleExport = useCallback(async () => {
         try {
             setIsExporting(true);
-            const { ExportService } = await import("@/lib/importexport/ExportService");
+            const { ExportService, downloadBlob } = await import("@/lib/importexport/ExportService");
             const result = await ExportService.exportAllAsZip(dotYouClient);
+            // A blob download goes nowhere useful in the app's web view (#1205): the native app
+            // asks where to save, or opens the share sheet, and the user may cancel.
+            if (isNativeApp()) {
+                if (!(await saveFile(result.blob, result.filename))) return;
+            } else {
+                downloadBlob(result.blob, result.filename);
+            }
             const missingImagesNote = result.missingImages > 0
                 ? ` ${result.missingImages} images couldn't be exported (offline?)`
                 : "";

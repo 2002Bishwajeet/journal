@@ -1,0 +1,21 @@
+[package]
+name = "tauri-plugin-export"
+version = "0.1.0"
+description = "Saves Journal's export: a Save dialog on desktop, the share sheet on iOS and Android (#1205)."
+edition = "2021"
+publish = false
+links = "tauri-plugin-export"
+
+[dependencies]
+tauri = "2"
+serde = { version = "1", features = ["derive"] }
+# The file comes over IPC as base64: Android's IPC has no raw byte bodies, and a JSON number
+# array is several times the file's size. Already in the tree through tauri.
+base64 = "0.22"
+
+# The Save dialog: the same rfd and GTK backend as the app (../../Cargo.toml).
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+rfd = { version = "0.17", default-features = false, features = ["gtk3"] }
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }

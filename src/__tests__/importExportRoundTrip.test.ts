@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 /**
  * Export All Notes -> Import Archive gives back the same notes (#672).
- * Real ExportService + ImportService on PGlite; only the payload fetch and the download are stubbed.
+ * Real ExportService + ImportService on PGlite; only the payload fetch and blob URLs are stubbed.
  */
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { PGlite } from '@electric-sql/pglite';
@@ -125,16 +125,12 @@ describe('export all -> import the zip (#672)', () => {
             return { bytes: PAYLOADS[key], contentType: 'image/jpeg' };
         });
 
-        let exported: Blob | undefined;
         let urls = 0;
-        vi.spyOn(URL, 'createObjectURL').mockImplementation((obj: Blob | MediaSource) => {
-            exported ??= obj as Blob;
-            return `blob:mock-${urls++}`;
-        });
+        vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:mock-${urls++}`);
         vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
 
-        await ExportService.exportAllAsZip({} as DotYouClient);
-        const file = new File([exported!], 'export.zip');
+        const { blob } = await ExportService.exportAllAsZip({} as DotYouClient);
+        const file = new File([blob], 'export.zip');
         const result = await ImportService.importFiles([file]);
         expect(result.failed).toBe(0);
         expect(result.imported).toBe(seeds.length);
@@ -247,15 +243,11 @@ describe('export all -> import, every note in one folder', () => {
             docId, title: 'Only note', plainTextContent: '',
             metadata: { title: 'Only note', folderId: FOLDER_ID, tags: [], timestamps: { created: CREATED, modified: MODIFIED }, excludeFromAI: false },
         });
-        let exported: Blob | undefined;
-        vi.spyOn(URL, 'createObjectURL').mockImplementation((obj: Blob | MediaSource) => {
-            exported ??= obj as Blob;
-            return 'blob:mock';
-        });
+        vi.spyOn(URL, 'createObjectURL').mockImplementation(() => 'blob:mock');
         vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
 
-        await ExportService.exportAllAsZip({} as DotYouClient);
-        await ImportService.importFiles([new File([exported!], 'export.zip')]);
+        const { blob } = await ExportService.exportAllAsZip({} as DotYouClient);
+        await ImportService.importFiles([new File([blob], 'export.zip')]);
 
         const copy = (await getAllDocuments()).find((d) => d.docId !== docId)!;
         expect(copy.title).toBe('Only note');

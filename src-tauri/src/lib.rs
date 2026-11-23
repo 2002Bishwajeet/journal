@@ -887,7 +887,9 @@ pub fn run() {
         // journal:// links (desktop) open the app; useDeepLinks routes them.
         .plugin(tauri_plugin_deep_link::init())
         .plugin(system_bars_plugin())
-        .plugin(db_key::plugin());
+        .plugin(db_key::plugin())
+        // Export's Save dialog or share sheet (plugins/export, #1205).
+        .plugin(tauri_plugin_export::init());
     #[cfg(desktop)]
     let builder = builder
         .plugin(tauri_plugin_updater::Builder::new().build())

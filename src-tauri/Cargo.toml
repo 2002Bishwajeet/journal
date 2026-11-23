@@ -41,6 +41,9 @@ keyring-core = "1"
 # External links and the macOS sign-in open in the default browser (src/lib/native.ts); on iOS and
 # Android it opens the store listing's itms-apps:// and market:// links (#1439).
 tauri-plugin-opener = "2"
+# Settings → Data → Export: a Save dialog on desktop, the share sheet on iOS and Android
+# (plugins/export, #1205).
+tauri-plugin-export = { path = "plugins/export" }
 
 # Native error dialog when the asset server can't bind (lib.rs). Same library
 # and GTK backend tauri-plugin-dialog uses, without that plugin's tauri bump and
