@@ -1,7 +1,6 @@
 // Ask for an App Store / Play rating with the system dialog (#1439). Native iOS and Android
 // only. The counters live in local storage on the device and never leave it.
 import { hasNativePlugin, invokeNative, nativePlatform, type NativePlatform } from '@/lib/native';
-import { BRIDGE_PLUGIN } from '@/lib/native/bridge';
 import { localDateKey } from '@/lib/reminderSchedule';
 
 export const REVIEW_STATE_KEY = 'journal-review-prompt';
@@ -9,6 +8,8 @@ export const REVIEW_MIN_DAYS = 3;
 export const REVIEW_MIN_NOTES = 5;
 export const REVIEW_INTERVAL_MS = 90 * 24 * 60 * 60 * 1000;
 
+/** The store plugin: StoreKit on iOS, the Play In-App Review API on Android (#1443). */
+const REVIEW_PLUGIN = 'journal-iap';
 const APP_STORE_ID = '6833436628';
 const PLAY_PACKAGE = 'com.biswa.journal';
 
@@ -65,16 +66,16 @@ export function recordNoteSaveDay(now: Date): void {
 
 /**
  * Shows the system rating dialog when `reviewEligible`, and records it so the version and
- * 90-day caps hold. Needs the bridge plugin: without it nothing is shown or recorded.
+ * 90-day caps hold. Needs the store plugin: without it nothing is shown or recorded.
  */
 export async function maybeRequestReview(noteCount: number, busy: boolean): Promise<boolean> {
     const now = new Date();
     const state = readReviewState();
     const eligible = reviewEligible({ platform: nativePlatform(), state, noteCount, version: __APP_VERSION__, now, busy });
-    if (!eligible || !hasNativePlugin(BRIDGE_PLUGIN)) return false;
+    if (!eligible || !hasNativePlugin(REVIEW_PLUGIN)) return false;
     writeReviewState({ ...state, lastVersion: __APP_VERSION__, lastAt: now.toISOString() });
     try {
-        await invokeNative(BRIDGE_PLUGIN, 'request_review');
+        await invokeNative(REVIEW_PLUGIN, 'request_review');
     } catch (err) {
         console.warn('[review] Rating request failed:', err);
     }

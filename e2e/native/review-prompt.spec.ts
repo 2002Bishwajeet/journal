@@ -5,7 +5,7 @@ import { fakeKeychain } from '../support/fakeKeychain';
 import { activeTitleInput, openSettingsSection, settingsPanel, typeInEditor } from '../support/actions';
 
 // #1439: the system rating dialog in the native app. The app is forced native through the init-script
-// globals, as in paywall.spec.ts, with the bridge plugin listed and its request_review command faked
+// globals, as in paywall.spec.ts, with the store plugin listed and its request_review command faked
 // and counted. The review state starts with two earlier days of saving notes, so today is the third.
 
 const AUTH = { storageState: 'e2e/fixtures/hermetic-auth.json' };
@@ -14,12 +14,12 @@ async function openApp(browser: Browser, platform: 'ios' | 'macos', body: (page:
     await withFencedPage(browser, AUTH, async (page) => {
         await page.addInitScript((platform) => {
             const w = window as unknown as Record<string, unknown>;
-            w.__JOURNAL_NATIVE__ = { platform, plugins: ['journal-bridge'] };
+            w.__JOURNAL_NATIVE__ = { platform, plugins: ['journal-iap'] };
             w.__TAURI_INTERNALS__ = {
                 transformCallback: () => 0,
                 invoke: async (cmd: string) => {
                     if (cmd === 'plugin:journal-db-key|database_key') return { key: Array<number>(32).fill(7) };
-                    if (cmd === 'plugin:journal-bridge|request_review') {
+                    if (cmd === 'plugin:journal-iap|request_review') {
                         localStorage.setItem('e2e-review-requests', String(Number(localStorage.getItem('e2e-review-requests') ?? 0) + 1));
                     }
                     return null;
