@@ -1,7 +1,7 @@
 {
   "name": "journal",
   "private": true,
-  "version": "2.73.27",
+  "version": "2.73.28",
   "type": "module",
   "workspaces": [
     "packages/*"

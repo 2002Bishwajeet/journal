@@ -2208,7 +2208,7 @@ dependencies = [
 
 [[package]]
 name = "journal"
-version = "2.73.27"
+version = "2.73.28"
 dependencies = [
  "android-native-keyring-store",
  "apple-native-keyring-store",
