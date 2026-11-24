@@ -7,6 +7,7 @@ import { ImageOwnerContext } from '@/components/editor/nodes/imageOwnerContext';
 import { JOURNAL_DRIVE } from '@/lib/homebase/config';
 import { getLocalImageBytes, getPendingImageUpload } from '@/lib/db';
 import { imageFilename, saveBlob } from '@/lib/images/imageDownload';
+import { usePeerAccess } from '@/hooks/usePeerAccess';
 
 /**
  * Save an image node's original bytes: the queued upload while pending, the
@@ -16,12 +17,15 @@ import { imageFilename, saveBlob } from '@/lib/images/imageDownload';
 export function useImageDownload(src: string, alt: string, pendingId?: string | null) {
     const dotYouClient = useDotYouClientContext();
     const owner = useContext(ImageOwnerContext);
+    // No peer read (#1494): the host's server refuses the peer fetch, so make none
+    const canPeer = usePeerAccess(!!owner) === true;
 
     const load = async (): Promise<Blob | null> => {
         if (src.startsWith('attachment://')) {
             const [fileId, key] = src.replace('attachment://', '').split('/');
             const local = await getLocalImageBytes(fileId, key);
             if (local) return new Blob([new Uint8Array(local.blobData)], { type: local.contentType });
+            if (owner && !canPeer) return null;
             const options = { preferObjectUrl: true };
             const url = owner
                 ? await getDecryptedImageUrlOverPeer(dotYouClient, owner, JOURNAL_DRIVE, fileId, key, undefined, undefined, options)

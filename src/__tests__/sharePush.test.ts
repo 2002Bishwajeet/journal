@@ -18,6 +18,9 @@ const mocks = vi.hoisted(() => ({
     GetNotifications: vi.fn(),
     MarkNotificationsAsRead: vi.fn(),
     pullOwnerNow: vi.fn(),
+    revalidateOwner: vi.fn(),
+    getConnections: vi.fn(),
+    peerAccess: true as boolean | undefined,
 }));
 vi.mock('@homebase-id/js-lib/core', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@homebase-id/js-lib/core')>()),
@@ -29,19 +32,27 @@ vi.mock('@homebase-id/js-lib/core', async (importOriginal) => ({
 }));
 vi.mock('@/components/auth', () => ({ useDotYouClientContext: () => client }));
 vi.mock('@/hooks/useSyncService', () => ({
-    useSyncService: () => ({ syncService: { pullOwnerNow: mocks.pullOwnerNow } }),
+    useSyncService: () => ({ syncService: { pullOwnerNow: mocks.pullOwnerNow, revalidateOwner: mocks.revalidateOwner } }),
 }));
+vi.mock('@/hooks/usePeerAccess', () => ({ usePeerAccess: () => mocks.peerAccess }));
+vi.mock('@homebase-id/js-lib/network', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@homebase-id/js-lib/network')>()),
+    getConnections: mocks.getConnections,
+}));
+vi.mock('@/lib/db', () => ({ getSharedNoteOwners: vi.fn(async () => []) }));
 
 import { getLogSnapshot, resetLogForTests } from '@/lib/diagnostics/logBuffer';
 import { areShareNotificationsOff, resetShareNotificationsForTests } from '@/lib/homebase/shareNotifications';
 import { SharePushProvider } from '@/lib/homebase/SharePushProvider';
-import { pullOnSharePush, pullMissedSharePushes, useShareLinkPull } from '@/hooks/useSharePush';
+import { pullOnSharePush, pullMissedSharePushes, useShareLinkPull, useSharePush } from '@/hooks/useSharePush';
+import { useSharedPull } from '@/hooks/useSharedPull';
 import {
     JOURNAL_APP_ID,
     JOURNAL_DRIVE,
     JOURNAL_PEER_SUBSCRIPTION_ID,
     JOURNAL_PUSH_TYPE_EDIT,
     JOURNAL_PUSH_TYPE_SHARE,
+    JOURNAL_PUSH_TYPE_UNSHARE,
     SHARE_PUSH_FILE_TYPE,
 } from '@/lib/homebase/config';
 
@@ -62,7 +73,12 @@ beforeEach(() => {
     mocks.uploadFile.mockImplementation(async () => { mocks.calls.push('upload'); return {}; });
     mocks.MarkNotificationsAsRead.mockResolvedValue({});
     mocks.pullOwnerNow.mockResolvedValue(undefined);
+    mocks.revalidateOwner.mockResolvedValue(undefined);
+    mocks.GetNotifications.mockResolvedValue({ results: [] });
+    mocks.peerAccess = true;
 });
+
+const sync = { pullOwnerNow: mocks.pullOwnerNow, revalidateOwner: mocks.revalidateOwner };
 
 describe('SharePushProvider.send', () => {
     const send = (recipients: string[], previous?: string[]) =>
@@ -126,6 +142,36 @@ describe('SharePushProvider.send', () => {
         await expect(send(['sam.dotyou.cloud'])).resolves.toBeUndefined();
         expect(console.warn).toHaveBeenCalled();
     });
+
+    // #1494: the removed people's apps drop the note without polling
+    it('sends one UNSHARE push to the removed recipient only, with no title in the message', async () => {
+        await send(['sam.dotyou.cloud'], ['sam.dotyou.cloud', 'merry.dotyou.cloud', OWNER]);
+
+        expect(mocks.uploadFile).toHaveBeenCalledTimes(1);
+        const [, instructions, metadata] = upload();
+        expect(instructions.transitOptions).toMatchObject({
+            appNotificationOptions: {
+                typeId: JOURNAL_PUSH_TYPE_UNSHARE,
+                tagId: NOTE,
+                unEncryptedMessage: 'Stopped sharing a note with you',
+                peerSubscriptionId: JOURNAL_PEER_SUBSCRIPTION_ID,
+                recipients: ['merry.dotyou.cloud'],
+            },
+        });
+        expect(JSON.stringify(upload())).not.toContain(TITLE);
+        // Its own file, so it does not replace the share push's
+        expect(metadata.appData.uniqueId).toBe(toGuidId(`unshare-push-${NOTE}`));
+    });
+
+    it('sends a share push to the added people and an unshare push to the removed ones', async () => {
+        await send(['pippin.dotyou.cloud'], ['merry.dotyou.cloud']);
+
+        const pushes = mocks.uploadFile.mock.calls.map(([, instructions]) => (instructions as UploadInstructionSet).transitOptions);
+        expect(pushes).toEqual([
+            expect.objectContaining({ appNotificationOptions: expect.objectContaining({ typeId: JOURNAL_PUSH_TYPE_SHARE, recipients: ['pippin.dotyou.cloud'] }) }),
+            expect.objectContaining({ appNotificationOptions: expect.objectContaining({ typeId: JOURNAL_PUSH_TYPE_UNSHARE, recipients: ['merry.dotyou.cloud'] }) }),
+        ]);
+    });
 });
 
 describe('SharePushProvider.send when the drive does not allow subscriptions (#817)', () => {
@@ -172,16 +218,25 @@ describe('pullOnSharePush', () => {
     const message = (typeId: string, senderId = OWNER) =>
         ({ type: 'journal-push', payload: { senderId, options: { appId: JOURNAL_APP_ID, typeId, tagId: NOTE } } });
 
-    it('pulls the sender of a share push', async () => {
-        await pullOnSharePush(message(JOURNAL_PUSH_TYPE_SHARE), mocks.pullOwnerNow);
-        expect(mocks.pullOwnerNow).toHaveBeenCalledWith(OWNER);
+    it('pulls only the sender of a share push', async () => {
+        await pullOnSharePush(message(JOURNAL_PUSH_TYPE_SHARE), sync);
+        expect(mocks.pullOwnerNow.mock.calls).toEqual([[OWNER]]);
+        expect(mocks.revalidateOwner).not.toHaveBeenCalled();
+    });
+
+    // #1494
+    it("checks the sender's notes on an unshare push", async () => {
+        await pullOnSharePush(message(JOURNAL_PUSH_TYPE_UNSHARE), sync);
+        expect(mocks.revalidateOwner.mock.calls).toEqual([[OWNER]]);
+        expect(mocks.pullOwnerNow).not.toHaveBeenCalled();
     });
 
     it('does nothing for another push type or another message', () => {
-        pullOnSharePush(message(JOURNAL_PUSH_TYPE_EDIT), mocks.pullOwnerNow);
-        pullOnSharePush({ type: 'other', payload: message(JOURNAL_PUSH_TYPE_SHARE).payload }, mocks.pullOwnerNow);
-        pullOnSharePush(null, mocks.pullOwnerNow);
+        pullOnSharePush(message(JOURNAL_PUSH_TYPE_EDIT), sync);
+        pullOnSharePush({ type: 'other', payload: message(JOURNAL_PUSH_TYPE_SHARE).payload }, sync);
+        pullOnSharePush(null, sync);
         expect(mocks.pullOwnerNow).not.toHaveBeenCalled();
+        expect(mocks.revalidateOwner).not.toHaveBeenCalled();
     });
 });
 
@@ -200,7 +255,7 @@ describe('pullMissedSharePushes', () => {
             ],
         });
 
-        await pullMissedSharePushes(client, mocks.pullOwnerNow);
+        await pullMissedSharePushes(client, sync);
 
         expect(mocks.GetNotifications).toHaveBeenCalledWith(client, JOURNAL_APP_ID, expect.any(Number), undefined);
         expect(mocks.pullOwnerNow.mock.calls.map(([id]) => id).sort()).toEqual(['a.id', 'b.id']);
@@ -214,7 +269,7 @@ describe('pullMissedSharePushes', () => {
             if (id === 'a.id') throw new Error('a.id did not answer');
         });
 
-        await pullMissedSharePushes(client, mocks.pullOwnerNow);
+        await pullMissedSharePushes(client, sync);
 
         expect(mocks.MarkNotificationsAsRead).toHaveBeenCalledWith(client, ['n2']);
     });
@@ -223,7 +278,7 @@ describe('pullMissedSharePushes', () => {
         mocks.GetNotifications.mockResolvedValue({ results: [entry('n1', 'a.id')] });
         mocks.pullOwnerNow.mockRejectedValue(new Error('offline'));
 
-        await pullMissedSharePushes(client, mocks.pullOwnerNow);
+        await pullMissedSharePushes(client, sync);
 
         expect(mocks.MarkNotificationsAsRead).not.toHaveBeenCalled();
     });
@@ -240,10 +295,82 @@ describe('pullMissedSharePushes', () => {
             running--;
         });
 
-        await pullMissedSharePushes(client, mocks.pullOwnerNow);
+        await pullMissedSharePushes(client, sync);
 
         expect(mocks.pullOwnerNow).toHaveBeenCalledTimes(6);
         expect(peak).toBe(4);
+    });
+
+    // #1494: an owner with only an unshare push has its notes checked; one with a share push too is pulled
+    it('checks the notes of an owner with an unread unshare push, and pulls an owner with both', async () => {
+        mocks.GetNotifications.mockResolvedValue({
+            results: [
+                entry('n1', 'a.id', JOURNAL_PUSH_TYPE_UNSHARE),
+                entry('n2', 'b.id', JOURNAL_PUSH_TYPE_UNSHARE),
+                entry('n3', 'b.id', JOURNAL_PUSH_TYPE_SHARE),
+            ],
+        });
+
+        await pullMissedSharePushes(client, sync);
+
+        expect(mocks.revalidateOwner.mock.calls).toEqual([['a.id']]);
+        expect(mocks.pullOwnerNow.mock.calls).toEqual([['b.id']]);
+        expect([...mocks.MarkNotificationsAsRead.mock.calls[0][1]].sort()).toEqual(['n1', 'n2', 'n3']);
+    });
+});
+
+// #1494: shared notes come by push, invite, share link or Refresh, never by a timer
+describe('no polling', () => {
+    async function openApp() {
+        let shared: ReturnType<typeof useSharedPull> | undefined;
+        function Probe() {
+            useSharePush();
+            shared = useSharedPull();
+            return null;
+        }
+        const root = createRoot(document.createElement('div'));
+        await act(async () => { root.render(h(Probe)); });
+        return { shared: () => shared!, unmount: () => act(async () => root.unmount()) };
+    }
+
+    it('makes no peer call with 50 connections and no pushes, however long the app stays open', async () => {
+        mocks.getConnections.mockResolvedValue({
+            results: Array.from({ length: 50 }, (_, i) => ({ odinId: `c${i}.dotyou.cloud` })),
+            cursor: undefined,
+        });
+        vi.useFakeTimers();
+        try {
+            const app = await openApp();
+            await act(async () => { await vi.advanceTimersByTimeAsync(25 * 60 * 60_000); });
+
+            expect(mocks.GetNotifications).toHaveBeenCalledTimes(1);
+            expect(mocks.pullOwnerNow).not.toHaveBeenCalled();
+            expect(mocks.revalidateOwner).not.toHaveBeenCalled();
+            expect(mocks.getConnections).not.toHaveBeenCalled();
+            await app.unmount();
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('without peer access reads no pushes, ignores a live one and offers no Refresh', async () => {
+        mocks.peerAccess = false;
+        const sw = new EventTarget();
+        Object.defineProperty(navigator, 'serviceWorker', { value: sw, configurable: true });
+        try {
+            const app = await openApp();
+            sw.dispatchEvent(new MessageEvent('message', {
+                data: { type: 'journal-push', payload: { senderId: OWNER, options: { appId: JOURNAL_APP_ID, typeId: JOURNAL_PUSH_TYPE_SHARE, tagId: NOTE } } },
+            }));
+            await act(async () => { await app.shared().refresh(); });
+
+            expect(app.shared().canPull).toBe(false);
+            expect(mocks.GetNotifications).not.toHaveBeenCalled();
+            expect(mocks.pullOwnerNow).not.toHaveBeenCalled();
+            await app.unmount();
+        } finally {
+            Reflect.deleteProperty(navigator, 'serviceWorker');
+        }
     });
 });
 
@@ -289,5 +416,14 @@ describe('useShareLinkPull', () => {
         expect(plain.seen.at(-1)).toBe(false);
         await local.unmount();
         await plain.unmount();
+    });
+
+    // #1494: the viewer's own server would refuse the pull
+    it('makes no pull without peer access, and stops pending', async () => {
+        mocks.peerAccess = false;
+        const { seen, unmount } = await mount(`/shared/${NOTE}?from=${OWNER}`, false, false);
+        expect(mocks.pullOwnerNow).not.toHaveBeenCalled();
+        expect(seen.at(-1)).toBe(false);
+        await unmount();
     });
 });

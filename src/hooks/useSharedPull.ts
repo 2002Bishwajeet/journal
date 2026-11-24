@@ -1,42 +1,47 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
-import { AppPermissionType } from '@homebase-id/js-lib/network';
+import type { DotYouClient } from '@homebase-id/js-lib/core';
+import { useDotYouClientContext } from '@/components/auth';
+import { getSharedNoteOwners } from '@/lib/db';
+import { pullMissedSharePushes, type OwnerSync } from './useSharePush';
+import { usePeerAccess } from './usePeerAccess';
 import { useSyncService } from './useSyncService';
-import { useSecurityContext } from './securityContext/useSecurityContext';
-
-const INTERVAL_MS = 10 * 60_000;
 
 /**
- * Finds notes shared with you on your connections' drives (#732): once after the
- * first sync of this session, then every 10 minutes while the tab is visible, and
- * on "Refresh" (which ignores backoff and also drops revoked notes).
+ * "Refresh" in Shared with me (#1494): pulls each owner the host already has notes from,
+ * then acts on the unread share and unshare pushes. Never lists connections. Rejects only
+ * when the pushes could not be read; an owner that does not answer is skipped.
+ */
+export async function refreshSharedNotes(client: DotYouClient, sync: OwnerSync): Promise<void> {
+    const pulled = new Set<string>();
+    const pullOnce: OwnerSync = {
+        pullOwnerNow: async (odinId) => {
+            if (pulled.has(odinId)) return;
+            await sync.pullOwnerNow(odinId);
+            pulled.add(odinId);
+        },
+        revalidateOwner: (odinId) => sync.revalidateOwner(odinId),
+    };
+    const owners = await getSharedNoteOwners(client.getHostIdentity());
+    await Promise.allSettled(owners.map((odinId) => pullOnce.pullOwnerNow(odinId)));
+    await pullMissedSharePushes(client, pullOnce);
+}
+
+/**
+ * Notes shared with you (#732) arrive by push, invite or share link, never by polling
+ * (#1494). This is the "Refresh" button, shown only with peer access.
  */
 export function useSharedPull() {
-    const { syncService, lastSyncResult } = useSyncService();
-    const { data: securityContext } = useSecurityContext().fetch;
+    const client = useDotYouClientContext();
+    const { syncService } = useSyncService();
+    const canPull = usePeerAccess() === true;
     const [isRefreshing, setIsRefreshing] = useState(false);
 
-    // ReadConnections is still only in the collaboration consent; #743 moves it to the base one
-    const canPull = !!securityContext?.permissionContext.permissionGroups
-        .some((group) => group.permissionSet.keys.includes(AppPermissionType.ReadConnections));
-    const hasSynced = lastSyncResult !== null;
-
-    useEffect(() => {
-        if (!syncService || !canPull || !hasSynced) return;
-        const pull = () => syncService.pullShared({ canReadConnections: true })
-            .catch((error) => console.warn('[useSharedPull] pull failed:', error));
-        pull();
-        const id = setInterval(() => {
-            if (document.visibilityState === 'visible') pull();
-        }, INTERVAL_MS);
-        return () => clearInterval(id);
-    }, [syncService, canPull, hasSynced]);
-
     const refresh = async () => {
-        if (!syncService || isRefreshing) return;
+        if (!syncService || !canPull || isRefreshing) return;
         setIsRefreshing(true);
         try {
-            await syncService.pullShared({ canReadConnections: canPull, manual: true });
+            await refreshSharedNotes(client, syncService);
         } catch (error) {
             console.warn('[useSharedPull] refresh failed:', error);
             toast.error("Couldn't refresh shared notes");
@@ -45,9 +50,5 @@ export function useSharedPull() {
         }
     };
 
-    const pullOwnerNow = async (odinId: string) => {
-        await syncService?.pullOwnerNow(odinId);
-    };
-
-    return { canPull, isRefreshing, refresh, pullOwnerNow };
+    return { canPull, isRefreshing, refresh };
 }

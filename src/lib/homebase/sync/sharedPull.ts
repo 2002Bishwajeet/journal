@@ -1,7 +1,6 @@
 import type { DotYouClient, HomebaseFile } from '@homebase-id/js-lib/core';
-import { getConnections } from '@homebase-id/js-lib/network';
 import { queryModifiedOverPeer } from '@homebase-id/js-lib/peer';
-import { getAppState, saveAppState, getSharedNoteIdsFrom } from '@/lib/db';
+import { getSharedNoteIdsFrom } from '@/lib/db';
 import type { NoteFileContent } from '@/types';
 import { JOURNAL_DRIVE, JOURNAL_FILE_TYPE } from '../config';
 import type { SyncContext } from './context';
@@ -14,40 +13,15 @@ import {
 } from './peerNotes';
 
 /**
- * "Shared with me" from the owners' side (#732): each connection's Journal drive is
- * queried over peer, and its server returns only the notes whose ACL admits the
- * host. That finds new shares without an invite landing here, and the daily full
- * pass removes the notes an owner no longer shares (revoke).
+ * "Shared with me" from the owners' side (#732): one owner's Journal drive is queried
+ * over peer, and its server returns only the notes whose ACL admits the host. Nothing
+ * polls (#1494): an owner is pulled only for a reason, a share push or invite from them,
+ * a share link to their note, or Refresh for an owner the host already has notes from.
  */
 
-export const SHARED_PULL_STATE_KEY = 'sharedPullState';
-
-const CONCURRENCY = 4;
 const PAGE_SIZE = 100;
-const MIN_BACKOFF_MS = 5 * 60_000;
-const MAX_BACKOFF_MS = 24 * 60 * 60_000;
-const FULL_PASS_INTERVAL_MS = 24 * 60 * 60_000;
 
-interface OwnerState {
-    cursor?: string;
-    failures: number;
-    nextAttemptAt: number;
-}
-
-/** One app_state row: a PGlite write costs an IndexedDB flush, so it is written at most once per pass. */
-interface SharedPullState {
-    owners: Record<string, OwnerState>;
-    fullPassAt?: number;
-}
-
-export interface SharedPullOptions {
-    /** Without ReadConnections (base consent from #743 on) the pass makes no calls. */
-    canReadConnections: boolean;
-    /** The "Refresh" button: ignores backoff and runs the full pass. */
-    manual?: boolean;
-}
-
-// Passes share the state row, so they run one after another.
+// Two pulls of one owner would import the same notes twice, so they run one after another.
 let queue: Promise<unknown> = Promise.resolve();
 function serialize(run: () => Promise<void>): Promise<void> {
     const next = queue.then(run);
@@ -55,115 +29,58 @@ function serialize(run: () => Promise<void>): Promise<void> {
     return next;
 }
 
-/** Pull from every connection whose backoff has ended. */
-export function pullShared(ctx: SyncContext, client: DotYouClient, options: SharedPullOptions): Promise<void> {
-    if (!options.canReadConnections) return Promise.resolve();
-    return serialize(async () => {
-        const state = await loadState();
-        const now = Date.now();
-        const full = !!options.manual || now - (state.fullPassAt ?? 0) >= FULL_PASS_INTERVAL_MS;
-        const owners = (await listConnections(client))
-            .filter((odinId) => options.manual || (state.owners[odinId]?.nextAttemptAt ?? 0) <= now);
-        let changed = await pullOwners(ctx, client, state, owners, full);
-        if (full) {
-            state.fullPassAt = now;
-            changed = true;
-        }
-        if (changed) await saveAppState(SHARED_PULL_STATE_KEY, state);
-    });
-}
-
 /**
- * Pull from one owner now, ignoring its backoff (a share push arrived, #745).
- * Rejects when the owner did not answer, so the caller can keep the push unread.
+ * Pull from one owner: imports the notes it shares with the host and drops the local
+ * ones it no longer returns (revoke). Rejects when the owner did not answer, so the
+ * caller can keep the push unread.
  */
-export function pullOwnerNow(ctx: SyncContext, client: DotYouClient, odinId: string): Promise<void> {
+export function pullOwnerNow(ctx: SyncContext, client: DotYouClient, owner: string): Promise<void> {
     return serialize(async () => {
-        const state = await loadState();
-        if (await pullOwners(ctx, client, state, [odinId], false)) {
-            await saveAppState(SHARED_PULL_STATE_KEY, state);
-        }
-        if (state.owners[odinId]?.failures) throw new Error(`${odinId} did not answer`);
-    });
-}
-
-async function loadState(): Promise<SharedPullState> {
-    return (await getAppState<SharedPullState>(SHARED_PULL_STATE_KEY)) ?? { owners: {} };
-}
-
-async function listConnections(client: DotYouClient): Promise<string[]> {
-    const odinIds: string[] = [];
-    let cursor: unknown;
-    for (;;) {
-        const page = await getConnections(client, { count: PAGE_SIZE, cursor });
-        odinIds.push(...page.results.map((connection) => connection.odinId));
-        if (page.results.length < PAGE_SIZE || !page.cursor) return odinIds;
-        cursor = page.cursor;
-    }
-}
-
-/** Updates `state` in place; true when it changed. */
-async function pullOwners(
-    ctx: SyncContext,
-    client: DotYouClient,
-    state: SharedPullState,
-    owners: string[],
-    full: boolean,
-): Promise<boolean> {
-    let changed = false;
-    const pullOne = async (owner: string) => {
-        const before = state.owners[owner];
-        let after: OwnerState;
+        let shared: Map<string, SharedFile>;
         try {
-            const { cursor, shared } = await queryShared(ctx, client, owner, full ? undefined : before?.cursor);
-            for (const [uniqueId, { title, updated }] of shared) {
-                await bootstrapCollaborativeNote(ctx, uniqueId, owner, title, '', new Date(updated).toISOString());
-            }
-            if (full) {
-                for (const docId of await getSharedNoteIdsFrom(owner)) {
-                    if (!shared.has(docId)) await removeLocalPeerNote(docId);
-                }
-                await forgetUnsharedDismissals(owner, new Set(shared.keys()));
-            }
-            after = { cursor: cursor ?? before?.cursor, failures: 0, nextAttemptAt: 0 };
+            shared = await queryShared(ctx, client, owner);
         } catch (error) {
             console.warn(`[sharedPull] ${owner} did not answer:`, error);
             // Refused: the owner took the host off every share, and with it the drive access
             // (#897). Check each of their notes here on its own, which drops the unshared ones.
-            if (full && classifyPeerFetchError(error) === 'forbidden') {
+            if (classifyPeerFetchError(error) === 'forbidden') {
                 try {
-                    for (const docId of await getSharedNoteIdsFrom(owner)) await revalidatePeerNote(ctx, docId, owner);
+                    await revalidateNotesFrom(ctx, owner);
                     await forgetUnsharedDismissals(owner, new Set());
                 } catch (err) {
                     console.warn(`[sharedPull] Could not check the notes from ${owner}:`, err);
                 }
             }
-            const failures = (before?.failures ?? 0) + 1;
-            const backoff = Math.min(MIN_BACKOFF_MS * 2 ** (failures - 1), MAX_BACKOFF_MS);
-            after = { cursor: before?.cursor, failures, nextAttemptAt: Date.now() + backoff };
+            throw new Error(`${owner} did not answer`, { cause: error });
         }
-        if (before?.cursor !== after.cursor || before?.failures !== after.failures
-            || before?.nextAttemptAt !== after.nextAttemptAt) {
-            state.owners[owner] = after;
-            changed = true;
+        for (const [uniqueId, { title, updated }] of shared) {
+            await bootstrapCollaborativeNote(ctx, uniqueId, owner, title, '', new Date(updated).toISOString());
         }
-    };
-    for (let i = 0; i < owners.length; i += CONCURRENCY) {
-        await Promise.all(owners.slice(i, i + CONCURRENCY).map(pullOne));
-    }
-    return changed;
+        for (const docId of await getSharedNoteIdsFrom(owner)) {
+            if (!shared.has(docId)) await removeLocalPeerNote(docId);
+        }
+        await forgetUnsharedDismissals(owner, new Set(shared.keys()));
+    });
+}
+
+/**
+ * The owner stopped sharing a note with the host (an unshare push, #1494): checks each of
+ * their notes here against the owner, which drops the ones the host can no longer read.
+ */
+export function revalidateOwner(ctx: SyncContext, owner: string): Promise<void> {
+    return serialize(() => revalidateNotesFrom(ctx, owner));
+}
+
+async function revalidateNotesFrom(ctx: SyncContext, owner: string): Promise<void> {
+    for (const docId of await getSharedNoteIdsFrom(owner)) await revalidatePeerNote(ctx, docId, owner);
 }
 
 type SharedFile = { title: string; updated: number };
 
-/** Every note `owner` shares with the host modified since `cursor`, by uniqueId. */
-async function queryShared(
-    ctx: SyncContext,
-    client: DotYouClient,
-    owner: string,
-    cursor: string | undefined,
-): Promise<{ cursor: string | undefined; shared: Map<string, SharedFile> }> {
+/** Every note `owner` shares with the host, by uniqueId. */
+async function queryShared(ctx: SyncContext, client: DotYouClient, owner: string): Promise<Map<string, SharedFile>> {
     const shared = new Map<string, SharedFile>();
+    let cursor: string | undefined;
     for (;;) {
         // A first call must omit the cursor: `cursor: 0` is a 400.
         const page = await queryModifiedOverPeer(
@@ -178,7 +95,7 @@ async function queryShared(
             if (uniqueId && content) shared.set(uniqueId, { title: content.title, updated: file.fileMetadata.updated });
         }
         const next = page.cursor ? String(page.cursor) : cursor;
-        if (page.searchResults.length < PAGE_SIZE || next === cursor) return { cursor: next, shared };
+        if (page.searchResults.length < PAGE_SIZE || next === cursor) return shared;
         cursor = next;
     }
 }

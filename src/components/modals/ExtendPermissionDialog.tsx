@@ -2,17 +2,26 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { useJournalPermissions } from "@/hooks/auth/useJournalPermissions";
 import { ExternalLink, ShieldCheck } from "lucide-react";
+import type { ReactNode } from "react";
 
-export const ExtendPermissionDialog = () => {
+interface ExtendPermissionDialogProps {
+  /** A screen that needs the grant to go on (a share link, #1494): shown even after "Not now", which calls this instead. */
+  onNotNow?: () => void;
+  /** Shown instead when there is nothing to grant, or the permissions could not be read. */
+  fallback?: ReactNode;
+}
+
+export const ExtendPermissionDialog = ({ onNotNow, fallback = null }: ExtendPermissionDialogProps = {}) => {
   const permissions = useJournalPermissions();
 
-  if (!permissions || permissions.isDismissed) return null;
+  if (!permissions || (!onNotNow && permissions.isDismissed)) return fallback;
 
   const count = permissions.items.length;
   const noun = count === 1 ? "permission" : "permissions";
+  const dismiss = onNotNow ?? permissions.dismiss;
 
   return (
-    <Dialog open onOpenChange={(open) => !open && permissions.dismiss()}>
+    <Dialog open onOpenChange={(open) => !open && dismiss()}>
       <DialogContent
         showCloseButton={false}
         className="sm:max-w-md"
@@ -51,7 +60,7 @@ export const ExtendPermissionDialog = () => {
               Grant {noun} <ExternalLink className="h-4 w-4" aria-hidden="true" />
             </a>
           </Button>
-          <Button variant="ghost" size="lg" className="w-full max-sm:h-11" onClick={permissions.dismiss}>
+          <Button variant="ghost" size="lg" className="w-full max-sm:h-11" onClick={dismiss}>
             Not now
           </Button>
           <p className="text-center text-xs text-muted-foreground">

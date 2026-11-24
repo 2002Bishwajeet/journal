@@ -3,6 +3,7 @@ import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { type TargetDrive, DotYouClient, type SystemFileType } from '@homebase-id/js-lib/core';
 import { getDecryptedThumbnailMeta, type ThumbnailMeta } from '@homebase-id/js-lib/media';
 import { getDecryptedThumbnailMetaOverPeer } from '@homebase-id/js-lib/peer';
+import { usePeerAccess } from '@/hooks/usePeerAccess';
 
 export const useTinyThumb = (
   dotYouClient: DotYouClient,
@@ -14,6 +15,9 @@ export const useTinyThumb = (
   systemFileType?: SystemFileType
 ): UseQueryResult<ThumbnailMeta | null | undefined, Error> => {
   const localHost = dotYouClient.getHostIdentity();
+  // No peer read (#1494): the host's server refuses every peer fetch, so make none
+  const isPeer = !!odinId && odinId !== localHost;
+  const canPeer = usePeerAccess(isPeer) === true;
 
   const fetchImageData = async (
     odinId: string,
@@ -75,6 +79,6 @@ export const useTinyThumb = (
       ),
     gcTime: Infinity,
     staleTime: 1000 * 60 * 60, // 1 hour
-    enabled: !!imageFileId && imageFileId !== '' && !!imageFileKey && imageFileKey !== '',
+    enabled: !!imageFileId && imageFileId !== '' && !!imageFileKey && imageFileKey !== '' && (!isPeer || canPeer),
   });
 };

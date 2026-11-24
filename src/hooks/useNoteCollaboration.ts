@@ -173,7 +173,8 @@ export function useNoteCollaboration() {
                 enrollRecipients,
             );
 
-            // Best-effort and never throws: the people just added get a push (#745)
+            // Best-effort and never throws: the people just added get a share push (#745),
+            // the people just removed an unshare push (#1494)
             await new SharePushProvider(dotYouClient).send(
                 noteId,
                 [...new Set([...recipients, ...viewers])],
@@ -244,6 +245,12 @@ export function useNoteCollaboration() {
             // A pull that fetched the note before the revoke (say, with a peer's last
             // edit) would otherwise put it back in the shared folder (#689)
             syncService?.supersedeNoteHeaders(note.docId, previousUpdated);
+            // Everyone it was shared with gets an unshare push, so their app drops it (#1494)
+            await new SharePushProvider(dotYouClient).send(note.docId, [], [
+                ...(note.metadata.recipients ?? []),
+                ...(note.metadata.odinIds ?? []),
+                ...(note.metadata.viewerRecipients ?? []),
+            ]);
             await updateNoteMetadata({
                 docId: note.docId,
                 metadata: {

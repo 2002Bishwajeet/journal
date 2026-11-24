@@ -15,6 +15,7 @@ vi.mock('@/components/share/PublicNoteImage', () => ({
 }));
 vi.mock('@/components/OdinImage/OdinImage', () => ({ OdinImage: () => null }));
 vi.mock('@/lib/db', () => ({ getLocalImageBytes: async () => null, getPendingImageUpload: async () => null }));
+vi.mock('@/hooks/usePeerAccess', () => ({ usePeerAccess: () => true }));
 
 import { ShareNoteMarkdown } from '@/components/share/ShareNoteMarkdown';
 

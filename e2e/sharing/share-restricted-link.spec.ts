@@ -69,6 +69,22 @@ test('a signed-out visitor sees no access with Sign in, or not found for a missi
 });
 
 test('a signed-in viewer without the note sees no access, with no Sign in', async ({ app }) => {
+  // A normal viewer after #1494 holds peer read (305), so the pull runs and finds nothing
+  await app.route('**/security/context**', (route) =>
+    route.fulfill({
+      json: {
+        caller: { odinId: 'e2e-owner.homebase.test', securityLevel: 'owner' },
+        permissionContext: {
+          permissionGroups: [{
+            driveGrants: [{
+              permissionedDrive: { drive: { alias: 'd5f411fa83fd4854a3bd7e974cc9bca9', type: '30743710039d4b97bbd352f343d1c9df' }, permission: 'readWrite' },
+            }],
+            permissionSet: { keys: [10, 305, 405] },
+          }],
+        },
+      },
+    }),
+  );
   await guestReadsAnswer(app, 403);
   await app.goto(`/share/${AUTHOR}/${RESTRICTED_ID}`);
   await assertTestOrigin(app);
@@ -77,6 +93,39 @@ test('a signed-in viewer without the note sees no access, with no Sign in', asyn
   await expect(app).toHaveURL(/\/open-shared\?/);
   await expect(app.getByRole('link', { name: 'Sign in' })).toHaveCount(0);
   await shootThemes(app, 'share-no-access-signed-in', noAccess(app));
+});
+
+// #1494: without peer read the viewer's own server refuses the pull, so the link offers the grant
+test('a signed-in viewer without peer read is offered the permission grant, which returns to the link', async ({ app }) => {
+  await app.route('**/security/context**', (route) =>
+    route.fulfill({
+      json: {
+        caller: { odinId: 'e2e-owner.homebase.test', securityLevel: 'owner' },
+        permissionContext: {
+          permissionGroups: [{
+            driveGrants: [{
+              permissionedDrive: { drive: { alias: 'd5f411fa83fd4854a3bd7e974cc9bca9', type: '30743710039d4b97bbd352f343d1c9df' }, permission: 'readWrite' },
+            }],
+            // ReadConnections and SendPushNotifications, the base consent before #1494
+            permissionSet: { keys: [10, 405] },
+          }],
+        },
+      },
+    }),
+  );
+  await guestReadsAnswer(app, 403);
+  await app.goto(`/share/${AUTHOR}/${RESTRICTED_ID}`);
+  await assertTestOrigin(app);
+
+  const grant = app.getByRole('dialog', { name: /^Journal needs/ });
+  await expect(grant).toBeVisible({ timeout: 30_000 });
+  await expect(grant.getByRole('listitem')).toContainText(['Receive notes from people']);
+  await expect(noAccess(app)).toHaveCount(0);
+  const href = new URL((await grant.getByRole('link', { name: /^Grant/ }).getAttribute('href'))!);
+  expect(href.searchParams.get('p')?.split(',')).toContain('305');
+  const back = new URL(href.searchParams.get('return')!);
+  expect(`${back.pathname}${back.search}`).toBe(`/open-shared?identity=${AUTHOR}&file=${RESTRICTED_ID}`);
+  await shootThemes(app, 'share-needs-peer-read', grant);
 });
 
 test('the Share dialog copies a restricted note\'s link, and a viewer who has the note lands on it', async ({ app }) => {

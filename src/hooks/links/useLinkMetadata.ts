@@ -6,6 +6,7 @@ import {
     getPayloadAsJsonOverPeerByGlobalTransitId,
 } from '@homebase-id/js-lib/peer';
 import { useQuery } from '@tanstack/react-query';
+import { usePeerAccess } from '@/hooks/usePeerAccess';
 
 
 export const useLinkMetadata = ({
@@ -24,11 +25,14 @@ export const useLinkMetadata = ({
     systemFileType?: SystemFileType;
 }) => {
     const dotYouClient = useDotYouClientContext();
+    // No peer read (#1494): the host's server refuses every peer fetch, so make none
+    const isPeer = !!odinId && dotYouClient.getHostIdentity() !== odinId;
+    const canPeer = usePeerAccess(isPeer) === true;
 
     return useQuery({
         queryKey: ['link-metadata', targetDrive.alias, fileId, payloadKey],
         queryFn: async () => {
-            if (odinId && dotYouClient.getHostIdentity() !== odinId) {
+            if (isPeer) {
                 if (globalTransitId) {
                     return getPayloadAsJsonOverPeerByGlobalTransitId<LinkPreview[]>(
                         dotYouClient,
@@ -58,5 +62,6 @@ export const useLinkMetadata = ({
             });
         },
         staleTime: 1000 * 60 * 60 * 24, // 24 hours
+        enabled: !isPeer || canPeer,
     });
 };

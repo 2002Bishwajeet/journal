@@ -21,7 +21,7 @@ async function stubSecurityContext(page: Page, { withDrive }: { withDrive: boole
               driveGrants: withDrive
                 ? [{ permissionedDrive: { drive: JOURNAL_DRIVE, permission: 'readWrite' } }]
                 : [],
-              // Neither ReadConnections nor SendPushNotifications: the v2.17.0 upgrade case.
+              // None of the base keys: the v2.17.0 upgrade case.
               permissionSet: { keys: [] },
             },
           ],
@@ -45,12 +45,13 @@ test('missing permissions: list, Not now, Settings, and a changed set', async ({
 
   const dialog = prompt(app);
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole('heading')).toHaveText('Journal needs 2 permissions');
+  await expect(dialog.getByRole('heading')).toHaveText('Journal needs 3 permissions');
   const items = dialog.getByRole('list', { name: 'Missing permissions' }).getByRole('listitem');
-  await expect(items).toHaveCount(2);
+  await expect(items).toHaveCount(3);
   await expect(items.nth(0)).toContainText('See your connections');
   await expect(items.nth(0)).toContainText('find notes that people share with you');
   await expect(items.nth(1)).toContainText('Send notifications');
+  await expect(items.nth(2)).toContainText('Receive notes from people');
   await expect(dialog.getByRole('link', { name: 'Grant permissions' })).toHaveAttribute(
     'href',
     /^https:\/\/e2e-owner\.homebase\.test\/owner\/appupdate\?/,
@@ -81,7 +82,7 @@ test('missing permissions: list, Not now, Settings, and a changed set', async ({
   await app.getByRole('button', { name: 'Settings' }).click();
   const settings = app.getByRole('dialog');
   await settings.getByRole('tab', { name: 'Account', exact: true }).click();
-  await expect(settings.getByText("Journal needs 2 permissions. Some features won't work until you grant them.")).toBeVisible();
+  await expect(settings.getByText("Journal needs 3 permissions. Some features won't work until you grant them.")).toBeVisible();
   await expect(settings.getByRole('link', { name: 'Grant' })).toHaveAttribute('href', /\/owner\/appupdate\?/);
   await expect(prompt(app)).toHaveCount(0);
   await screenshotInBothThemes(app, (theme) => `settings-${theme}-desktop.png`, undefined, { animations: 'disabled' });
@@ -90,6 +91,6 @@ test('missing permissions: list, Not now, Settings, and a changed set', async ({
   // A new missing set (the drive grant is gone too) shows the prompt again.
   await stubSecurityContext(app, { withDrive: false });
   await reloadApp(app);
-  await expect(prompt(app).getByRole('heading')).toHaveText('Journal needs 3 permissions');
-  await expect(prompt(app).getByRole('listitem').nth(2)).toContainText('Store your notes');
+  await expect(prompt(app).getByRole('heading')).toHaveText('Journal needs 4 permissions');
+  await expect(prompt(app).getByRole('listitem').nth(3)).toContainText('Store your notes');
 });
