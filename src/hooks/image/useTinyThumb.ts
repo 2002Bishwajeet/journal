@@ -16,8 +16,8 @@ export const useTinyThumb = (
 ): UseQueryResult<ThumbnailMeta | null | undefined, Error> => {
   const localHost = dotYouClient.getHostIdentity();
   // No peer read (#1494): the host's server refuses every peer fetch, so make none
-  const canPeer = usePeerAccess() === true;
   const isPeer = !!odinId && odinId !== localHost;
+  const canPeer = usePeerAccess(isPeer) === true;
 
   const fetchImageData = async (
     odinId: string,

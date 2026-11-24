@@ -18,7 +18,7 @@ export function useImageDownload(src: string, alt: string, pendingId?: string | 
     const dotYouClient = useDotYouClientContext();
     const owner = useContext(ImageOwnerContext);
     // No peer read (#1494): the host's server refuses the peer fetch, so make none
-    const canPeer = usePeerAccess() === true;
+    const canPeer = usePeerAccess(!!owner) === true;
 
     const load = async (): Promise<Blob | null> => {
         if (src.startsWith('attachment://')) {

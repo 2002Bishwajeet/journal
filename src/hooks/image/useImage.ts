@@ -77,8 +77,8 @@ export const useImage = (props: {
   const localHost = dotYouClient.getHostIdentity();
   const queryClient = useQueryClient();
   // No peer read (#1494): the host's server refuses every peer fetch, so make none
-  const canPeer = usePeerAccess() === true;
   const isPeer = !!odinId && odinId !== localHost;
+  const canPeer = usePeerAccess(isPeer) === true;
 
   const checkIfWeHaveLargerCachedImage = (
     odinId: string | undefined,

@@ -26,8 +26,8 @@ export const useLinkMetadata = ({
 }) => {
     const dotYouClient = useDotYouClientContext();
     // No peer read (#1494): the host's server refuses every peer fetch, so make none
-    const canPeer = usePeerAccess() === true;
     const isPeer = !!odinId && dotYouClient.getHostIdentity() !== odinId;
+    const canPeer = usePeerAccess(isPeer) === true;
 
     return useQuery({
         queryKey: ['link-metadata', targetDrive.alias, fileId, payloadKey],

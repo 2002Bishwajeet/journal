@@ -32,7 +32,7 @@ export const useWebsocketSubscriber = (
     const dotYouClient = useDotYouClientContext();
     const isPeer = useMemo(() => !!odinId && odinId !== dotYouClient.getHostIdentity(), [odinId, dotYouClient]);
     // No peer read or send (#1494): the host's server refuses SubscribeOverPeer, so don't ask
-    const peerAccess = usePeerAccess();
+    const peerAccess = usePeerAccess(isPeer);
     const peerBlocked = isPeer && peerAccess !== true;
     const [isConnected, setIsConnected] = useState(false);
     const connectedHandler =
