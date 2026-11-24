@@ -147,7 +147,8 @@ export function EditorPane({
         {isDesktop && isTodayRoute && <Outlet context={noteScreenActions} />}
         {isDesktop ? (
           /* Desktop DOM keep-alive: a tab mounts on first activation and then
-             stays mounted, hidden with display:none. <Activity mode="hidden">
+             stays mounted while it is one of the few most recently used
+             (useMountedTabs), hidden with display:none. <Activity mode="hidden">
              runs effect cleanups, so every switch tore down the note's Yjs
              provider (flush + compaction rewrite) and its editor — losing undo
              history and leaving the re-shown tab on a destroyed Y.Doc. */

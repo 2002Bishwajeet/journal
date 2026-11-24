@@ -54,7 +54,6 @@ vi.mock('@/hooks/useNoteTitleMap', () => ({
   useNoteTitleMap: () => ({ map: new Map(), isReady: true }),
 }));
 vi.mock('@/lib/notes/createNote', () => ({ createNoteWithContentInDb: vi.fn() }));
-vi.mock('@/hooks/useDocumentSubscription', () => ({ useDocumentSubscription: vi.fn() }));
 vi.mock('@/components/editor/hooks/useImageDeletionTracker', () => ({
   useImageDeletionTracker: vi.fn(),
 }));

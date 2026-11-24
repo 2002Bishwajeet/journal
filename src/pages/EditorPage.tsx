@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   EditorToolbar,
@@ -43,6 +43,7 @@ import { useCanEdit } from "@/hooks/useCanEdit";
 import { useFindOnOpen } from "@/hooks/useFindOnOpen";
 import { useFolders } from "@/hooks/useFolders";
 import { useNoteLockState } from "@/hooks/useNoteLock";
+import { useTabView } from "@/hooks/useTabView";
 
 // EditorProvider auto-saves, so Cmd+S only needs swallowing. A module constant
 // keeps the handler's identity stable: every mounted tab rebinds the window
@@ -58,6 +59,7 @@ function EditorLayout({
   onExitFocusMode,
   isActive,
   isPeerNote,
+  isTab,
 }: {
   noteId: string;
   onBack: () => void;
@@ -65,8 +67,12 @@ function EditorLayout({
   onExitFocusMode?: () => void;
   isActive: boolean;
   isPeerNote: boolean;
+  /** A desktop tab, which can be unmounted while hidden and comes back where it was left. */
+  isTab: boolean;
 }) {
   const { editor, isLoading, readOnly } = useEditorContext();
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  useTabView(noteId, editor, isLoading, scrollerRef, isTab);
   const {
     get: { data: notes = [] },
     updateNote: { mutateAsync: updateNoteMetadata },
@@ -251,6 +257,7 @@ function EditorLayout({
         {/* The container a `wide` live block takes its width from (src/index.css, "Live blocks").
             Touch layouts pad its top by the header, which the note scrolls under (#833). */}
         <div
+          ref={scrollerRef}
           data-note-scroller
           className={cn(
             "@container/live-blocks flex-1 overflow-y-auto relative bg-background w-full pb-[var(--editor-bottom-space,0px)]",
@@ -476,7 +483,7 @@ export default function EditorPage({
       onGetAutocompleteSuggestion={handleGetAutocompleteSuggestion}
       onCheckGrammar={handleCheckGrammar}
     >
-      <EditorLayout noteId={noteId} onBack={handleBackToNotes} focusMode={focusMode} onExitFocusMode={onExitFocusMode} isActive={isActiveTab} isPeerNote={isPeerNote} />
+      <EditorLayout noteId={noteId} onBack={handleBackToNotes} focusMode={focusMode} onExitFocusMode={onExitFocusMode} isActive={isActiveTab} isPeerNote={isPeerNote} isTab={!!overrideNoteId} />
     </EditorProvider>
   );
 }

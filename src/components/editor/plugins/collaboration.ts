@@ -32,7 +32,10 @@ function nodeSelectionsAsText(): Plugin {
     });
 }
 
-type StackItemEvent = { stackItem: UndoManager['undoStack'][number] };
+/** The UndoManager of every mounted editor, for the memory probe (memoryProbe.ts, #1487). */
+export const liveUndoManagers = new Set<UndoManager>();
+
+type StackItemEvent ={ stackItem: UndoManager['undoStack'][number] };
 
 /**
  * yUndoPlugin, with an UndoManager that outlives its plugin view. ProseMirror
@@ -93,8 +96,16 @@ export function createCollaborationExtension(yXmlFragment: XmlFragment) {
             ];
         },
 
+        onCreate() {
+            const undoManager = yUndoPluginKey.getState(this.editor.state)?.undoManager;
+            if (undoManager) liveUndoManagers.add(undoManager);
+        },
+
         onDestroy() {
-            yUndoPluginKey.getState(this.editor.state)?.undoManager.destroy();
+            const undoManager = yUndoPluginKey.getState(this.editor.state)?.undoManager;
+            if (!undoManager) return;
+            liveUndoManagers.delete(undoManager);
+            undoManager.destroy();
         },
 
         addKeyboardShortcuts() {

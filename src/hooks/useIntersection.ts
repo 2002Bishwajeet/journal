@@ -1,4 +1,5 @@
-import { useEffect, type RefObject } from 'react';
+import { useEffect, useState, type RefObject } from 'react';
+import { flushSync } from 'react-dom';
 
 // A Map, not a WeakMap, so revealIntersections can walk it; the effect cleanup removes each entry.
 const listenerCallbacks = new Map<Element, () => void>();
@@ -65,3 +66,28 @@ export const useIntersection = (
         };
     }, [elem, callback, keepObserving]);
 };
+
+/**
+ * Whether `elem` is near the window, both ways: false once it is further than a window's
+ * height away or hidden (a hidden desktop tab), true again when it comes back (#1487). True
+ * until the first report, and from a print on (revealIntersections), at once, so printElement
+ * finds what it shows.
+ */
+export function useInView(elem: RefObject<HTMLElement | null>): boolean {
+    const [inView, setInView] = useState(true);
+    useEffect(() => {
+        const target = elem.current;
+        if (!target) return;
+        const observer = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting), {
+            rootMargin: '100% 0px',
+        });
+        observer.observe(target);
+        listenerCallbacks.set(target, () => flushSync(() => setInView(true)));
+        cleanupSettings.set(target, false);
+        return () => {
+            observer.disconnect();
+            listenerCallbacks.delete(target);
+        };
+    }, [elem]);
+    return inView;
+}

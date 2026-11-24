@@ -2,6 +2,7 @@
  * Memory monitoring utility for development
  * Logs memory usage periodically to help track memory leaks
  */
+import { hasDebugFlag } from '@homebase-id/js-lib/helpers';
 
 interface MemoryInfo {
     usedJSHeapSize: number;
@@ -92,14 +93,15 @@ export function logMemorySnapshot(): void {
     console.log('=======================');
 }
 
-// Auto-start in development mode
-if (import.meta.env.DEV) {
+// Exposed in development, and with the Homebase debug flag for a production build (#1487)
+if (import.meta.env.DEV || hasDebugFlag()) {
     // Expose to window for manual debugging
     window.memoryMonitor = {
         start: startMemoryMonitor,
         stop: stopMemoryMonitor,
         snapshot: logMemorySnapshot,
+        probe: () => import('./memoryProbe').then((m) => m.logMemoryProbe()),
     };
 
-    console.log('[MemoryMonitor] Available via window.memoryMonitor.start(), .stop(), .snapshot()');
+    console.log('[MemoryMonitor] Available via window.memoryMonitor.start(), .stop(), .snapshot(), .probe()');
 }

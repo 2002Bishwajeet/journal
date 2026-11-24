@@ -11,6 +11,7 @@ import { useRef, useState, type ReactNode } from 'react';
 import { LiveBlockPreview } from '@2002bishwajeet/live-blocks';
 import type { BlockStateStore, LiveBlockKind } from '@2002bishwajeet/live-blocks/core';
 import { cn } from '@/lib/utils';
+import { useInView } from '@/hooks/useIntersection';
 import { LiveBlockLinkSheet } from './LiveBlockLinkSheet';
 
 const LABELS: Record<LiveBlockKind, string> = { mermaid: 'Mermaid', svg: 'SVG', html: 'HTML', react: 'React' };
@@ -46,6 +47,9 @@ const REVEALED =
   'opacity-0 transition-opacity duration-100 group-hover/block:opacity-100 group-focus-within/block:opacity-100 [@media(hover:none)]:opacity-100';
 
 export function LiveBlockFrame({ kind, source, preview, trusted, selected, labelled, store, wide, toggles, children }: LiveBlockFrameProps) {
+  const block = useRef<HTMLDivElement>(null);
+  // A frame out of view or in a hidden tab is unloaded: each is a page with its own scripts (#1487).
+  const inView = useInView(block);
   const box = useRef<HTMLDivElement>(null);
   // The inline height fitContent last gave the box.
   const fittedHeight = useRef('');
@@ -70,6 +74,7 @@ export function LiveBlockFrame({ kind, source, preview, trusted, selected, label
 
   return (
     <div
+      ref={block}
       data-live-block={kind}
       // Its width is in src/index.css ("Live blocks").
       data-live-block-wide={wideBlock ? '' : undefined}
@@ -111,7 +116,7 @@ export function LiveBlockFrame({ kind, source, preview, trusted, selected, label
           resizable && 'resize-y',
         )}
       >
-        {preview && <LiveBlockPreview kind={kind} source={source} store={store} onHeight={fitContent} wide={wideBlock} onLink={onLink} />}
+        {preview && <LiveBlockPreview kind={kind} source={source} store={store} onHeight={fitContent} wide={wideBlock} onLink={onLink} offscreen={!inView} />}
         {/* Over the frame, along the block's own edges (inside the bleed): quiet, in either theme. */}
         {edged && <span aria-hidden className="pointer-events-none absolute inset-3 rounded-md border border-dashed border-muted-foreground/40" />}
         {children}
