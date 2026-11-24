@@ -83,7 +83,7 @@ export class SyncService {
         return this.#status;
     }
 
-    private isOnline(): boolean {
+    isOnline(): boolean {
         return this.#onlineContext.isOnline;
     }
 

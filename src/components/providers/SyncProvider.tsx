@@ -127,6 +127,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
     // A sync is already running (SyncService would skip this call): leave it be
     if (syncService.getStatus() === "syncing") return;
+    // Offline per the service's own context (SyncService would skip this call)
+    if (!syncService.isOnline()) return;
 
     // Prevent too frequent syncs (debounce)
     const now = Date.now();

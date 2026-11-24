@@ -7,7 +7,7 @@ import { getLogSnapshot, resetLogForTests, installConsoleCapture } from '@/lib/d
 import type { SyncResult } from '@/lib/homebase/SyncService';
 import type { SyncContextType } from '@/hooks/useSyncService';
 
-const { serviceSync, serviceStatus } = vi.hoisted(() => ({ serviceSync: vi.fn(), serviceStatus: vi.fn(() => 'idle') }));
+const { serviceSync, serviceStatus, serviceOnline } = vi.hoisted(() => ({ serviceSync: vi.fn(), serviceStatus: vi.fn(() => 'idle'), serviceOnline: vi.fn(() => true) }));
 
 vi.mock('@/components/auth', () => ({
     useDotYouClientContext: () => ({ getHostIdentity: () => 'me.homebase.test' }),
@@ -16,6 +16,7 @@ vi.mock('@/lib/homebase/SyncService', () => ({
     SyncService: class SyncService {
         sync = serviceSync;
         getStatus = serviceStatus;
+        isOnline = serviceOnline;
     },
 }));
 vi.mock('@/lib/db', () => ({
@@ -71,6 +72,7 @@ afterEach(async () => {
     vi.restoreAllMocks();
     serviceSync.mockReset();
     serviceStatus.mockReturnValue('idle');
+    serviceOnline.mockReturnValue(true);
 });
 
 describe('SyncProvider sync error state (#1170)', () => {
@@ -120,6 +122,21 @@ describe('SyncProvider sync error state (#1170)', () => {
         await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
         expect(serviceSync).toHaveBeenCalledTimes(1);
         vi.useRealTimers();
+    });
+
+    it('does not start or log a sync when the service is offline (#1491)', async () => {
+        serviceSync.mockResolvedValue(ok());
+        await mount();
+        await vi.waitFor(() => expect(ctx.syncStatus).toBe('idle'));
+        resetLogForTests();
+        serviceSync.mockClear();
+        serviceOnline.mockReturnValue(false);
+
+        await syncNow();
+
+        expect(serviceSync).not.toHaveBeenCalled();
+        expect(ctx.syncStatus).toBe('idle');
+        expect(getLogSnapshot().map((e) => e.message).join('\n')).not.toMatch(/started/);
     });
 
     it('logs a real sync error as readable text (#1491)', async () => {
