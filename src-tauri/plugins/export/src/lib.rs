@@ -110,7 +110,7 @@ async fn share_text<R: Runtime>(app: AppHandle<R>, text: String, title: Option<S
             .map_err(|e| e.to_string())?;
         Ok(shared.shared)
     }
-    // Diagnostics shows Share on mobile only.
+    // The app only offers Share on iOS and Android.
     #[cfg(desktop)]
     {
         let _ = (app, text, title);

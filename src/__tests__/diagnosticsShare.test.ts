@@ -88,6 +88,34 @@ describe('useDiagnostics shareReport', () => {
         await hook.unmount();
     });
 
+    it('uses the native plugin on Android too', async () => {
+        window.__JOURNAL_NATIVE__ = { platform: 'android' };
+        invoke.mockResolvedValue(true);
+        const hook = await mountHook();
+        expect(hook.get().canShare).toBe(true);
+        await act(async () => hook.get().shareReport());
+        expect(invoke).toHaveBeenCalledWith('plugin:export|share_text', expect.anything());
+        await hook.unmount();
+    });
+
+    it('hides Share on the desktop app without navigator.share and never takes the native path', async () => {
+        window.__JOURNAL_NATIVE__ = { platform: 'macos' };
+        Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
+        const hook = await mountHook();
+        expect(hook.get().canShare).toBe(false);
+        await hook.unmount();
+    });
+
+    it('desktop app with navigator.share uses it, not the native plugin', async () => {
+        window.__JOURNAL_NATIVE__ = { platform: 'macos' };
+        share.mockResolvedValue(undefined);
+        const hook = await mountHook();
+        await act(async () => hook.get().shareReport());
+        expect(share).toHaveBeenCalled();
+        expect(invoke).not.toHaveBeenCalled();
+        await hook.unmount();
+    });
+
     it('shows no toast when the native sheet is cancelled', async () => {
         window.__JOURNAL_NATIVE__ = { platform: 'ios' };
         invoke.mockResolvedValue(false);

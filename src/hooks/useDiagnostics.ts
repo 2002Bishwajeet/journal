@@ -35,7 +35,7 @@ import { SHARE_DRIVE_FIX_ATTEMPT_KEY, readString, removeKey, writeString } from 
 import { appendLog, getLogSnapshot, subscribeLog } from '@/lib/diagnostics/logBuffer';
 import { buildReport, type StatusRow } from '@/lib/diagnostics/report';
 import { formatRelativeTime } from '@/lib/utils';
-import { isNativeApp, shareText } from '@/lib/native';
+import { isNativeApp, nativePlatform, shareText } from '@/lib/native';
 
 interface DeviceFacts {
     serviceWorker: string;
@@ -221,11 +221,13 @@ export function useDiagnostics() {
         }
     };
 
-    const canShare = isMobile && (isNativeApp() || typeof navigator.share === 'function');
+    // The desktop app has no native share sheet (share_text is a no-op there), so only mobile platforms take the native path.
+    const nativeShare = nativePlatform() === 'ios' || nativePlatform() === 'android';
+    const canShare = isMobile && (nativeShare || typeof navigator.share === 'function');
     const shareReport = async () => {
         try {
             // The web view's own share sheet is clipped on iOS, so the app opens its own.
-            if (isNativeApp()) await shareText(reportText(), 'Journal diagnostics');
+            if (nativeShare) await shareText(reportText(), 'Journal diagnostics');
             else await navigator.share({ title: 'Journal diagnostics', text: reportText() });
         } catch (error) {
             // Dismissing the share sheet rejects with AbortError; that is not a failure.
