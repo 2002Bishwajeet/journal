@@ -16,6 +16,13 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.73.27 (2026-11-24)
+
+### Fixed
+
+- On iPhone, Settings → Diagnostics → Share opens the normal share sheet again, instead of a small sheet cut off at the edge of the screen.
+- Diagnostics no longer reports an error when a sync is skipped because another one is already running, and real sync errors now show their message instead of `[Array(1)]`.
+
 ## 2.73.26 (2026-11-24)
 
 ### Fixed
