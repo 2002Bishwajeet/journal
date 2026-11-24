@@ -86,9 +86,41 @@ async fn deliver<R: Runtime>(app: AppHandle<R>, name: String, bytes: Vec<u8>) ->
     Ok(shared.shared)
 }
 
+/// Shares `text` through the system share sheet. Centred like `save`'s, because the
+/// web view's `navigator.share` anchors the iOS sheet to the tapped button and clips it.
+/// False when the user closes it; Android can't tell, so true once its sheet is open.
+#[tauri::command]
+async fn share_text<R: Runtime>(app: AppHandle<R>, text: String, title: Option<String>) -> Result<bool, String> {
+    #[cfg(mobile)]
+    {
+        #[derive(serde::Serialize)]
+        struct TextArgs {
+            text: String,
+            title: Option<String>,
+        }
+        #[derive(serde::Deserialize)]
+        struct Shared {
+            shared: bool,
+        }
+        let shared: Shared = app
+            .state::<Share<R>>()
+            .0
+            .run_mobile_plugin_async("shareText", TextArgs { text, title })
+            .await
+            .map_err(|e| e.to_string())?;
+        Ok(shared.shared)
+    }
+    // Diagnostics shows Share on mobile only.
+    #[cfg(desktop)]
+    {
+        let _ = (app, text, title);
+        Ok(false)
+    }
+}
+
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("export")
-        .invoke_handler(tauri::generate_handler![save])
+        .invoke_handler(tauri::generate_handler![save, share_text])
         .setup(|_app, _api| {
             #[cfg(target_os = "android")]
             let handle = _api.register_android_plugin("app.tauri.export", "ExportPlugin")?;
