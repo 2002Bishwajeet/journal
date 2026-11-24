@@ -12,6 +12,7 @@ import type {
 } from '@homebase-id/js-lib/core';
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useDotYouClientContext } from '@/components/auth';
+import { usePeerAccess } from './usePeerAccess';
 
 // Peer module loaded on demand — most users never use collaboration
 // (bundle-dynamic-imports)
@@ -30,6 +31,9 @@ export const useWebsocketSubscriber = (
 ) => {
     const dotYouClient = useDotYouClientContext();
     const isPeer = useMemo(() => !!odinId && odinId !== dotYouClient.getHostIdentity(), [odinId, dotYouClient]);
+    // No peer read or send (#1494): the host's server refuses SubscribeOverPeer, so don't ask
+    const peerAccess = usePeerAccess();
+    const peerBlocked = isPeer && peerAccess !== true;
     const [isConnected, setIsConnected] = useState(false);
     const connectedHandler =
         useRef<((dotYouClient: DotYouClient, data: TypedConnectionNotification) => void) | null>(null);
@@ -76,7 +80,8 @@ export const useWebsocketSubscriber = (
         if (
             (dotYouClient.getType() !== ApiType.Owner && dotYouClient.getType() !== ApiType.App) ||
             !dotYouClient.getSharedSecret() ||
-            !localHandler
+            !localHandler ||
+            peerBlocked
         )
             return;
 
@@ -160,7 +165,7 @@ export const useWebsocketSubscriber = (
                 }
             }
         };
-    }, [localHandler, dotYouClient, drives, refId, isPeer, odinId]);
+    }, [localHandler, dotYouClient, drives, refId, isPeer, odinId, peerBlocked]);
 
     return isConnected;
 };

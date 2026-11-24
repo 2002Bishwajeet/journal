@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { SyncService, EnsureNoteContentStatus } from '@/lib/homebase/SyncService';
+import { usePeerAccess } from './usePeerAccess';
 
 export type PeerNoteContentStatus = EnsureNoteContentStatus | 'idle' | 'loading';
 
@@ -30,7 +31,10 @@ export function usePeerNoteContent({
     const [resolved, setResolved] = useState<{ key: string; status: EnsureNoteContentStatus } | null>(null);
     const [attempt, setAttempt] = useState(0);
 
-    const active = isEnabled && !!docId && !!authorOdinId && !!syncService;
+    // Without peer read the host's server answers every peer call 403, which would read as a
+    // revoked share and delete the local copy (#1494): ask the author nothing.
+    const canPeer = usePeerAccess();
+    const active = isEnabled && canPeer === true && !!docId && !!authorOdinId && !!syncService;
     const requestKey = `${docId ?? ''}|${authorOdinId ?? ''}|${attempt}`;
 
     useEffect(() => {
@@ -61,12 +65,11 @@ export function usePeerNoteContent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [active, requestKey, docId, authorOdinId, syncService]);
 
-    // Derived: 'idle' while inactive, 'loading' until the current request resolves.
-    const status: PeerNoteContentStatus = !active
-        ? 'idle'
-        : resolved?.key === requestKey
-            ? resolved.status
-            : 'loading';
+    // Derived: 'loading' until the current request resolves; 'local' (the copy on this
+    // device) without peer access; else 'idle' while inactive.
+    const status: PeerNoteContentStatus = active
+        ? resolved?.key === requestKey ? resolved.status : 'loading'
+        : isEnabled && canPeer === false ? 'local' : 'idle';
 
     return {
         status,

@@ -8,6 +8,8 @@ import { createRoot, type Root } from 'react-dom/client';
 import type { NodeViewProps } from '@tiptap/react';
 
 // The editor's read-only flag (#1211): these notes are editable.
+// Peer access (#1494): the image download may fetch over peer
+vi.mock('@/hooks/usePeerAccess', () => ({ usePeerAccess: () => true }));
 vi.mock('@/components/editor/EditorContext', () => ({ useEditorContext: () => ({ readOnly: false }) }));
 vi.mock('@/hooks/image/useNoteImagePreviews', () => ({ useNoteImagePreviews: () => undefined }));
 vi.mock('@/components/OdinImage/OdinImage', () => ({ OdinImage: () => null }));

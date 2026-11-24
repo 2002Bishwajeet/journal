@@ -10,6 +10,8 @@ import type { NodeViewProps } from '@tiptap/react';
 
 // The editor's read-only flag (#1211): editable unless a case says otherwise.
 const editorContext = vi.hoisted(() => ({ readOnly: false }));
+// Peer access (#1494): the image download may fetch over peer
+vi.mock('@/hooks/usePeerAccess', () => ({ usePeerAccess: () => true }));
 vi.mock('@/components/editor/EditorContext', () => ({ useEditorContext: () => editorContext }));
 vi.mock('@/hooks/image/useNoteImagePreviews', () => ({ useNoteImagePreviews: () => undefined }));
 vi.mock('@/components/OdinImage/OdinImage', () => ({ OdinImage: () => null }));

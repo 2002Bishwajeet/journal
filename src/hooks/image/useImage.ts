@@ -6,6 +6,7 @@ import {
   getDecryptedImageUrlOverPeer,
   getDecryptedImageUrlOverPeerByGlobalTransitId,
 } from '@homebase-id/js-lib/peer';
+import { usePeerAccess } from '@/hooks/usePeerAccess';
 
 interface ImageData {
   url: string;
@@ -75,6 +76,9 @@ export const useImage = (props: {
 
   const localHost = dotYouClient.getHostIdentity();
   const queryClient = useQueryClient();
+  // No peer read (#1494): the host's server refuses every peer fetch, so make none
+  const canPeer = usePeerAccess() === true;
+  const isPeer = !!odinId && odinId !== localHost;
 
   const checkIfWeHaveLargerCachedImage = (
     odinId: string | undefined,
@@ -185,7 +189,7 @@ export const useImage = (props: {
         }
 
         console.debug("Could not get image url by fileId, trying global transitId");
-        if (imageGlobalTransitId) {
+        if (imageGlobalTransitId && canPeer) {
           url = await getDecryptedImageUrlOverPeerByGlobalTransitId(
             dotYouClient,
             odinId,
@@ -283,7 +287,7 @@ export const useImage = (props: {
       refetchOnWindowFocus: false,
       staleTime: 1000 * 60 * 60 * 24, // 24 hours
       gcTime: Infinity,
-      enabled: !!imageFileId && imageFileId !== '' && !!imageDrive && !!imageFileKey,
+      enabled: !!imageFileId && imageFileId !== '' && !!imageDrive && !!imageFileKey && (!isPeer || canPeer),
     }),
   };
 };

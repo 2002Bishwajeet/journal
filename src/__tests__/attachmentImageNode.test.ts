@@ -14,6 +14,8 @@ const m = vi.hoisted(() => ({
     previews: undefined as Record<string, { thumb?: unknown; size?: { width: number; height: number }; sizes?: unknown[] }> | undefined,
 }));
 // The editor's read-only flag (#1211): these notes are editable.
+// Peer access (#1494): the image download may fetch over peer
+vi.mock('@/hooks/usePeerAccess', () => ({ usePeerAccess: () => true }));
 vi.mock('@/components/editor/EditorContext', () => ({ useEditorContext: () => ({ readOnly: false }) }));
 vi.mock('@/hooks/image/useNoteImagePreviews', () => ({ useNoteImagePreviews: () => m.previews }));
 vi.mock('@/hooks/image/useLocalImage', () => ({ useLocalImage: () => m.local }));
