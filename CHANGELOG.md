@@ -1,3 +1,4 @@
+## [2.73.25](https://github.com/2002Bishwajeet/journal/compare/v2.73.24...v2.73.25) (2026-11-24)
 ## [2.73.24](https://github.com/2002Bishwajeet/journal/compare/v2.73.23...v2.73.24) (2026-11-23)
 ## [2.73.23](https://github.com/2002Bishwajeet/journal/compare/v2.73.22...v2.73.23) (2026-11-23)
 ## [2.73.22](https://github.com/2002Bishwajeet/journal/compare/v2.73.21...v2.73.22) (2026-11-23)

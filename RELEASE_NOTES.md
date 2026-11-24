@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.73.25 (2026-11-24)
+
+### New
+
+- Native ARM64 builds for Windows and Linux.
+
 ## 2.73.24 (2026-11-23)
 
 ### Changed
