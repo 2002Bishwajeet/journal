@@ -98,8 +98,8 @@ describe.each([false, undefined])('peer access %s', (access) => {
         expect(syncService.ensurePeerNoteContent).not.toHaveBeenCalled();
         expect(syncService.revalidatePeerNote).not.toHaveBeenCalled();
         expect(onRevoked).not.toHaveBeenCalled();
-        // The copy on this device opens once the permissions are known to be missing
-        expect(result.current?.status).toBe(access === false ? 'local' : 'idle');
+        // The copy on this device opens while access is unknown or missing, never a loading wait
+        expect(result.current?.status).toBe('local');
     });
 
     it('makes no peer websocket subscription', async () => {

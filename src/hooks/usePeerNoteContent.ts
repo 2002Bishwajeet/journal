@@ -66,10 +66,11 @@ export function usePeerNoteContent({
     }, [active, requestKey, docId, authorOdinId, syncService]);
 
     // Derived: 'loading' until the current request resolves; 'local' (the copy on this
-    // device) without peer access; else 'idle' while inactive.
+    // device) while peer access is unknown or missing, so the editor never waits on it;
+    // else 'idle' while inactive.
     const status: PeerNoteContentStatus = active
         ? resolved?.key === requestKey ? resolved.status : 'loading'
-        : isEnabled && canPeer === false ? 'local' : 'idle';
+        : isEnabled && canPeer !== true ? 'local' : 'idle';
 
     return {
         status,
