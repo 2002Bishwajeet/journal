@@ -1,6 +1,6 @@
 ---
 description: Work agent-ready issues: implement → verify → PR
-argument-hint: <epic#|issue#…> [--dry] [--loop] [--max N]
+argument-hint: <epic#|issue#…> [--dry] [--loop] [--max N] [--no-merge]
 ---
 Run the agent harness on: $ARGUMENTS
 
@@ -8,7 +8,7 @@ Run the agent harness on: $ARGUMENTS
 1. Run `node scripts/harness/select.mjs <the issue/epic numbers from the arguments> --json` and print the ready/skipped table (`issue | title | ready/skip reason`).
 2. If `--dry` was given, or nothing is ready, stop here (no Workflow run, no worktrees).
 3. Take at most N ready issues (`--max N`, default 3), lowest Size first (S, M, L, unknown); list the rest as "skipped: over --max". Run the saved workflow `implement-epic` with args `{ "issues": <the ready array, each row exactly as select.mjs printed it: {number,title,size,model?,effort?}>, "repoRoot": "<absolute path of this checkout>" }`. Invoking this command is the owner's opt-in to that workflow.
-4. When it finishes, print the report as a table `issue | PR link / stopped: reason / skipped: reason` (skipped rows come from step 1).
+4. When it finishes, print the report as a table `issue | PR link / stopped: reason / skipped: reason` (skipped rows come from step 1). If `--no-merge` was given, stop here and exit: no merging, no CI wait, no update-branch. The main session watches CI, merges and sends fix agents, so this run frees its slot as soon as its PR is open.
 5. Merge what is done. Never merge a PR that is a draft (`isDraft`) or has the `hold` label (`gh pr view <n> --json isDraft,labels`; same rule as `isMergeEligible` in `scripts/harness/select.mjs`), and never mark a PR ready for review: only the owner or the main session lifts a hold. List held PRs in the report table as `held: <reason from the latest hold comment>`. For each other open `agent-harness` PR, merge it with `gh pr merge <n> -R 2002Bishwajeet/journal --merge --delete-branch` when every CI check passed (the orchestrator watches CI; agents never wait for or poll it) (`gh pr checks <n>`; `e2e-live` may show as skipping), it is `MERGEABLE`, and no unchecked owner-only box in its body needs a human look (visual/real-device judgement). If its issue asks for screenshots, first open every image in the PR's "E2E screenshots" comment (posted by CI's `e2e-evidence` job; agents never run e2e locally) and check each shows what the issue asks for: a missing, blank or wrong screenshot means no merge, and a fix agent goes out for that PR. Visual-taste boxes still wait for the owner. Leave the others open and name the blocking box in the report. If a PR is behind or conflicting after an earlier merge, `gh pr update-branch <n>` and let CI re-run; a real conflict stays for the owner.
 6. If `--loop` was given: after merging, go straight back to step 0 with the same arguments. If harness PRs are still open with CI pending, you (the orchestrator, not an agent) wait with a Monitor/`until` loop polling `gh pr checks` every 5 minutes, then do step 5 again; when a check fails, send a fix agent for that PR (it reads the failure from the CI log and the `playwright-report-*` artifact, never by running e2e or Playwright locally, fixes, pushes and exits). Exit when a run selects nothing **and** no `agent-harness` PR is mergeable or pending, or 12 hours after the first run. Print the report after each wave.
 
