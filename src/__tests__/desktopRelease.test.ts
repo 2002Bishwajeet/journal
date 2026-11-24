@@ -73,15 +73,21 @@ describe('the download page', () => {
     });
 
     it('links the names the release workflow gives its assets', () => {
-        // releaseAssetNamePattern 'Journal-[platform]-[arch][setup][ext]' in desktop-release.yml.
-        expect(read('.github/workflows/desktop-release.yml')).toContain("releaseAssetNamePattern: 'Journal-[platform]-[arch][setup][ext]'");
+        // The ARM rows' `arch: arm64` replaces tauri-action's [arch] (#1484); the x64 and Mac rows keep it.
+        expect(read('.github/workflows/desktop-release.yml')).toContain(
+            `releaseAssetNamePattern: "Journal-[platform]-\${{ matrix.arch || '[arch]' }}[setup][ext]"`,
+        );
         expect(links(html).sort()).toEqual(
             [
                 'Journal-darwin-universal.dmg',
                 'Journal-windows-x64-setup.exe',
                 'Journal-windows-x64.msi',
+                'Journal-windows-arm64-setup.exe',
+                'Journal-windows-arm64.msi',
                 'Journal-linux-amd64.AppImage',
                 'Journal-linux-amd64.deb',
+                'Journal-linux-arm64.AppImage',
+                'Journal-linux-arm64.deb',
                 'SHA256SUMS.txt',
             ]
                 .map((file) => `${LATEST}/${file}`)
@@ -99,7 +105,29 @@ describe('the download page', () => {
         expect(links(off)).toEqual([]);
         const on = flagBlocks(html, 'downloads', true);
         expect(on).not.toContain('Desktop apps coming soon');
-        expect(links(on)).toHaveLength(6);
+        expect(links(on)).toHaveLength(10);
+    });
+});
+
+// #1484: native ARM64 Windows and Linux builds on GitHub's ARM runners, each in latest.json.
+describe('the ARM64 builds', () => {
+    const workflow = read('.github/workflows/desktop-release.yml');
+
+    it.each([
+        ['windows-11-arm', 'nsis,msi'],
+        ['ubuntu-22.04-arm', 'appimage,deb'],
+    ])('builds on %s with %s, named arm64', (os, bundles) => {
+        expect(workflow).toContain(`- os: ${os}\n            args: --bundles ${bundles}\n            arch: arm64\n`);
+    });
+
+    it('checks every platform made it into latest.json', () => {
+        expect(workflow).toContain(
+            'for platform in darwin-aarch64 darwin-x86_64 windows-x86_64 windows-aarch64 linux-x86_64 linux-aarch64; do',
+        );
+    });
+
+    it('gives each build its own workflow artifact, so the two Windows and two Linux builds never clash', () => {
+        expect(workflow).toContain('name: desktop-${{ runner.os }}-${{ runner.arch }}');
     });
 });
 

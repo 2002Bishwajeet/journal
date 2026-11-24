@@ -3,7 +3,8 @@ name: Desktop Release
 # Builds the desktop app for a `v<version>` app release and attaches it to that
 # GitHub release (#305): a signed, notarised and stapled universal .dmg for macOS,
 # an NSIS installer and an .msi for Windows (unsigned for now), and an AppImage and
-# a .deb for Linux. Each build also uploads its signed updater bundle and merges
+# a .deb for Linux. Windows and Linux are built twice: for x64, and natively for ARM64 on
+# GitHub's ARM runners (#1484). Each build also uploads its signed updater bundle and merges
 # its platform into the release's latest.json, the endpoint in tauri.conf.json (#1141).
 #
 # Asset names carry no version, so `releases/latest/download/<name>` always gets
@@ -76,6 +77,14 @@ jobs:
           # 22.04: an AppImage runs on distributions with this glibc or newer.
           - os: ubuntu-22.04
             args: --bundles appimage,deb
+          # ARM64 (#1484). `arch` names the assets: tauri-action would call the ARM AppImage
+          # aarch64 and the .deb arm64, so both get arm64.
+          - os: windows-11-arm
+            args: --bundles nsis,msi
+            arch: arm64
+          - os: ubuntu-22.04-arm
+            args: --bundles appimage,deb
+            arch: arm64
     runs-on: ${{ matrix.os }}
     permissions:
       contents: write
@@ -239,8 +248,9 @@ jobs:
           releaseId: ${{ steps.release.outputs.id }}
           args: ${{ matrix.args }} --config src-tauri/tauri.release.conf.json
           # Journal-darwin-universal.dmg, Journal-windows-x64-setup.exe, Journal-windows-x64.msi,
-          # Journal-linux-amd64.AppImage, Journal-linux-amd64.deb (+ updater bundles and .sig files).
-          releaseAssetNamePattern: 'Journal-[platform]-[arch][setup][ext]'
+          # Journal-linux-amd64.AppImage, Journal-linux-amd64.deb, and the ARM builds' -arm64 ones
+          # (+ updater bundles and .sig files).
+          releaseAssetNamePattern: "Journal-[platform]-${{ matrix.arch || '[arch]' }}[setup][ext]"
           updaterJsonPreferNsis: true
           retryAttempts: 1
 
@@ -278,7 +288,7 @@ jobs:
         if: ${{ !inputs.publish }}
         uses: actions/upload-artifact@v7
         with:
-          name: desktop-${{ runner.os }}
+          name: desktop-${{ runner.os }}-${{ runner.arch }}
           path: |
             src-tauri/target/**/release/bundle/*/*.dmg
             src-tauri/target/**/release/bundle/*/*.exe
@@ -305,7 +315,7 @@ jobs:
       - name: Check latest.json
         run: |
           gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p latest.json -D "$RUNNER_TEMP"
-          for platform in darwin-aarch64 darwin-x86_64 windows-x86_64 linux-x86_64; do
+          for platform in darwin-aarch64 darwin-x86_64 windows-x86_64 windows-aarch64 linux-x86_64 linux-aarch64; do
             jq -e --arg p "$platform" '.platforms[$p].url' "$RUNNER_TEMP/latest.json" > /dev/null \
               || { echo "::error::latest.json has no $platform entry: re-run this workflow for $TAG"; exit 1; }
           done
