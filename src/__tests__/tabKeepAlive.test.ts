@@ -19,7 +19,7 @@ import * as Y from 'yjs';
 import { useEditor, EditorContent } from '@tiptap/react';
 import { createBaseExtensions } from '@/components/editor/plugins/extensions';
 import { createCollaborationExtension } from '@/components/editor/plugins/collaboration';
-import { useMountedTabs } from '@/hooks/useMountedTabs';
+import { useMountedTabs, MAX_HIDDEN_TABS } from '@/hooks/useMountedTabs';
 import type { TabInfo } from '@/hooks/useTabManager';
 
 beforeAll(() => {
@@ -76,6 +76,35 @@ describe('useMountedTabs — which tabs have a mounted editor', () => {
         // Closing 'b' drops it from openTabs — that teardown IS wanted.
         await render([tab('a'), tab('c')], 'a');
         expect(seen.at(-1)).toEqual(['a']);
+
+        await cleanup();
+    });
+
+    it('keeps only the most recently used hidden tabs mounted, however many switches (#1487)', async () => {
+        const seen: string[][] = [];
+        function Policy({ tabs, activeTabId }: { tabs: TabInfo[]; activeTabId: string | null }) {
+            seen.push(useMountedTabs(tabs, activeTabId).map((t) => t.docId));
+            return null;
+        }
+
+        const { root, cleanup } = mountRoot();
+        const all = Array.from({ length: 10 }, (_, i) => tab(`t${i}`));
+        const recent: string[] = [];
+        for (let i = 0; i < 200; i++) {
+            const active = all[(i * 7) % all.length].docId;
+            await act(async () => { root.render(h(Policy, { tabs: all, activeTabId: active })); });
+            recent.splice(0, recent.length, ...recent.filter((id) => id !== active), active);
+
+            const mounted = seen.at(-1)!;
+            expect(mounted.length).toBeLessThanOrEqual(MAX_HIDDEN_TABS + 1);
+            expect(mounted).toContain(active);
+            expect([...mounted].sort()).toEqual(recent.slice(-(MAX_HIDDEN_TABS + 1)).sort());
+        }
+
+        // A closed tab frees its slot without unmounting another.
+        const open = all.filter((t) => t.docId !== recent.at(-2));
+        await act(async () => { root.render(h(Policy, { tabs: open, activeTabId: recent.at(-1)! })); });
+        expect(seen.at(-1)).toHaveLength(MAX_HIDDEN_TABS);
 
         await cleanup();
     });

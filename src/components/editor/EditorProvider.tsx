@@ -43,7 +43,6 @@ import { useNoteTitleMap } from "@/hooks/useNoteTitleMap";
 import { createNoteWithContentInDb } from "@/lib/notes/createNote";
 import { extractNoteLinkIds } from "@/lib/editor/extractNoteLinkIds";
 import { useImageDeletionTracker } from "./hooks/useImageDeletionTracker";
-import { useDocumentSubscription } from "@/hooks/useDocumentSubscription"; // Import the hook
 import { createEditorExtensions } from "./editorExtensions";
 import { NoteLinkExtension } from "./plugins/NoteLink";
 import {
@@ -295,20 +294,6 @@ export function EditorProvider({
     },
     room: (id: string | null) => blockStateRoom(yDoc, id),
   };
-
-  // Handle document updates from broadcast (sync service)
-  const handleDocumentUpdate = useCallback(async () => {
-    console.log("[EditorProvider] Document updated remotely, reloading...");
-    if (providerRef.current) {
-      try {
-        await providerRef.current.load();
-      } catch (err) {
-        console.error("[EditorProvider] Failed to reload document:", err);
-      }
-    }
-  }, []);
-
-  useDocumentSubscription(docId, handleDocumentUpdate);
 
   // --- Internal note links (`[[`) ---
   const navigate = useNavigate();

@@ -82,10 +82,11 @@ interface JournalE2EHooks {
 
 interface Window {
   readonly __journalE2E?: JournalE2EHooks;
-  /** Dev-only debug handle, see src/lib/utils/memoryMonitor.ts. */
+  /** Debug handle in a dev build or with the debug flag, see src/lib/utils/memoryMonitor.ts. */
   memoryMonitor?: {
     start(intervalMs?: number): void;
     stop(): void;
     snapshot(): void;
+    probe(): Promise<import('@/lib/utils/memoryProbe').MemoryProbe>;
   };
 }

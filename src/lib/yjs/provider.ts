@@ -39,6 +39,11 @@ export class PGliteProvider {
         return false;
     }
 
+    /** Every open note's document, for the memory probe (memoryProbe.ts). */
+    static openDocuments(): { docId: string; doc: Y.Doc }[] {
+        return [...PGliteProvider.live].map((p) => ({ docId: p.docId, doc: p.doc }));
+    }
+
     constructor(docId: string, doc: Y.Doc) {
         this.docId = docId;
         this.doc = doc;
@@ -120,6 +125,9 @@ export class PGliteProvider {
                 Y.applyUpdate(this.doc, update, 'remote');
             }
             this.updateCount = updates.length;
+            // Writers that append (another tab, the in-app agent, image uploads) would
+            // otherwise grow the rows every reload replays until this note is edited here (#1487).
+            if (this.updateCount >= PGliteProvider.COMPACTION_THRESHOLD) await this.compact();
         } catch (error) {
             console.error('[PGliteProvider] Failed to reload from DB:', error);
         }

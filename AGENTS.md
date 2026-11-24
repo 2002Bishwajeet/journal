@@ -127,7 +127,6 @@ src/
 │   ├── useContact.ts
 │   ├── useDailyNote.ts         # Behind featureFlags.dailyNotes
 │   ├── useDeviceType.ts        # mobile | tablet | desktop detection
-│   ├── useDocumentSubscription.ts  # BroadcastChannel listener for remote updates
 │   ├── useDocumentTitle.ts     # document.title per screen
 │   ├── useEditorAppearance.ts  # Editor font and column width
 │   ├── useFolders.ts           # Folder CRUD
@@ -138,7 +137,8 @@ src/
 │   ├── useKeyboardShortcuts.ts
 │   ├── useLayoutUrlActions.ts  # ?action=search|new|collaborate URL params
 │   ├── useLiveQuery.ts         # Shared, ref-counted PGlite live queries
-│   ├── useMountedTabs.ts       # Desktop tab keep-alive policy
+│   ├── useMountedTabs.ts       # Desktop tab keep-alive policy (most recently used)
+│   ├── useTabView.ts           # Scroll + selection of an unmounted desktop tab
 │   ├── useNoteActions.ts       # Open / trash / archive / delete actions for lists and dialogs
 │   ├── useNoteCollaboration.ts # Share a note with circles / revoke it (remote, invite, local metadata)
 │   ├── useNoteListView.ts      # Note list for the current route (folder, tag, Shared, Trash, Archive)
@@ -740,7 +740,7 @@ Short maps of how each finished epic works. The e2e folder named in each is wher
 
 - Routes are in `src/App.tsx` (Routes table above); the authenticated shell is `src/layouts/JournalLayout.tsx`. Unknown paths redirect to `/`.
 - Sign-in keeps the requested URL: `AuthGuard` sends you to `/welcome?returnUrl=…`, the URL rides through the auth flow as `state`, and `AuthFinalizePage` returns you to it (same-origin only). URL actions (`?action=search|new|collaborate`, PWA shortcuts) are handled by `useLayoutUrlActions`, and session restore doesn't override them.
-- Desktop tabs follow the URL through `useTabRouting`; missing/archived notes in tabs resolve instead of sticking on "Note not found"; `useMountedTabs` keeps visited tabs alive. Mobile shows one pane per route (`src/layouts/mobilePane.ts`), including tag filters.
+- Desktop tabs follow the URL through `useTabRouting`; missing/archived notes in tabs resolve instead of sticking on "Note not found"; `useMountedTabs` keeps the active tab and the three most recently used hidden ones mounted (#1487); `useTabView` puts an unmounted tab back at its scroll offset and selection. Mobile shows one pane per route (`src/layouts/mobilePane.ts`), including tag filters.
 - Stale lazy chunks after a deploy reload once (`src/lib/utils/chunkReload.ts`); `useDocumentTitle` sets the title per screen; `/share/*` skips app-only boot work (`src/lib/sharePath.ts`).
 - Tab stacks (#859): on a phone each route tab (Notes, Shared) keeps a back stack of its locations (`src/layouts/tabStacks.ts`, saved in sessionStorage; max 20; a sheet's history entry never goes on it). `useMobileTabs` updates it on every navigation; switching tabs replaces the current entry with the target tab's first screen and pushes the rest (marked `state.tabRebuild`), so Back walks that tab's screens. The active tab pops to its root and clears its stack. Known limit: Back from a rebuilt first screen goes to the previous browser entry, which may be from the other tab; Back is not trapped.
 - Native links (#1093): `src/lib/nativeDeepLink.ts` strictly parses `journal://note/<id>|today|new?title=&text=|search?q=`; `useNativeDeepLink` (cold start + `onOpenUrl`) only navigates: note -> `/:folder/:id`, today -> `/?action=today`, new -> `/share-target?title=&text=` (prefilled, saves on confirm), search -> `/?action=search&q=`. Signed out, the AuthGuard keeps the target through sign-in. `deepLinkRoute` keeps share/auth links.

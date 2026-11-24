@@ -67,11 +67,13 @@ export interface LiveBlockPreviewProps {
   onLink?: (url: string) => void;
   /** The colour scheme to draw the block in; without one, the `dark` class on `<html>` says. */
   theme?: FrameTheme['colorScheme'];
+  /** The block is out of view: an html, react or mermaid block unloads its frame until it is back. */
+  offscreen?: boolean;
 }
 
 type ReactResult = { source: string; page: string } | { source: string; title: string; error: string };
 
-export function LiveBlockPreview({ kind, source, store, onHeight, wide, onLink, theme }: LiveBlockPreviewProps) {
+export function LiveBlockPreview({ kind, source, store, onHeight, wide, onLink, theme, offscreen }: LiveBlockPreviewProps) {
   if (kind === 'svg') {
     return (
       <div className="p-4">
@@ -79,9 +81,9 @@ export function LiveBlockPreview({ kind, source, store, onHeight, wide, onLink, 
       </div>
     );
   }
-  if (kind === 'html') return <HtmlPreview source={source} title="HTML preview" store={store} onHeight={onHeight} wide={wide} onLink={onLink} theme={theme} />;
-  if (kind === 'react') return <ReactPreview source={source} store={store} onHeight={onHeight} wide={wide} onLink={onLink} theme={theme} />;
-  return <MermaidPreview source={source} onLink={onLink} theme={theme} />;
+  if (kind === 'html') return <HtmlPreview source={source} title="HTML preview" store={store} onHeight={onHeight} wide={wide} onLink={onLink} theme={theme} offscreen={offscreen} />;
+  if (kind === 'react') return <ReactPreview source={source} store={store} onHeight={onHeight} wide={wide} onLink={onLink} theme={theme} offscreen={offscreen} />;
+  return <MermaidPreview source={source} onLink={onLink} theme={theme} offscreen={offscreen} />;
 }
 
 // The theme is the `dark` class on <html> (Journal's useThemePreference); the editor's font is
@@ -119,7 +121,8 @@ function HtmlPreview({
   onLink,
   theme,
   themeVariables,
-}: Pick<LiveBlockPreviewProps, 'source' | 'store' | 'onHeight' | 'wide' | 'onLink' | 'theme'> & { title: string; themeVariables?: string }) {
+  offscreen,
+}: Pick<LiveBlockPreviewProps, 'source' | 'store' | 'onHeight' | 'wide' | 'onLink' | 'theme' | 'offscreen'> & { title: string; themeVariables?: string }) {
   // State, not a ref: the frame's document takes its look from the mounted element.
   const [frame, setFrame] = useState<HTMLIFrameElement | null>(null);
   // What the app knows the frame's own page by (#945). It stays the same through a reload of that page.
@@ -177,6 +180,9 @@ function HtmlPreview({
     port.postMessage({ journalLiveBlock: 1, look: { style: frameRootStyle(frameTheme(frame, theme)), themeVariables } });
   }, [port, frame, theme, themeVariables]);
 
+  // Each frame is a page with its own scripts; the block's box keeps its height without one (#1487).
+  if (offscreen) return null;
+
   // No background: the page inside is see-through, so the note shows behind it.
   // A frame of its own for each document: a new srcdoc in a loaded frame adds a history entry,
   // so Back would walk through the frame's pages before it left the note (#1044).
@@ -213,7 +219,7 @@ const REACT_BLOCK_LIBRARY_SCRIPTS: Record<ReactBlockLibrary, () => Promise<{ def
  * shown, a library on the first block that imports it (#427); all are cached for offline use
  * by src/sw.ts.
  */
-function ReactPreview({ source, store, onHeight, wide, onLink, theme }: Pick<LiveBlockPreviewProps, 'source' | 'store' | 'onHeight' | 'wide' | 'onLink' | 'theme'>) {
+function ReactPreview({ source, store, onHeight, wide, onLink, theme, offscreen }: Pick<LiveBlockPreviewProps, 'source' | 'store' | 'onHeight' | 'wide' | 'onLink' | 'theme' | 'offscreen'>) {
   const [result, setResult] = useState<ReactResult | null>(null);
 
   useEffect(() => {
@@ -270,7 +276,7 @@ function ReactPreview({ source, store, onHeight, wide, onLink, theme }: Pick<Liv
       </div>
     );
   }
-  return <HtmlPreview source={current.page} title="React preview" store={store} onHeight={onHeight} wide={wide} onLink={onLink} theme={theme} />;
+  return <HtmlPreview source={current.page} title="React preview" store={store} onHeight={onHeight} wide={wide} onLink={onLink} theme={theme} offscreen={offscreen} />;
 }
 
 /** A preview that could not be made, as Journal's error callout (its CalloutNode's `error` variant). */
@@ -349,7 +355,7 @@ function mermaidThemeVariables(dark: boolean) {
 }
 
 /** A mermaid block (#946). Its runtime loads on the first one shown and is cached for offline use by Journal's src/sw.ts. */
-function MermaidPreview({ source, onLink, theme }: Pick<LiveBlockPreviewProps, 'source' | 'onLink' | 'theme'>) {
+function MermaidPreview({ source, onLink, theme, offscreen }: Pick<LiveBlockPreviewProps, 'source' | 'onLink' | 'theme' | 'offscreen'>) {
   const rootDark = useSyncExternalStore(subscribeToRootAttributes, isDarkTheme, isDarkTheme);
   const dark = theme ? theme === 'dark' : rootDark;
   const [runtime, setRuntime] = useState<{ script: string } | { error: string } | null>(null);
@@ -393,6 +399,7 @@ function MermaidPreview({ source, onLink, theme }: Pick<LiveBlockPreviewProps, '
           onLink={onLink}
           theme={theme}
           themeVariables={JSON.stringify(mermaidThemeVariables(dark))}
+          offscreen={offscreen}
         />
       </div>
     </div>
