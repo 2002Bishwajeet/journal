@@ -69,6 +69,22 @@ test('a signed-out visitor sees no access with Sign in, or not found for a missi
 });
 
 test('a signed-in viewer without the note sees no access, with no Sign in', async ({ app }) => {
+  // A normal viewer after #1494 holds peer read (305), so the pull runs and finds nothing
+  await app.route('**/security/context**', (route) =>
+    route.fulfill({
+      json: {
+        caller: { odinId: 'e2e-owner.homebase.test', securityLevel: 'owner' },
+        permissionContext: {
+          permissionGroups: [{
+            driveGrants: [{
+              permissionedDrive: { drive: { alias: 'd5f411fa83fd4854a3bd7e974cc9bca9', type: '30743710039d4b97bbd352f343d1c9df' }, permission: 'readWrite' },
+            }],
+            permissionSet: { keys: [10, 305, 405] },
+          }],
+        },
+      },
+    }),
+  );
   await guestReadsAnswer(app, 403);
   await app.goto(`/share/${AUTHOR}/${RESTRICTED_ID}`);
   await assertTestOrigin(app);
