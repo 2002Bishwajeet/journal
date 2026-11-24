@@ -26,10 +26,12 @@ const frames = () => host.querySelectorAll('iframe').length;
 
 /** Intersection reports for each observed element, sent by the test. */
 const observers = new Map<Element, IntersectionObserverCallback>();
+const observerOptions: (IntersectionObserverInit | undefined)[] = [];
 class FakeIntersectionObserver {
   private callback: IntersectionObserverCallback;
-  constructor(callback: IntersectionObserverCallback) {
+  constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {
     this.callback = callback;
+    observerOptions.push(options);
   }
   observe(target: Element) {
     observers.set(target, this.callback);
@@ -61,6 +63,7 @@ afterEach(async () => {
   host.replaceChildren();
   vi.unstubAllGlobals();
   observers.clear();
+  observerOptions.length = 0;
 });
 
 describe('live-block frames', () => {
@@ -117,5 +120,18 @@ describe('live-block frames', () => {
     // printElement looks for the frames right after, without waiting for a render.
     revealIntersections(host);
     expect(frames()).toBe(1);
+  });
+
+  it('watches against the note scroller, a scroller height past its edges', async () => {
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+    const scroller = host.appendChild(document.createElement('div'));
+    scroller.setAttribute('data-note-scroller', '');
+    root = createRoot(scroller.appendChild(document.createElement('div')));
+    await render(
+      <LiveBlockFrame kind="html" source="<p>hi</p>" preview trusted toggles={null}>
+        {null}
+      </LiveBlockFrame>,
+    );
+    expect(observerOptions).toContainEqual({ root: scroller, rootMargin: '100% 0px' });
   });
 });
