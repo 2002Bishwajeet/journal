@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Journal Dev",
-  "version": "2.73.25",
+  "version": "2.73.26",
   "identifier": "com.biswa.journal",
   "build": {
     "beforeDevCommand": "npm run dev",
