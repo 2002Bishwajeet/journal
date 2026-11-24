@@ -41,6 +41,8 @@ export interface SyncResult {
     nextRetryAt?: number;
     /** The run failed (network, sign-in or server), not just skipped or partly failed (#1170) */
     failed?: boolean;
+    /** Nothing ran: another sync was in progress or the device is offline. Not an error. */
+    skipped?: boolean;
 }
 
 /**
@@ -81,7 +83,7 @@ export class SyncService {
         return this.#status;
     }
 
-    private isOnline(): boolean {
+    isOnline(): boolean {
         return this.#onlineContext.isOnline;
     }
 
@@ -127,12 +129,12 @@ export class SyncService {
      */
     async sync(onProgress?: (progress: SyncProgress) => void): Promise<SyncResult> {
         if (this.#status === 'syncing') {
-            return { pulled: { folders: 0, notes: 0 }, pushed: { folders: 0, notes: 0 }, errors: ['Sync already in progress'] };
+            return { pulled: { folders: 0, notes: 0 }, pushed: { folders: 0, notes: 0 }, errors: ['Sync already in progress'], skipped: true };
         }
 
         // Network guard - skip sync if offline
         if (!this.isOnline()) {
-            return { pulled: { folders: 0, notes: 0 }, pushed: { folders: 0, notes: 0 }, errors: ['Network offline'] };
+            return { pulled: { folders: 0, notes: 0 }, pushed: { folders: 0, notes: 0 }, errors: ['Network offline'], skipped: true };
         }
 
         this.#status = 'syncing';

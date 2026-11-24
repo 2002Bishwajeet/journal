@@ -61,6 +61,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSyncAttempt = useRef<number>(0);
   const syncFnRef = useRef<(() => Promise<void>) | null>(null);
+  const syncStatusRef = useRef(syncStatus);
 
   // Create sync service instance (memoized)
   const syncService = useMemo(() => {
@@ -124,6 +125,11 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    // A sync is already running (SyncService would skip this call): leave it be
+    if (syncService.getStatus() === "syncing") return;
+    // Offline per the service's own context (SyncService would skip this call)
+    if (!syncService.isOnline()) return;
+
     // Prevent too frequent syncs (debounce)
     const now = Date.now();
     if (now - lastSyncAttempt.current < 1000) {
@@ -137,6 +143,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       retryTimeoutRef.current = null;
     }
 
+    const previousStatus = syncStatusRef.current;
     setSyncStatus("syncing");
     setSyncProgress(null); // Reset progress
     appendLog("info", "[SyncProvider] Sync started");
@@ -149,6 +156,11 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       };
 
       const result = await syncService.sync(handleProgress);
+      if (result.skipped) {
+        // Not a sync: no finish log, status change or retry
+        setSyncStatus(previousStatus);
+        return;
+      }
       setLastSyncResult(result);
       appendLog(
         "info",
@@ -165,9 +177,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       setSyncStatus(result.failed ? "error" : "idle");
 
       if (result.errors.length > 0) {
+        // A string, not the array: the log prints arrays as [Array(n)]. SyncService errors
+        // are request or crypto messages, never note titles.
         console.warn(
-          "[SyncProvider] Sync completed with errors:",
-          result.errors,
+          `[SyncProvider] Sync completed with errors: ${result.errors.join("; ")}`,
         );
         scheduleRetry();
       } else if (result.nextRetryAt) {
@@ -195,6 +208,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
   // WebSocket for real-time updates — active when sync service is ready
   const websocketConnected = useJournalWebsocket({ isEnabled: !!syncService, syncService, onReconnect: sync });
+
+  useEffect(() => {
+    syncStatusRef.current = syncStatus;
+  }, [syncStatus]);
 
   // Keep ref in sync with the latest sync function
   useEffect(() => {

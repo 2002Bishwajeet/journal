@@ -3,10 +3,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createElement, act, useEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { getLogSnapshot, resetLogForTests, installConsoleCapture } from '@/lib/diagnostics/logBuffer';
 import type { SyncResult } from '@/lib/homebase/SyncService';
 import type { SyncContextType } from '@/hooks/useSyncService';
 
-const { serviceSync } = vi.hoisted(() => ({ serviceSync: vi.fn() }));
+const { serviceSync, serviceStatus, serviceOnline } = vi.hoisted(() => ({ serviceSync: vi.fn(), serviceStatus: vi.fn(() => 'idle'), serviceOnline: vi.fn(() => true) }));
 
 vi.mock('@/components/auth', () => ({
     useDotYouClientContext: () => ({ getHostIdentity: () => 'me.homebase.test' }),
@@ -14,6 +15,8 @@ vi.mock('@/components/auth', () => ({
 vi.mock('@/lib/homebase/SyncService', () => ({
     SyncService: class SyncService {
         sync = serviceSync;
+        getStatus = serviceStatus;
+        isOnline = serviceOnline;
     },
 }));
 vi.mock('@/lib/db', () => ({
@@ -34,7 +37,7 @@ import { useSyncService } from '@/hooks/useSyncService';
 
 const ok = (): SyncResult => ({ pulled: { folders: 0, notes: 1 }, pushed: { folders: 0, notes: 0 }, errors: [] });
 const failed = (): SyncResult => ({ pulled: { folders: 0, notes: 0 }, pushed: { folders: 0, notes: 0 }, errors: ['Network Error'], failed: true });
-const inProgress = (): SyncResult => ({ pulled: { folders: 0, notes: 0 }, pushed: { folders: 0, notes: 0 }, errors: ['Sync already in progress'] });
+const inProgress = (): SyncResult => ({ pulled: { folders: 0, notes: 0 }, pushed: { folders: 0, notes: 0 }, errors: ['Sync already in progress'], skipped: true });
 
 let root: Root;
 let ctx: SyncContextType;
@@ -68,6 +71,8 @@ afterEach(async () => {
     document.body.innerHTML = '';
     vi.restoreAllMocks();
     serviceSync.mockReset();
+    serviceStatus.mockReturnValue('idle');
+    serviceOnline.mockReturnValue(true);
 });
 
 describe('SyncProvider sync error state (#1170)', () => {
@@ -96,5 +101,52 @@ describe('SyncProvider sync error state (#1170)', () => {
         await mount();
         await vi.waitFor(() => expect(serviceSync).toHaveBeenCalled());
         await vi.waitFor(() => expect(ctx.syncStatus).toBe('idle'));
+    });
+
+    it('logs no result, keeps the status and schedules no retry for a skipped sync (#1491)', async () => {
+        vi.useFakeTimers({ toFake: ['setTimeout'] });
+        serviceSync.mockResolvedValue(ok());
+        await mount();
+        await vi.waitFor(() => expect(ctx.syncStatus).toBe('idle'));
+        resetLogForTests();
+        serviceSync.mockClear();
+
+        serviceSync.mockResolvedValueOnce(inProgress());
+        await syncNow();
+        serviceStatus.mockReturnValue('syncing');
+        await syncNow();
+
+        expect(ctx.syncStatus).toBe('idle');
+        expect(serviceSync).toHaveBeenCalledTimes(1);
+        expect(getLogSnapshot().map((e) => e.message).join('\n')).not.toMatch(/finished|errors/);
+        await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+        expect(serviceSync).toHaveBeenCalledTimes(1);
+        vi.useRealTimers();
+    });
+
+    it('does not start or log a sync when the service is offline (#1491)', async () => {
+        serviceSync.mockResolvedValue(ok());
+        await mount();
+        await vi.waitFor(() => expect(ctx.syncStatus).toBe('idle'));
+        resetLogForTests();
+        serviceSync.mockClear();
+        serviceOnline.mockReturnValue(false);
+
+        await syncNow();
+
+        expect(serviceSync).not.toHaveBeenCalled();
+        expect(ctx.syncStatus).toBe('idle');
+        expect(getLogSnapshot().map((e) => e.message).join('\n')).not.toMatch(/started/);
+    });
+
+    it('logs a real sync error as readable text (#1491)', async () => {
+        installConsoleCapture();
+        resetLogForTests();
+        serviceSync.mockResolvedValue({ ...failed(), errors: ['Request failed with status code 500'] });
+        await mount();
+        await vi.waitFor(() => expect(ctx.syncStatus).toBe('error'));
+        const text = getLogSnapshot().map((e) => e.message).join('\n');
+        expect(text).toContain('Sync completed with errors: Request failed with status code 500');
+        expect(text).not.toContain('Array(');
     });
 });
