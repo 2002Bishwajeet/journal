@@ -2,10 +2,12 @@ import type { TargetDriveAccessRequest } from "@homebase-id/js-lib/auth";
 import { DrivePermissionType, type TargetDrive } from "@homebase-id/js-lib/core";
 import { AppPermissionType, ContactConfig } from "@homebase-id/js-lib/network";
 
-// Every signed-in user: connections to subscribe to, and the key that allows peer push (#743)
+// Every signed-in user: connections to subscribe to, the key that allows peer push (#743),
+// and peer read, without which a note shared with you can't be opened (#1494)
 export const BASE_PERMISSIONS = [
     AppPermissionType.ReadConnections,
     AppPermissionType.SendPushNotifications,
+    AppPermissionType.ReceiveDataFromOtherIdentitiesOnMyBehalf,
 ];
 
 // Collaboration permissions required for circle-based sharing
@@ -41,6 +43,9 @@ export const JOURNAL_PUSH_TYPE_EDIT = '3c9e5a74-8b1d-4f26-a07e-d15b6c92f840';
 
 // Fixed: the push type of "an owner shared a note with you" (#745)
 export const JOURNAL_PUSH_TYPE_SHARE = '8f2d6b13-5c7a-4e90-b4d8-2a1e9c6f0b57';
+
+// Fixed: the push type of "an owner stopped sharing a note with you" (#1494)
+export const JOURNAL_PUSH_TYPE_UNSHARE = 'a4c81e27-9d3f-4b65-8e02-6f7b3d1c9a48';
 
 // Tag of the one quiet notification the service worker shows for other Homebase apps' pushes
 export const OTHER_APPS_NOTIFICATION_TAG = 'homebase-other';

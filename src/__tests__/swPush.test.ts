@@ -5,7 +5,7 @@
  * background" notice and Safari keeps the subscription.
  */
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
-import { COLLABORATIVE_FOLDER_ID, JOURNAL_APP_ID, JOURNAL_PUSH_TYPE_EDIT, JOURNAL_TEST_PUSH_TYPE_ID } from '@/lib/homebase/config';
+import { COLLABORATIVE_FOLDER_ID, JOURNAL_APP_ID, JOURNAL_PUSH_TYPE_EDIT, JOURNAL_PUSH_TYPE_UNSHARE, JOURNAL_TEST_PUSH_TYPE_ID } from '@/lib/homebase/config';
 
 vi.mock('workbox-precaching', () => ({
     precacheAndRoute: vi.fn(),
@@ -161,6 +161,15 @@ describe('sw notificationclick', () => {
         matchAll.mockResolvedValue([]);
         await fireClick(test);
         expect(openWindow).toHaveBeenCalledWith('/');
+    });
+
+    // #1494: the note is no longer shared, so there is nothing to open
+    it('opens the app, not the note, for an unshare notification', async () => {
+        const client = { focus: vi.fn(async () => {}), navigate: vi.fn(async () => null) };
+        matchAll.mockResolvedValue([client]);
+        await fireClick({ senderId: 'sam.dotyou.cloud', typeId: JOURNAL_PUSH_TYPE_UNSHARE, tagId: 'note-1' });
+        expect(client.focus).toHaveBeenCalled();
+        expect(client.navigate).not.toHaveBeenCalled();
     });
 
     it("focuses Journal without navigating for another app's notification", async () => {

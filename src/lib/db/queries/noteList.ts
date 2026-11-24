@@ -273,6 +273,22 @@ export async function getSharedNoteIdsFrom(authorOdinId: string): Promise<string
     return result.rows.map((row) => row.doc_id);
 }
 
+/** The identities that shared at least one note here with the host, trashed and archived included (#1494). */
+export async function getSharedNoteOwners(hostOdinId: string): Promise<string[]> {
+    const db = await getDatabase();
+    const result = await db.query<{ owner: string }>(
+        `SELECT DISTINCT owner FROM (
+            SELECT COALESCE(metadata->>'authorOdinId',
+                (SELECT sr.author_odin_id FROM sync_records sr WHERE sr.local_id = search_index.doc_id)) AS owner
+            FROM search_index
+            WHERE (metadata->>'isCollaborative')::boolean = true
+        ) shared
+        WHERE owner <> $1`,
+        [hostOdinId],
+    );
+    return result.rows.map((row) => row.owner);
+}
+
 /** Ids of every note another identity shared with the host, trashed and archived included (#748). */
 export async function getSharedNoteIds(hostOdinId: string): Promise<string[]> {
     const db = await getDatabase();

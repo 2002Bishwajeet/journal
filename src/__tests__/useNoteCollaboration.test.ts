@@ -509,6 +509,19 @@ describe('revoke', () => {
         await unmount();
     });
 
+    // #1494: their apps drop the note without polling
+    it('pushes everyone it was shared with that it is no longer shared, after the revoke', async () => {
+        mocks.sendSharePush.mockImplementation(async () => { mocks.calls.push('push'); });
+        const { api, unmount } = await mountHook();
+        await act(async () => api().revoke(note('s', {
+            folderId: 'shared', recipients: ['a.id'], odinIds: ['sam.id'], viewerRecipients: ['v.id'],
+        })));
+
+        expect(mocks.sendSharePush).toHaveBeenCalledWith('s', [], ['a.id', 'sam.id', 'v.id']);
+        expect(mocks.calls.indexOf('push')).toBeGreaterThan(mocks.calls.indexOf('revoke'));
+        await unmount();
+    });
+
     it('unenrolls only the recipients with no other shared note', async () => {
         mocks.getRecipientsOfOwnNotes.mockResolvedValue(['b.id']);
         const { api, unmount } = await mountHook();

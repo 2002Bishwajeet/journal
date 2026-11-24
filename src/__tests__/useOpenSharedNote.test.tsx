@@ -11,14 +11,16 @@ import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
-const { entries, sync, pullOwnerNow } = vi.hoisted(() => ({
+const { entries, sync, pullOwnerNow, peer } = vi.hoisted(() => ({
     entries: new Map<string, { metadata: { folderId: string } }>(),
     sync: { current: { lastSyncResult: null as object | null, syncStatus: 'syncing' } },
     pullOwnerNow: vi.fn(async () => {}),
+    peer: { access: true as boolean | undefined },
 }));
 vi.mock('@/lib/db/queries', () => ({ getSearchIndexEntry: vi.fn(async (id: string) => entries.get(id) ?? null) }));
 vi.mock('@/hooks/useSyncService', () => ({ useSyncService: () => ({ ...sync.current, syncService: { pullOwnerNow } }) }));
 vi.mock('@/hooks/useOnlineContext', () => ({ useOnlineContext: () => ({ isOnline: true }) }));
+vi.mock('@/hooks/usePeerAccess', () => ({ usePeerAccess: () => peer.access }));
 
 import { useOpenSharedNote } from '@/hooks/useOpenSharedNote';
 
@@ -26,8 +28,8 @@ const OWNER = 'owner.example.com';
 const FILE = '4e9a1c70-3b5d-4f28-a6c1-9d0e2b7f5a34';
 
 function Probe() {
-    const { noAccess } = useOpenSharedNote();
-    return createElement('p', { 'data-testid': 'probe' }, noAccess ? 'no access' : 'opening');
+    const { noAccess, needsPermission } = useOpenSharedNote();
+    return createElement('p', { 'data-testid': 'probe' }, noAccess ? 'no access' : needsPermission ? 'needs permission' : 'opening');
 }
 function Where() {
     const location = useLocation();
@@ -53,6 +55,7 @@ beforeEach(() => {
     entries.clear();
     sync.current = { lastSyncResult: null, syncStatus: 'syncing' };
     pullOwnerNow.mockReset();
+    peer.access = true;
     el = document.createElement('div');
     document.body.appendChild(el);
     root = createRoot(el);
@@ -95,6 +98,49 @@ describe('useOpenSharedNote', () => {
         await tick();
 
         expect(pullOwnerNow).toHaveBeenCalledTimes(1);
+        expect(pullOwnerNow).toHaveBeenCalledWith(OWNER);
+        expect(shown()).toBe('no access');
+    });
+
+    // #1494: without peer read the host's own server refuses the pull
+    it('without peer access makes no pull, looks here once more after the first sync, then needs the permission', async () => {
+        peer.access = false;
+        await render();
+        await tick();
+        expect(shown()).toBe('opening');
+
+        sync.current = { lastSyncResult: {}, syncStatus: 'idle' };
+        await render();
+        await tick();
+
+        expect(pullOwnerNow).not.toHaveBeenCalled();
+        expect(shown()).toBe('needs permission');
+    });
+
+    it('without peer access still opens a note the first sync brought', async () => {
+        peer.access = false;
+        await render();
+        await tick();
+        entries.set(FILE, { metadata: { folderId: 'main' } });
+        sync.current = { lastSyncResult: {}, syncStatus: 'idle' };
+        await render();
+        await tick();
+
+        expect(shown()).toBe(`/main/${FILE}`);
+        expect(pullOwnerNow).not.toHaveBeenCalled();
+    });
+
+    it('waits while the permissions load, then pulls once they allow it', async () => {
+        peer.access = undefined;
+        sync.current = { lastSyncResult: {}, syncStatus: 'idle' };
+        await render();
+        await tick();
+        expect(pullOwnerNow).not.toHaveBeenCalled();
+        expect(shown()).toBe('opening');
+
+        peer.access = true;
+        await render();
+        await tick();
         expect(pullOwnerNow).toHaveBeenCalledWith(OWNER);
         expect(shown()).toBe('no access');
     });

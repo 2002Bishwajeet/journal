@@ -179,10 +179,12 @@ describe('runPeerPushPass', () => {
 });
 
 describe('sign-in permissions', () => {
-    it('base permissions hold both keys and are never empty', () => {
+    it('base permissions hold the push, connections and peer read keys, and are never empty', () => {
         expect(BASE_PERMISSIONS.length).toBeGreaterThan(0);
         expect(BASE_PERMISSIONS).toContain(AppPermissionType.SendPushNotifications);
         expect(BASE_PERMISSIONS).toContain(AppPermissionType.ReadConnections);
+        // #1494: without it a note shared with you can't be opened
+        expect(BASE_PERMISSIONS).toContain(AppPermissionType.ReceiveDataFromOtherIdentitiesOnMyBehalf);
         expect(COLLABORATION_PERMISSIONS).toEqual(expect.arrayContaining(BASE_PERMISSIONS));
     });
 

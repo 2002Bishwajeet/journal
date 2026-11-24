@@ -233,17 +233,16 @@ export class SyncService {
         return peer.handleDeletedInvitation(deleted, this.#ctx.hostIdentity);
     }
 
-    /** Find notes shared with the host on its connections' drives, and drop revoked ones (#732). */
-    async pullShared(options: sharedPull.SharedPullOptions): Promise<void> {
-        // Offline, every owner would fail and back off
-        if (!this.isOnline()) return;
-        return sharedPull.pullShared(this.#ctx, this.#dotYouClient, options);
-    }
-
-    /** The shared pull for one owner only, ignoring its backoff (#745 calls it on a share push). */
+    /** Find the notes one owner shares with the host, and drop the ones it no longer does (#732, #745). */
     async pullOwnerNow(odinId: string): Promise<void> {
         if (!this.isOnline()) return;
         return sharedPull.pullOwnerNow(this.#ctx, this.#dotYouClient, odinId);
+    }
+
+    /** Check the host's notes from one owner and drop the ones it stopped sharing (an unshare push, #1494). */
+    async revalidateOwner(odinId: string): Promise<void> {
+        if (!this.isOnline()) return;
+        return sharedPull.revalidateOwner(this.#ctx, odinId);
     }
 
     /**

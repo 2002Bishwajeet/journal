@@ -36,8 +36,8 @@ describe('registration permission set (#246)', () => {
         const params = await useYouAuthAuthorization().getAuthorizationParameters('https://journal.test/');
         const request = JSON.parse(params.permission_request);
 
-        // #743: the base set is never empty, so the permission set is never null
-        expect(ownerConsolePermissionSet(request.p)).toEqual({ keys: [10, 405] });
+        // #743: the base set is never empty, so the permission set is never null; #1494 adds peer read
+        expect(ownerConsolePermissionSet(request.p)).toEqual({ keys: [10, 405, 305] });
     });
 
     it('does not ask for the feed drive: that is asked for on the first Publish to feed (#1074)', async () => {

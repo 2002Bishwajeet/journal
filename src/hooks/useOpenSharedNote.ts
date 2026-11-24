@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getSearchIndexEntry } from '@/lib/db/queries';
 import { useSyncService } from '@/hooks/useSyncService';
 import { useOnlineContext } from '@/hooks/useOnlineContext';
+import { usePeerAccess } from '@/hooks/usePeerAccess';
 import { isValidShareLink } from '@/hooks/useSaveSharedNote';
 
 /**
@@ -30,41 +31,54 @@ export async function findSharedNotePath(file: string, pullOwner: () => Promise<
     return localNotePath(file);
 }
 
+type Step = 'local' | 'pull' | 'lookAgain';
+
 /**
  * Drives `/open-shared?identity=…&file=…`, where a signed-in viewer of a share link
  * that is not public lands: opens the note when they have it, else `noAccess`. A note
  * not here yet may come with the first sync (a fresh device), so a miss waits for that
- * pass to end before pulling from the owner.
+ * pass to end before pulling from the owner. Without peer access that pull can't be made
+ * (#1494): after the first sync it looks here once more, else `needsPermission`, and the
+ * page offers the grant, which returns here.
  */
-export function useOpenSharedNote(): { invalid: boolean; noAccess: boolean } {
+export function useOpenSharedNote(): { invalid: boolean; noAccess: boolean; needsPermission: boolean } {
     const [params] = useSearchParams();
     const navigate = useNavigate();
     const { syncService, syncStatus, lastSyncResult } = useSyncService();
     const { isOnline } = useOnlineContext();
+    const canPeer = usePeerAccess();
     const [phase, setPhase] = useState<'local' | 'afterSync' | 'noAccess'>('local');
-    const started = useRef<'local' | 'afterSync' | null>(null);
+    const started = useRef<Step | null>(null);
 
     const identity = params.get('identity');
     const file = params.get('file');
     const valid = isValidShareLink(identity, file);
     const firstSyncDone = lastSyncResult !== null || syncStatus === 'error' || !isOnline;
+    // After the first sync: pull from the owner, or without peer access only look again
+    const step: Step = phase === 'local' ? 'local' : canPeer ? 'pull' : 'lookAgain';
 
     useEffect(() => {
-        // Strict mode runs effects twice; each phase looks up once.
-        if (!valid || phase === 'noAccess' || started.current === phase) return;
+        // Strict mode runs effects twice; each step looks up once.
+        if (!valid || phase === 'noAccess' || started.current === step) return;
         let run: Promise<string | null>;
-        if (phase === 'local') run = localNotePath(file!);
-        else if (syncService && firstSyncDone) run = findSharedNotePath(file!, () => syncService.pullOwnerNow(identity));
-        else return;
-        started.current = phase;
+        if (step === 'local') run = localNotePath(file!);
+        else if (!syncService || !firstSyncDone || canPeer === undefined) return;
+        else if (step === 'pull') run = findSharedNotePath(file!, () => syncService.pullOwnerNow(identity));
+        else run = localNotePath(file!);
+        started.current = step;
         run.catch((err: unknown) => {
             console.error('[useOpenSharedNote] Could not look the note up:', err);
             return null;
         }).then((path) => {
             if (path) navigate(path, { replace: true });
-            else setPhase(phase === 'local' ? 'afterSync' : 'noAccess');
+            else if (step === 'local') setPhase('afterSync');
+            else if (step === 'pull') setPhase('noAccess');
         });
-    }, [valid, phase, syncService, firstSyncDone, identity, file, navigate]);
+    }, [valid, phase, step, syncService, firstSyncDone, canPeer, identity, file, navigate]);
 
-    return { invalid: !valid, noAccess: phase === 'noAccess' };
+    return {
+        invalid: !valid,
+        noAccess: phase === 'noAccess',
+        needsPermission: valid && phase === 'afterSync' && firstSyncDone && canPeer === false,
+    };
 }

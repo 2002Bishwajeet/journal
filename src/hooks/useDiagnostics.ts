@@ -10,7 +10,6 @@ import { formatBytes, useStorageInfo } from '@/hooks/useStorageInfo';
 import {
     clearRetryBackoff,
     discardPendingImageUploads,
-    getAppState,
     getDatabaseBreakdown,
     getDatabaseInfo,
     getPendingSyncItems,
@@ -19,7 +18,6 @@ import {
     type DatabaseInfo,
     type PendingSyncItem,
 } from '@/lib/db';
-import { SHARED_PULL_STATE_KEY } from '@/lib/homebase/sync/sharedPull';
 import {
     driveNeedsOwner,
     driveOwnedByNoApp,
@@ -41,7 +39,6 @@ interface DeviceFacts {
     serviceWorker: string;
     database: DatabaseInfo | null;
     breakdown: DatabaseBreakdown | null;
-    sharedPassAt: number | null;
 }
 
 async function describeServiceWorker(): Promise<string> {
@@ -54,13 +51,12 @@ async function describeServiceWorker(): Promise<string> {
 }
 
 async function loadDeviceFacts(): Promise<DeviceFacts> {
-    const [serviceWorker, database, breakdown, shared] = await Promise.all([
+    const [serviceWorker, database, breakdown] = await Promise.all([
         describeServiceWorker().catch(() => 'unknown'),
         getDatabaseInfo().catch(() => null),
         getDatabaseBreakdown().catch(() => null),
-        getAppState<{ fullPassAt?: number }>(SHARED_PULL_STATE_KEY).catch(() => null),
     ]);
-    return { serviceWorker, database, breakdown, sharedPassAt: shared?.fullPassAt ?? null };
+    return { serviceWorker, database, breakdown };
 }
 
 function formatWhen(time: Date | number | null): string {
@@ -155,7 +151,6 @@ export function useDiagnostics() {
         { label: 'Realtime connection', value: websocketConnected ? 'connected' : 'disconnected' },
         { label: 'Sync', value: syncStatus },
         { label: 'Last full sync', value: formatWhen(lastSyncedAt) },
-        { label: 'Last shared notes pass', value: formatWhen(facts?.sharedPassAt ?? null) },
         { label: 'Push notifications', value: pushStatus },
         ...(shareDriveFixes.length ? [{ label: 'Share notifications', value: 'off: the journal drive needs a fix on your owner console' }] : []),
         { label: 'Service worker', value: facts?.serviceWorker ?? 'checking' },
