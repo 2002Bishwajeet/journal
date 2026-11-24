@@ -307,10 +307,22 @@
           "markdownDescription": "Denies the save command without any pre-configured scope."
         },
         {
-          "description": "Saves an exported file where the user picks.\n#### This default permission set includes:\n\n- `allow-save`",
+          "description": "Enables the share_text command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-share-text",
+          "markdownDescription": "Enables the share_text command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the share_text command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-share-text",
+          "markdownDescription": "Denies the share_text command without any pre-configured scope."
+        },
+        {
+          "description": "Saves an exported file where the user picks, and shares text.\n#### This default permission set includes:\n\n- `allow-save`\n- `allow-share-text`",
           "type": "string",
           "const": "default",
-          "markdownDescription": "Saves an exported file where the user picks.\n#### This default permission set includes:\n\n- `allow-save`"
+          "markdownDescription": "Saves an exported file where the user picks, and shares text.\n#### This default permission set includes:\n\n- `allow-save`\n- `allow-share-text`"
         }
       ]
     }

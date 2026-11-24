@@ -1,5 +1,5 @@
 "$schema" = "schemas/schema.json"
 
 [default]
-description = "Saves an exported file where the user picks."
-permissions = ["allow-save"]
+description = "Saves an exported file where the user picks, and shares text."
+permissions = ["allow-save", "allow-share-text"]

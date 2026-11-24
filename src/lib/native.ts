@@ -74,6 +74,15 @@ export async function saveFile(blob: Blob, filename: string): Promise<boolean> {
 }
 
 /**
+ * Native app: shares `text` through our `export` plugin's centred system share sheet. The web view's
+ * `navigator.share` anchors the iOS sheet to the tapped button and clips it. Resolves to false when
+ * the user closes the sheet.
+ */
+export async function shareText(text: string, title?: string): Promise<boolean> {
+  return invoke<boolean>('plugin:export|share_text', { text, title });
+}
+
+/**
  * The http(s) URL `href` points at when the native app should open it outside its
  * web view, else null. Null for the app's own pages, and for a link that comes back
  * to the app (a query value starting with the app's origin, like the owner
