@@ -52,19 +52,8 @@ export function cpuArch(values: { architecture?: string; bitness?: string } | nu
 }
 
 /**
- * A short note under the shown card for a CPU that needs one. A Mac needs no check, its build is universal.
- * Windows on ARM runs the x64 installer under emulation. Linux on ARM has no build yet, so `noBuild` is set.
- */
-export function archNote(os: DesktopOS, arch: Arch | null): { text: string; noBuild?: true } | null {
-  if (arch !== 'arm') return null
-  if (os === 'windows') return { text: "Your PC has an ARM processor. Journal for x64 runs on it through Windows 11's x64 emulation." }
-  if (os === 'linux') return { text: 'There is no ARM build for Linux yet. Journal in the browser works on any computer.', noBuild: true }
-  return null
-}
-
-/**
- * Puts the visitor's OS card first and folds the other cards under "Other platforms". Returns the shown card,
- * or null (page untouched) when there is no such card.
+ * Puts the visitor's OS card first and folds the other cards (the ARM ones too) under "Other platforms". Returns
+ * the shown card, or null (page untouched) when there is no such card.
  */
 export function layoutDownloads(doc: Document, os: DesktopOS | null): HTMLElement | null {
   const list = doc.querySelector<HTMLElement>('.dl-list')
@@ -72,7 +61,7 @@ export function layoutDownloads(doc: Document, os: DesktopOS | null): HTMLElemen
   if (!os || !list || !shown) return null
   const rest = doc.createElement('ul')
   rest.className = 'dl-list'
-  rest.append(...list.querySelectorAll(`.dl-item:not([data-os="${os}"])`))
+  rest.append(...[...list.querySelectorAll('.dl-item')].filter((item) => item !== shown))
   const details = doc.createElement('details')
   details.className = 'dl-other'
   details.innerHTML = '<summary>Other platforms</summary>'
@@ -82,21 +71,19 @@ export function layoutDownloads(doc: Document, os: DesktopOS | null): HTMLElemen
   return shown
 }
 
-/** Applies the CPU note to the shown card. With no build for the CPU, the note replaces the card's text and links. */
-export function applyArchNote(shown: HTMLElement, os: DesktopOS, arch: Arch | null): void {
-  const note = archNote(os, arch)
-  if (!note) return
-  const text = shown.firstElementChild!
-  if (note.noBuild) {
-    text.querySelector('p')!.textContent = note.text
-    const btn = shown.querySelector<HTMLAnchorElement>('.btn')!
-    btn.href = '/welcome'
-    btn.textContent = 'Open Journal in the browser'
-    btn.classList.replace('btn-primary', 'btn-secondary')
-    return
-  }
-  const p = shown.ownerDocument.createElement('p')
-  p.className = 'small'
-  p.textContent = note.text
-  text.append(p)
+/**
+ * Swaps the shown card for its OS's card for the visitor's CPU (data-arch: the ARM64 builds of Windows and Linux),
+ * and puts the shown card in that one's place under "Other platforms". A Mac has one universal card, and an x64 or
+ * unknown CPU keeps the x64 card. Returns the card shown now.
+ */
+export function showArch(shown: HTMLElement, arch: Arch | null): HTMLElement {
+  const card = arch && shown.ownerDocument.querySelector<HTMLElement>(`.dl-other .dl-item[data-os="${shown.dataset.os}"][data-arch="${arch}"]`)
+  if (!card) return shown
+  const rest = card.parentNode!
+  const place = card.nextSibling
+  shown.replaceWith(card)
+  rest.insertBefore(shown, place)
+  shown.querySelector('.btn')?.classList.replace('btn-primary', 'btn-secondary')
+  card.querySelector('.btn')?.classList.replace('btn-secondary', 'btn-primary')
+  return card
 }
