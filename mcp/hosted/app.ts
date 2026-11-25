@@ -34,7 +34,7 @@ export interface HomebaseDeps {
     driveDeps(creds: McpCredentials): McpDriveDeps;
 }
 
-// Homebase calls are upstream calls (publicFetch.ts): direct to an MCP_DIRECT_IPS host, else through the relay.
+// Homebase calls are upstream calls (publicFetch.ts): direct to an MCP_DIRECT_HOSTS host, else through the relay.
 const realHomebase: HomebaseDeps = {
     checkIdentity: (identity) => asUpstreamCall(() => checkIdentity(identity)),
     finalize: (...args) => asUpstreamCall(() => finalizeYouAuth(...args)),
@@ -51,6 +51,8 @@ export interface HostedOptions {
     homebase?: HomebaseDeps;
     /** MCP requests per user per minute. */
     rateLimit?: number;
+    /** Outbound requests (through the egress relay, when one is set) per user per minute. */
+    fetchLimit?: number;
     /** The module run_script's worker starts on: the hosted bundle itself (mcp/hosted/main.ts). */
     scriptWorker: URL;
 }
@@ -79,6 +81,9 @@ const UPLOAD_LIMIT = 30;
 const MAX_REGISTRATION_BYTES = 8 * 1024;
 /** How long a token Homebase turned away must keep failing before its grant is revoked. */
 const REVOKE_AFTER_MS = 60_000;
+/** How long an address that isn't a Homebase identity is refused without being fetched again, and how many are kept. */
+const NOT_IDENTITY_MS = 10 * 60_000;
+const MAX_NOT_IDENTITIES = 10_000;
 
 /** What the upstream (Homebase) transaction keeps, sealed under its `state`, for the callback. */
 interface Upstream {
@@ -86,21 +91,29 @@ interface Upstream {
     privateKey: JsonWebKey;
 }
 
-/** The identity of the grant serving the current MCP request, and whether Homebase turned its token away. */
-const grantContext = new AsyncLocalStorage<{ identity: string; rejected: boolean }>();
+/**
+ * The grant serving the current MCP request: its identity, whether Homebase turned its token away, whether it
+ * ran out of outbound requests, and `mayFetch`, which counts one.
+ */
+const grantContext = new AsyncLocalStorage<{ identity: string; rejected: boolean; throttled: boolean; mayFetch(): boolean }>();
 let watchingFetch = false;
 
 /**
  * Wraps the global fetch once, to notice a 401 or 403 from the identity of the grant whose MCP request
  * made the call: the drive providers swallow some failures, so their errors can't be relied on for it.
+ * Also stops a grant's fetches past its per-minute budget, so one user can't spend the relay's quota.
  */
 function watchHomebaseRejections(): void {
     if (watchingFetch) return;
     watchingFetch = true;
     const inner = globalThis.fetch;
     globalThis.fetch = async (input, init) => {
-        const response = await inner(input, init);
         const grant = grantContext.getStore();
+        if (grant && !grant.mayFetch()) {
+            grant.throttled = true;
+            throw new Error('Too many outbound requests');
+        }
+        const response = await inner(input, init);
         if (grant && (response.status === 401 || response.status === 403)) {
             const url = input instanceof Request ? input.url : String(input);
             if (new URL(url).host === grant.identity) grant.rejected = true;
@@ -166,7 +179,7 @@ function rateLimiter(limit: number) {
  * encrypted under a per-grant key that only the grant's own tokens unwrap. The client never sees the Homebase
  * token, and Homebase never sees the client's.
  */
-export function createHostedApp({ origin, kv, uploads, homebase = realHomebase, rateLimit = 120, scriptWorker }: HostedOptions) {
+export function createHostedApp({ origin, kv, uploads, homebase = realHomebase, rateLimit = 120, fetchLimit = 300, scriptWorker }: HostedOptions) {
     const issuer = `${origin}${BASE}`;
     const resource = `${origin}${MCP_PATH}`;
     const env = { OAUTH_KV: kv };
@@ -206,6 +219,7 @@ export function createHostedApp({ origin, kv, uploads, homebase = realHomebase, 
     }
 
     const allowMcp = rateLimiter(rateLimit);
+    const allowFetch = rateLimiter(fetchLimit);
     const allowRegister = rateLimiter(REGISTER_LIMIT);
     const allowRegisterAll = rateLimiter(REGISTER_LIMIT_ALL);
     const allowAuthorize = rateLimiter(AUTHORIZE_LIMIT);
@@ -226,7 +240,7 @@ export function createHostedApp({ origin, kv, uploads, homebase = realHomebase, 
             .clone()
             .json()
             .catch(() => null);
-        const grant = { identity: creds.identity, rejected: false };
+        const grant = { identity: creds.identity, rejected: false, throttled: false, mayFetch: () => allowFetch(user) };
         // Uploaded images are bound to the grant, looked up only for a call that uploads or places one.
         let grantId: Promise<string> | undefined;
         const grantIdOf = () => (grantId ??= oauth.unwrapToken(context.auth.token).then((token) => token!.grantId));
@@ -254,6 +268,7 @@ export function createHostedApp({ origin, kv, uploads, homebase = realHomebase, 
             const answers = [await response.clone().json().catch(() => null)].flat() as { result?: { isError?: boolean } }[];
             if (!answers.some((a) => a?.result && !a.result.isError)) for (const putBack of taken) putBack();
         }
+        if (grant.throttled) return tooMany();
 
         // A 401/403 can also be one call the app may not make, or a Homebase hiccup: only an app token that
         // verifytoken calls dead, and still dead a minute later, ends the grant.
@@ -277,6 +292,17 @@ export function createHostedApp({ origin, kv, uploads, homebase = realHomebase, 
         );
         const answers = requests.map(({ id }) => ({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text }], isError: true } }));
         return Response.json(Array.isArray(body) ? answers : answers[0]);
+    }
+
+    /** When each address that isn't a Homebase identity was last checked: anyone can make the server fetch one. */
+    const notIdentities = new Map<string, number>();
+    async function isIdentity(identity: string): Promise<boolean> {
+        if (Date.now() - (notIdentities.get(identity) ?? 0) < NOT_IDENTITY_MS) return false;
+        notIdentities.delete(identity);
+        if (await homebase.checkIdentity(identity)) return true;
+        if (notIdentities.size >= MAX_NOT_IDENTITIES) notIdentities.delete(notIdentities.keys().next().value!);
+        notIdentities.set(identity, Date.now());
+        return false;
     }
 
     /** GET: the consent page. POST: its form, which goes on to the user's Homebase identity or back to the client. */
@@ -306,7 +332,7 @@ export function createHostedApp({ origin, kv, uploads, homebase = realHomebase, 
             const consent = await oauth.describeConsent(approved.request);
             const identity = (getDomainFromUrl(String(form.get('identity') ?? '').trim()) ?? '').toLowerCase();
             // A port means a dev box, never a hosted user's identity.
-            if (identity.includes(':') || !(await homebase.checkIdentity(identity))) {
+            if (identity.includes(':') || !(await isIdentity(identity))) {
                 // The handle is used up: a fresh consent page, so fixing a typo still works.
                 const again = await oauth.beginConsent(approved.request);
                 const headers = new Headers(approved.headers);

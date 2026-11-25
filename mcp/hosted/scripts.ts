@@ -12,6 +12,9 @@ export const SCRIPT_RUNNING = 'Another of your scripts is still running. Wait fo
 
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
+/** The sandbox's environment: never the egress relay's secrets (it fetches nothing, so it needs none of them). */
+export const scriptWorkerEnv = (env: NodeJS.ProcessEnv) => Object.fromEntries(Object.entries(env).filter(([name]) => !name.startsWith('MCP_EGRESS_')));
+
 /**
  * The sandbox in a worker started on `workerUrl` (the hosted bundle itself, or a test's build of
  * scriptWorker.ts). CPU time is capped at `cpuMs` inside it; past `wallMs` the worker is terminated.
@@ -19,7 +22,7 @@ const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 export function workerGuest(workerUrl: URL, { cpuMs, wallMs } = HOSTED_SCRIPT_LIMITS): ScriptGuest {
     return (code, host, options) =>
         new Promise<void>((resolve) => {
-            const worker = new Worker(workerUrl, { workerData: { code, options: { ...options, cpuMs: Math.min(options.cpuMs, cpuMs) } } });
+            const worker = new Worker(workerUrl, { env: scriptWorkerEnv(process.env), workerData: { code, options: { ...options, cpuMs: Math.min(options.cpuMs, cpuMs) } } });
             const pending = new Set<Promise<void>>();
             let finished = false;
             const finish = (failure?: string) => {

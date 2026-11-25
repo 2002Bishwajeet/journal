@@ -6,6 +6,7 @@ import { createHostedApp } from './app';
 import { purgeUploads, uploadsDb } from './images';
 import { sqliteKv } from './kv';
 import { nodeListener } from './node';
+import { assertRelayed } from './publicFetch';
 
 // The hosted Journal MCP's main thread (#1505), started by mcp/hosted/main.ts.
 // Runs behind a reverse proxy. Listens on 127.0.0.1 only.
@@ -15,6 +16,9 @@ const dbPath = process.env.JOURNAL_MCP_DB || 'data/grants.sqlite';
 // Owner-only files, grants.sqlite included, however the server was started.
 process.umask(0o077);
 mkdirSync(dirname(dbPath), { recursive: true, mode: 0o700 });
+
+// With a relay, nothing starts unless fetch really goes through it.
+if (process.env.MCP_EGRESS_URL) await assertRelayed(process.env.MCP_EGRESS_URL);
 
 const kv = sqliteKv(dbPath);
 // Image uploads (#1506) in their own file next to the grants.

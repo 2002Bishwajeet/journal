@@ -76,11 +76,13 @@ export const publicOnlyAgent = guardedAgent(isBlockedAddress, 'non-public');
 
 /**
  * `base` sending every request to the egress relay at `relayUrl` instead: the target URL in X-Egress-Url, the
- * relay's key as the Bearer token, the request's own Authorization in X-Egress-Authorization, method and body
- * unchanged. The relay answers with the target's response, a redirect as it is, so fetch relays each hop again.
- * The relay is the only address this dispatcher connects to.
+ * relay's key as the Bearer token, the gate secret in X-Egress-Gate, the request's own Authorization in
+ * X-Egress-Authorization, method and body unchanged. The relay answers with the target's response, a redirect as
+ * it is, so fetch relays each hop again, and marks it `x-egress: 1`: an answer without it is the relay's own
+ * refusal (a wrong key, a target it won't fetch), which fails like a network error rather than pass as the
+ * target's. The relay is the only address this dispatcher connects to.
  */
-export function viaEgressRelay(base: Dispatcher, relayUrl: string, key: string): Dispatcher {
+export function viaEgressRelay(base: Dispatcher, relayUrl: string, key: string, gate: string): Dispatcher {
     const relayAt = new URL(relayUrl);
     return base.compose((dispatch) => (options, handler) => {
         const headers: string[] = [];
@@ -89,9 +91,35 @@ export function viaEgressRelay(base: Dispatcher, relayUrl: string, key: string):
             if (lower.startsWith('x-egress-')) continue;
             headers.push(lower === 'authorization' ? 'x-egress-authorization' : name, value);
         }
-        headers.push('x-egress-url', new URL(options.path, options.origin).href, 'authorization', `Bearer ${key}`);
-        return dispatch({ ...options, origin: relayAt.origin, path: relayAt.pathname + relayAt.search, headers }, handler);
+        headers.push('x-egress-url', targetUrl(String(options.origin), options.path), 'authorization', `Bearer ${key}`, 'x-egress-gate', gate);
+        return dispatch({ ...options, origin: relayAt.origin, path: relayAt.pathname + relayAt.search, headers }, relayedOnly(handler));
     });
+}
+
+/**
+ * The request's URL from its origin and path, by concatenation: `new URL(path, origin)` would take a path
+ * starting `//` or `/\` as another host (https://good.example//evil.example/x → https://evil.example/x).
+ */
+export function targetUrl(origin: string, path: string): string {
+    const base = new URL(origin).origin;
+    const url = new URL(base + path);
+    if (!path.startsWith('/') || url.origin !== base) throw new Error('Refused a request path that changes its host');
+    return url.href;
+}
+
+/** `handler`, failing a response that didn't come through the relay (no `x-egress: 1`). */
+function relayedOnly(handler: Dispatcher.DispatchHandler): Dispatcher.DispatchHandler {
+    return {
+        onRequestStart: (controller, context) => handler.onRequestStart?.(controller, context),
+        onRequestUpgrade: (controller, statusCode, headers, socket) => handler.onRequestUpgrade?.(controller, statusCode, headers, socket),
+        onResponseStart(controller, statusCode, headers, statusMessage) {
+            if (statusCode >= 200 && headers['x-egress'] !== '1') return controller.abort(new Error(`The egress relay refused the request (${statusCode})`));
+            return handler.onResponseStart?.(controller, statusCode, headers, statusMessage);
+        },
+        onResponseData: (controller, chunk) => handler.onResponseData?.(controller, chunk),
+        onResponseEnd: (controller, trailers) => handler.onResponseEnd?.(controller, trailers),
+        onResponseError: (controller, error) => handler.onResponseError?.(controller, error),
+    };
 }
 
 function headerEntries(headers: Dispatcher.DispatchOptions['headers']): [string, string][] {
@@ -110,15 +138,17 @@ const upstreamCalls = new AsyncLocalStorage<true>();
 export const asUpstreamCall = <T>(call: () => T): T => upstreamCalls.run(true, call);
 
 /**
- * `fetchImpl` sending an upstream call (asUpstreamCall) direct when every address its host resolves to is in
- * `allowed`; everything else keeps the global dispatcher. The direct dispatcher checks each connection's own
- * DNS answer again, so a host that rebinds after this lookup gets no direct connection.
+ * `fetchImpl` sending an upstream call (asUpstreamCall) direct when its host is one of `hosts` and every address
+ * it resolves to is in `allowed`; everything else keeps the global dispatcher, unresolved here, so a host not
+ * listed is never looked up on this machine. The direct dispatcher checks each connection's own DNS answer
+ * again, so a host that rebinds after this lookup gets no direct connection.
  */
-export function withDirectUpstream(fetchImpl: typeof fetch, allowed: net.BlockList): typeof fetch {
+export function withDirectUpstream(fetchImpl: typeof fetch, hosts: Set<string>, allowed: net.BlockList): typeof fetch {
     const direct = guardedAgent((ip) => !inList(allowed, ip), 'non-allowed');
     return async (input, init) => {
         if (!upstreamCalls.getStore()) return fetchImpl(input, init);
         const host = bareHost(new URL(input instanceof Request ? input.url : String(input)).hostname);
+        if (!hosts.has(host)) return fetchImpl(input, init);
         const addresses = net.isIP(host) ? [host] : (await dnsLookupAll(host, { all: true }).catch(() => [])).map((entry) => entry.address);
         if (!addresses.length || !addresses.every((ip) => inList(allowed, ip))) return fetchImpl(input, init);
         return fetchImpl(input, { ...init, dispatcher: direct } as RequestInit);
@@ -126,14 +156,17 @@ export function withDirectUpstream(fetchImpl: typeof fetch, allowed: net.BlockLi
 }
 
 /**
- * The relay from MCP_EGRESS_URL and MCP_EGRESS_KEY, when both are set, else null (fetch directly, public
- * addresses only). One without the other, or a relay that isn't https:, stops the server rather than go direct.
+ * The relay from MCP_EGRESS_URL, MCP_EGRESS_KEY and MCP_EGRESS_GATE, when all are set, else null (fetch
+ * directly, public addresses only). Only some of them, or a relay that isn't https:, stops the server rather
+ * than go direct.
  */
 function egressRelay(env: NodeJS.ProcessEnv): Dispatcher | null {
-    const { MCP_EGRESS_URL: url, MCP_EGRESS_KEY: key } = env;
-    if (!url && !key) return null;
-    if (!url || !key || new URL(url).protocol !== 'https:') throw new Error('Set both MCP_EGRESS_URL (https:) and MCP_EGRESS_KEY, or neither.');
-    return viaEgressRelay(publicOnlyAgent, url, key);
+    const { MCP_EGRESS_URL: url, MCP_EGRESS_KEY: key, MCP_EGRESS_GATE: gate } = env;
+    if (!url && !key && !gate) return null;
+    if (!url || !key || !gate || new URL(url).protocol !== 'https:') {
+        throw new Error('Set all of MCP_EGRESS_URL (https:), MCP_EGRESS_KEY and MCP_EGRESS_GATE, or none.');
+    }
+    return viaEgressRelay(publicOnlyAgent, url, key, gate);
 }
 
 const relay = egressRelay(process.env);
@@ -141,18 +174,37 @@ const relay = egressRelay(process.env);
 /** What every outbound request goes through: the egress relay when one is set, else publicOnlyAgent. */
 export const outboundAgent: Dispatcher = relay ?? publicOnlyAgent;
 
+const list = (value: string | undefined) => value?.split(',').map((item) => item.trim().toLowerCase()).filter(Boolean) ?? [];
+
 /**
- * Sends every fetch this process makes through `outboundAgent` (Node's fetch uses undici's global
- * dispatcher). The server fetches addresses others hand it: CIMD client ids, the Homebase identity a user
- * types, image URLs, so none of them can make it call into the server or its network, and with a relay none
- * of them learns the server's address. With a relay, MCP_DIRECT_IPS (comma-separated addresses) lets upstream
- * calls to a host resolving only to those addresses go direct.
+ * Sends every fetch this thread makes through `agent` (Node's fetch uses undici's global dispatcher). The
+ * server fetches addresses others hand it: CIMD client ids, the Homebase identity a user types, image URLs, so
+ * none of them can make it call into the server or its network, and with a relay none of them learns the
+ * server's address. With a relay, upstream calls to a host in MCP_DIRECT_HOSTS (comma-separated host names)
+ * that resolves only to addresses in MCP_DIRECT_IPS (comma-separated) go direct.
  */
-export function installPublicOnlyFetch(): void {
-    setGlobalDispatcher(outboundAgent);
-    const ips = process.env.MCP_DIRECT_IPS?.split(',').map((ip) => ip.trim()).filter(Boolean) ?? [];
-    if (!relay || !ips.length) return;
+export function installPublicOnlyFetch(agent = outboundAgent): void {
+    setGlobalDispatcher(agent);
+    const hosts = list(process.env.MCP_DIRECT_HOSTS);
+    const ips = list(process.env.MCP_DIRECT_IPS);
+    if (!relay || !hosts.length || !ips.length) return;
     const allowed = new net.BlockList();
     for (const ip of ips) allowed.addAddress(ip, family(ip));
-    globalThis.fetch = withDirectUpstream(globalThis.fetch, allowed);
+    globalThis.fetch = withDirectUpstream(globalThis.fetch, new Set(hosts), allowed);
+}
+
+/** The relay's health check, answered by the relay itself (with `x-egress: 1`) once the key and gate check out. */
+export const RELAY_HEALTH_PATH = '/__health';
+
+/**
+ * Stops the server unless plain `fetch`, with a URL and with a Request, goes through the relay: asks the relay
+ * for its own health check, which only a request carrying the key and gate gets.
+ */
+export async function assertRelayed(relayUrl: string): Promise<void> {
+    const health = new URL(RELAY_HEALTH_PATH, relayUrl).href;
+    for (const input of [health, new Request(health)]) {
+        const response = await globalThis.fetch(input, { signal: AbortSignal.timeout(10_000) });
+        await response.body?.cancel();
+        if (!response.ok || response.headers.get('x-egress') !== '1') throw new Error(`The egress relay check failed (${response.status}): fetch doesn't go through the relay.`);
+    }
 }
