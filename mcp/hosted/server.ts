@@ -24,6 +24,6 @@ const kv = sqliteKv(dbPath);
 setInterval(() => kv.purgeExpired(), 10 * 60 * 1000).unref();
 // In the bundle, this module's URL is the bundle: main.ts runs it as the script worker off the main thread.
 const app = createHostedApp({ origin, kv, scriptWorker: new URL(import.meta.url) });
-createServer(nodeListener(app.fetch, origin, [MCP_PATH])).listen(port, '127.0.0.1', () => {
+createServer(nodeListener(app.fetch, origin, [MCP_PATH], app.opensLargeBody)).listen(port, '127.0.0.1', () => {
     console.error(`Journal MCP (hosted) on 127.0.0.1:${port}, serving ${origin}/journal/mcp`);
 });

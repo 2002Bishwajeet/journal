@@ -1,16 +1,20 @@
 import { describe, it, expect, vi, afterEach, beforeAll } from 'vitest';
-import { mkdtempSync } from 'node:fs';
+import dns from 'node:dns';
+import { mkdtempSync, readFileSync } from 'node:fs';
 import { createServer, request as httpRequest } from 'node:http';
+import { syncBuiltinESMExports } from 'node:module';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { build } from 'vite';
+import * as Y from 'yjs';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { UnauthorizedError, type OAuthClientProvider } from '@modelcontextprotocol/sdk/client/auth.js';
 import type { OAuthClientInformationMixed, OAuthTokens } from '@modelcontextprotocol/sdk/shared/auth.js';
 import { createHostedApp, RECONNECT_MESSAGE, RETRY_MESSAGE, type HomebaseDeps } from '../../mcp/hosted/app';
+import { PATHS_REFUSED, fetchImage } from '../../mcp/hosted/images';
 import { sqliteKv } from '../../mcp/hosted/kv';
 import { MAX_BODY_BYTES, SMALL_BODY_BYTES, nodeListener } from '../../mcp/hosted/node';
 import { isBlockedAddress, publicOnlyAgent } from '../../mcp/hosted/publicFetch';
@@ -18,9 +22,14 @@ import { safeConsole } from '../../mcp/hosted/safeConsole';
 import { SCRIPT_RUNNING, SCRIPTS_BUSY, scriptSlots, workerGuest } from '../../mcp/hosted/scripts';
 import { runScript } from '../../mcp/runScript';
 import { checkIdentity } from '../../mcp/youauth';
-import type { McpDriveDeps } from '../../mcp/createServer';
+import { createJournalMcpServer, type McpDriveDeps } from '../../mcp/createServer';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import type { McpCredentials } from '../../mcp/credentials';
 import type { NoteSummary } from '@/lib/agent/tools/read';
+import type { PreparedImage } from '@/lib/images/imageBytes';
+import { toMarkdown } from '@/lib/agent/editEngine';
+import { getCover } from '@/lib/editor/cover';
+import type { DocumentMetadata } from '@/types';
 
 const ORIGIN = 'https://mcp.cloudx.run';
 const ISSUER = `${ORIGIN}/journal`;
@@ -47,14 +56,20 @@ const fakeFetchImpl = async (input: RequestInfo | URL) => {
         });
     }
     if (url.host === IDENTITY) return new Response('{}', { status: homebaseStatus });
+    if (url.href === 'https://images.example/cover.png') return new Response(COVER_PNG);
+    if (url.href === 'https://images.example/moved.png') return new Response(null, { status: 302, headers: { location: 'http://127.0.0.1/x.png' } });
     throw new Error(`unexpected fetch ${url.href}`);
 };
-const fakeFetch = vi.fn(fakeFetchImpl);
+const fakeFetch = vi.fn<typeof fetch>(fakeFetchImpl);
+/** A PNG with text chunks holding "SECRET" (mcpWriteTools.test.ts). */
+const COVER_PNG = new Uint8Array(readFileSync(fileURLToPath(new URL('./fixtures/images/cover-meta.png', import.meta.url))));
 vi.stubGlobal('fetch', fakeFetch);
 
 const NOTES: NoteSummary[] = [{ id: 'n1', title: 'Note One', folderId: 'F1', tags: [], modified: '2024-01-01T00:00:00.000Z' }];
 
 let tokenValid: boolean | null = true;
+/** Replaces drive calls for one test: the image tests write notes. */
+let driveOverride: Partial<McpDriveDeps> = {};
 const seenCreds: McpCredentials[] = [];
 const checkedIdentities: string[] = [];
 const finalized: { identity: string; algorithm: string; publicKey: string; salt: string }[] = [];
@@ -79,6 +94,7 @@ const homebase: HomebaseDeps = {
                 if (!response.ok) throw new Error(`Request failed with status code ${response.status}`);
                 return NOTES;
             },
+            ...driveOverride,
         } as unknown as McpDriveDeps;
     },
 };
@@ -102,6 +118,7 @@ type Setup = ReturnType<typeof setup>;
 afterEach(() => {
     homebaseStatus = 200;
     tokenValid = true;
+    driveOverride = {};
     vi.useRealTimers();
 });
 
@@ -718,5 +735,316 @@ describe('hosted MCP: logging', () => {
         out.log('started');
         expect(lines).toEqual(['stderr: [odin-js] [AxiosError] [Object] 404 true [undefined]', 'stdout: started']);
         expect(lines.join('\n')).not.toContain(HB_TOKEN);
+    });
+});
+
+/** An in-memory drive with one writable folder, F1, keeping each image uploaded to Homebase. */
+function writableDrive() {
+    const notes = new Map<string, { blob: Uint8Array; metadata: DocumentMetadata }>();
+    const uploaded: PreparedImage[] = [];
+    const summaryOf = (id: string, metadata: DocumentMetadata): NoteSummary => ({ id, title: metadata.title, folderId: metadata.folderId, tags: [], modified: metadata.timestamps.modified });
+    const docOf = (id: string) => {
+        const doc = new Y.Doc();
+        Y.applyUpdate(doc, notes.get(id)!.blob);
+        return doc;
+    };
+    driveOverride = {
+        loadGrants: async () => ({ version: 1, folders: { F1: 'write' }, notes: {} }),
+        listNotes: async () => [...notes].map(([id, note]) => summaryOf(id, note.metadata)),
+        fetchNoteForEdit: async (id) => {
+            const note = notes.get(id);
+            return note ? { summary: summaryOf(id, note.metadata), doc: docOf(id), versionTag: 'v', fileId: `file-${id}`, metadata: structuredClone(note.metadata) } : null;
+        },
+        createNote: async (id, metadata, blob) => {
+            notes.set(id, { blob, metadata });
+            return metadata.timestamps.modified;
+        },
+        uploadNoteEdit: async (id, edit) => {
+            notes.set(id, { blob: edit.yjsBlob, metadata: edit.metadata });
+            return edit.metadata.timestamps.modified;
+        },
+        uploadNoteImage: async (_id, _versionTag, image) => `jrnl_img${uploaded.push(image) - 1}`,
+        trashNote: async (id) => void notes.delete(id),
+        ownerIdentity: () => IDENTITY,
+        shareLink: (id) => `https://journal.test/${id}`,
+    };
+    return { uploaded, markdownOf: (id: string) => toMarkdown(docOf(id)), docOf };
+}
+
+const callTool = async (s: Setup, accessToken: string, name: string, args: Record<string, unknown>) => {
+    const { result } = await (await mcp(s, accessToken, { jsonrpc: '2.0', id: 9, method: 'tools/call', params: { name, arguments: args } })).json();
+    const text = result.content.map((c: { text: string }) => c.text).join('\n');
+    return { isError: !!result.isError, text, data: result.isError ? null : JSON.parse(result.content[0].text) };
+};
+
+interface Upload {
+    upload_url: string;
+    upload_headers: Record<string, string>;
+    expires_at: string;
+    source: string;
+}
+const createUpload = async (s: Setup, accessToken: string, filename = 'cat.png') => (await callTool(s, accessToken, 'create_image_upload', { filename })).data as Upload;
+
+/** What `curl -F file=@<name> <upload_url>` sends. */
+function postImage(s: Setup, url: string, bytes: Uint8Array<ArrayBuffer>, { name = 'cat.png', accept = '*/*' } = {}) {
+    const body = new FormData();
+    body.append('file', new File([bytes], name));
+    return s.appFetch(url, { method: 'POST', body, headers: { accept } });
+}
+
+describe('hosted MCP: images (#1506)', () => {
+    it('hands out a single-use upload URL, takes one POST, and places the image once through create_note, update_note and set_note_cover', async () => {
+        const s = setup();
+        const { tokens } = await connectCimd(s);
+        const drive = writableDrive();
+
+        const upload = await createUpload(s, tokens.access_token);
+        const id = upload.source.slice('upload://'.length);
+        expect(upload.upload_url).toBe(`${ORIGIN}/journal/upload/${id}`);
+        expect(id).toMatch(/^[\w-]{43}$/);
+        expect(upload.upload_headers).toEqual({});
+        expect(Date.parse(upload.expires_at) - Date.now()).toBeGreaterThan(14 * 60_000);
+
+        const posted = await postImage(s, upload.upload_url, COVER_PNG);
+        expect(posted.status).toBe(200);
+        expect(await posted.json()).toEqual({ source: upload.source, contentType: 'image/png', width: expect.any(Number), height: expect.any(Number) });
+        // Single use: a second POST, or the page, finds nothing.
+        expect((await postImage(s, upload.upload_url, COVER_PNG)).status).toBe(404);
+        expect((await s.appFetch(upload.upload_url)).status).toBe(404);
+
+        const created = await callTool(s, tokens.access_token, 'create_note', { title: 'Cat', folderId: 'F1', markdown: `Look:\n\n![a cat](${upload.source})` });
+        expect(created.isError).toBe(false);
+        expect(drive.uploaded).toHaveLength(1);
+        expect(drive.uploaded[0].contentType).toBe('image/png');
+        // Stripped of metadata on arrival.
+        expect(Buffer.from(COVER_PNG).includes('SECRET')).toBe(true);
+        expect(Buffer.from(drive.uploaded[0].bytes).includes('SECRET')).toBe(false);
+        const noteId = created.data.id;
+        expect(drive.markdownOf(noteId)).toContain(`![a cat](attachment://file-${noteId}/jrnl_img0)`);
+        expect(drive.markdownOf(noteId)).not.toContain('upload://');
+
+        // Placed once: the same source again is gone.
+        const again = await callTool(s, tokens.access_token, 'create_note', { title: 'Again', folderId: 'F1', markdown: `![a cat](${upload.source})` });
+        expect(again.isError).toBe(true);
+        expect(again.text).toContain('Upload not found');
+
+        const second = await createUpload(s, tokens.access_token, 'more.png');
+        await postImage(s, second.upload_url, COVER_PNG);
+        const updated = await callTool(s, tokens.access_token, 'update_note', { id: noteId, markdown: `Look:\n\n![a cat](attachment://file-${noteId}/jrnl_img0)\n\n![more](${second.source})` });
+        expect(updated.isError).toBe(false);
+        expect(drive.markdownOf(noteId)).toContain(`![more](attachment://file-${noteId}/jrnl_img1)`);
+
+        const cover = await createUpload(s, tokens.access_token, 'cover.png');
+        await postImage(s, cover.upload_url, COVER_PNG);
+        expect((await callTool(s, tokens.access_token, 'set_note_cover', { id: noteId, image: cover.source })).isError).toBe(false);
+        expect(getCover(drive.docOf(noteId))?.src).toBe(`attachment://file-${noteId}/jrnl_img2`);
+        expect(drive.uploaded).toHaveLength(3);
+    });
+
+    it('binds an upload to its grant: another grant can neither place it nor learn that it exists', async () => {
+        const s = setup();
+        const { tokens: a } = await connectCimd(s);
+        // Another client of the same user: its own grant.
+        const { client_id } = await (await registerDcr(s, { client_name: 'Other', redirect_uris: ['http://127.0.0.1/callback'], token_endpoint_auth_method: 'none' })).json();
+        const { tokens: b } = await connectCimd(s, 'http://127.0.0.1:5000/callback', client_id);
+        expect((await s.app.oauth.unwrapToken(a.access_token))!.grantId).not.toBe((await s.app.oauth.unwrapToken(b.access_token))!.grantId);
+        const drive = writableDrive();
+
+        const upload = await createUpload(s, a.access_token);
+        const notYet = await callTool(s, a.access_token, 'create_note', { title: 'x', folderId: 'F1', markdown: `![x](${upload.source})` });
+        expect(notYet.text).toContain('Nothing has been uploaded to this upload yet');
+        const pendingForB = await callTool(s, b.access_token, 'create_note', { title: 'x', folderId: 'F1', markdown: `![x](${upload.source})` });
+        expect(pendingForB.text).toContain('Upload not found');
+
+        await postImage(s, upload.upload_url, COVER_PNG);
+        const byB = await callTool(s, b.access_token, 'create_note', { title: 'x', folderId: 'F1', markdown: `![x](${upload.source})` });
+        expect(byB.isError).toBe(true);
+        expect(byB.text).toContain('Upload not found');
+        expect(drive.uploaded).toHaveLength(0);
+        // B's attempt didn't use it up.
+        expect((await callTool(s, a.access_token, 'create_note', { title: 'x', folderId: 'F1', markdown: `![x](${upload.source})` })).isError).toBe(false);
+        expect(drive.uploaded).toHaveLength(1);
+    });
+
+    it('lets an upload URL expire after 15 minutes, and an unplaced image after an hour', async () => {
+        vi.useFakeTimers({ toFake: ['Date'], now: Date.now() });
+        const s = setup();
+        const { tokens } = await connectCimd(s);
+        const drive = writableDrive();
+
+        const stale = await createUpload(s, tokens.access_token);
+        vi.setSystemTime(Date.now() + 16 * 60_000);
+        expect((await s.appFetch(stale.upload_url, { headers: { accept: 'text/html' } })).status).toBe(404);
+        expect((await postImage(s, stale.upload_url, COVER_PNG)).status).toBe(404);
+
+        const upload = await createUpload(s, tokens.access_token);
+        expect((await postImage(s, upload.upload_url, COVER_PNG)).status).toBe(200);
+        vi.setSystemTime(Date.now() + 61 * 60_000);
+        // The access token is an hour old too: the client refreshes it, on the same grant.
+        const fresh = (await (await refresh(s, tokens.refresh_token!)).json()) as OAuthTokens;
+        const late = await callTool(s, fresh.access_token, 'create_note', { title: 'x', folderId: 'F1', markdown: `![x](${upload.source})` });
+        expect(late.text).toContain('Upload not found');
+        expect(drive.uploaded).toHaveLength(0);
+        s.kv.purgeExpired();
+        expect(s.kv.db.prepare("SELECT count(*) AS n FROM kv WHERE key LIKE 'hosted:%'").get()).toEqual({ n: 0 });
+    });
+
+    it('refuses an oversize, non-image or malformed upload and keeps the link for another try', async () => {
+        const s = setup();
+        const { tokens } = await connectCimd(s);
+        const upload = await createUpload(s, tokens.access_token);
+
+        const text = await postImage(s, upload.upload_url, new TextEncoder().encode('not an image'), { name: 'notes.txt' });
+        expect(text.status).toBe(400);
+        expect((await text.json()).error).toContain('Unsupported image type');
+        const big = new Uint8Array(5 * 1024 * 1024 + 1);
+        big.set(COVER_PNG);
+        const tooBig = await postImage(s, upload.upload_url, big);
+        expect(tooBig.status).toBe(400);
+        expect((await tooBig.json()).error).toContain('too large');
+        const raw = await s.appFetch(upload.upload_url, { method: 'POST', body: COVER_PNG, headers: { 'content-type': 'image/png' } });
+        expect(raw.status).toBe(400);
+        expect((await raw.json()).error).toContain('curl -F file=@');
+        // A browser's form gets a page, not JSON.
+        const fromPage = await postImage(s, upload.upload_url, new TextEncoder().encode('x'), { accept: 'text/html' });
+        expect(fromPage.headers.get('content-type')).toContain('text/html');
+        expect(await fromPage.text()).toContain('Unsupported image type');
+
+        expect((await postImage(s, upload.upload_url, COVER_PNG)).status).toBe(200);
+    });
+
+    it('shows a page to upload on, with a nonce script and the file name escaped', async () => {
+        const s = setup();
+        const { tokens } = await connectCimd(s);
+        const upload = await createUpload(s, tokens.access_token, '<b>cat</b>.png');
+        const response = await s.appFetch(upload.upload_url, { headers: { accept: 'text/html' } });
+        expect(response.status).toBe(200);
+        expect(response.headers.get('cache-control')).toBe('no-store');
+        const csp = response.headers.get('content-security-policy')!;
+        const nonce = /'nonce-([^']+)'/.exec(csp)![1];
+        expect(csp).toContain("default-src 'none'");
+        expect(csp).toContain("connect-src 'self'");
+        const page = await response.text();
+        expect(page).toContain(`<script nonce="${nonce}">`);
+        // The script is JavaScript as written: parsing it (not running it) throws on a broken escape.
+        const script = /<script nonce="[^"]+">([\s\S]*)<\/script>/.exec(page)![1];
+        expect(() => new Function(script)).not.toThrow();
+        expect(page).toContain('&lt;b&gt;cat&lt;/b&gt;.png');
+        expect(page).toContain('type="file" accept="image/png,image/jpeg,image/webp"');
+        expect(page).toContain('enctype="multipart/form-data"');
+        // A fresh nonce each time.
+        const again = (await s.appFetch(upload.upload_url)).headers.get('content-security-policy');
+        expect(again).not.toBe(csp);
+        // Its plain form post gets a page back.
+        const posted = await postImage(s, upload.upload_url, COVER_PNG, { accept: 'text/html' });
+        expect(await posted.text()).toContain('Image uploaded');
+        expect((await s.appFetch(`${ORIGIN}/journal/upload/nope`)).status).toBe(404);
+    });
+
+    it('refuses file paths, caps data: URIs at 256 KB, and fetches an https: cover without following redirects', async () => {
+        const s = setup();
+        const { tokens } = await connectCimd(s);
+        const drive = writableDrive();
+        const { data: note } = await callTool(s, tokens.access_token, 'create_note', { title: 'x', folderId: 'F1', markdown: 'Body' });
+
+        const path = await callTool(s, tokens.access_token, 'set_note_cover', { id: note.id, image: '/etc/passwd' });
+        expect(path.text).toContain(PATHS_REFUSED);
+        const inBody = await callTool(s, tokens.access_token, 'create_note', { title: 'x', folderId: 'F1', markdown: '![x](/home/me/cat.png)' });
+        expect(inBody.text).toContain(PATHS_REFUSED);
+
+        const dataUri = (bytes: Uint8Array) => `data:image/png;base64,${Buffer.from(bytes).toString('base64')}`;
+        const large = new Uint8Array(256 * 1024 + 3);
+        large.set(COVER_PNG);
+        expect((await callTool(s, tokens.access_token, 'set_note_cover', { id: note.id, image: dataUri(large) })).text).toContain('at most 256 KB');
+        expect((await callTool(s, tokens.access_token, 'set_note_cover', { id: note.id, image: dataUri(COVER_PNG) })).isError).toBe(false);
+
+        expect((await callTool(s, tokens.access_token, 'set_note_cover', { id: note.id, image: 'https://images.example/cover.png' })).isError).toBe(false);
+        expect(Buffer.from(drive.uploaded.at(-1)!.bytes).includes('SECRET')).toBe(false);
+        const moved = await callTool(s, tokens.access_token, 'set_note_cover', { id: note.id, image: 'https://images.example/moved.png' });
+        expect(moved.text).toContain('redirects are not followed');
+        const plain = await callTool(s, tokens.access_token, 'set_note_cover', { id: note.id, image: 'http://images.example/cover.png' });
+        expect(plain.text).toContain(PATHS_REFUSED);
+        expect(drive.uploaded).toHaveLength(2);
+        const fetched = fakeFetch.mock.calls.filter(([input]) => String(input).startsWith('https://images.example/'));
+        expect(fetched.every(([, init]) => init?.redirect === 'manual')).toBe(true);
+    });
+
+    it('fetches web images from public addresses only, checking every address a name resolves to (DNS rebinding)', async () => {
+        const server = createServer((_req, res) => res.end('reached'));
+        await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+        const { port } = server.address() as AddressInfo;
+        const causes = async (url: string) => {
+            fakeFetch.mockImplementationOnce((input, init) => realFetch(input, init));
+            const error = await fetchImage(url).then(
+                () => null,
+                (e: Error) => e
+            );
+            const chain: string[] = [];
+            for (let e: unknown = error; e instanceof Error; e = e.cause) chain.push(e.message);
+            return chain.join(' | ');
+        };
+        expect(await causes(`https://127.0.0.1:${port}/cat.png`)).toContain('blocked non-public address 127.0.0.1');
+        expect(await causes(`https://localhost:${port}/cat.png`)).toMatch(/blocked non-public address (127\.0\.0\.1|::1)/);
+
+        // A name whose answer holds a private address next to a public one, as a rebinding attacker serves it.
+        const lookup = dns.lookup;
+        dns.lookup = ((_host: string, _options: unknown, done: (err: null, addresses: dns.LookupAddress[]) => void) =>
+            done(null, [
+                { address: '93.184.215.14', family: 4 },
+                { address: '169.254.169.254', family: 4 },
+            ])) as unknown as typeof dns.lookup;
+        syncBuiltinESMExports();
+        try {
+            expect(await causes('https://rebind.example/cat.png')).toContain('blocked non-public address 169.254.169.254 for rebind.example');
+        } finally {
+            dns.lookup = lookup;
+            syncBuiltinESMExports();
+        }
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+    });
+
+    it('lets a live upload URL, and no other unauthenticated path, take an image-sized body through the node bridge', async () => {
+        const server = createServer(
+            nodeListener(async (request) => new Response(String((await request.arrayBuffer()).byteLength)), ORIGIN, ['/journal/mcp'], async (pathname) => pathname === '/journal/upload/live')
+        );
+        await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+        const { port } = server.address() as AddressInfo;
+        const send = (path: string, size: number) =>
+            new Promise<number | undefined>((resolve, reject) => {
+                const req = httpRequest({ host: '127.0.0.1', port, path, method: 'POST' }, (res) => {
+                    res.resume();
+                    resolve(res.statusCode);
+                });
+                req.on('error', reject);
+                req.end('x'.repeat(size));
+            });
+        expect(await send('/journal/upload/live', 5 * 1024 * 1024)).toBe(200);
+        expect(await send('/journal/upload/live', MAX_BODY_BYTES + 1)).toBe(413);
+        expect(await send('/journal/upload/used', SMALL_BODY_BYTES + 1)).toBe(413);
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+    });
+
+    it('builds tools, descriptions and instructions per mode: stdio keeps paths, hosted names create_image_upload', async () => {
+        const s = setup();
+        const { tokens } = await connectCimd(s);
+        const initialize = { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '0' } } };
+        const { result: hostedInit } = await (await mcp(s, tokens.access_token, initialize)).json();
+        const { result: hostedList } = await (await mcp(s, tokens.access_token, { jsonrpc: '2.0', id: 2, method: 'tools/list' })).json();
+        const hostedTools = new Map<string, string>(hostedList.tools.map((t: { name: string; description: string }) => [t.name, t.description]));
+        expect(hostedInit.instructions).toContain('![alt](upload://…) with a source from create_image_upload');
+        expect(hostedInit.instructions).not.toContain('/absolute/path.png');
+        expect(hostedTools.get('create_image_upload')).toContain('curl -F file=@photo.jpg <upload_url>');
+        expect(hostedTools.get('set_note_cover')).toContain('upload:// source from create_image_upload');
+        expect(hostedTools.get('set_note_cover')).not.toContain('absolute path');
+
+        const stdio = createJournalMcpServer({} as McpDriveDeps);
+        const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+        const client = new Client({ name: 't', version: '0' });
+        await Promise.all([client.connect(clientTransport), stdio.connect(serverTransport)]);
+        const { tools } = await client.listTools();
+        expect(tools.map((t) => t.name)).not.toContain('create_image_upload');
+        expect(tools.find((t) => t.name === 'set_note_cover')!.description).toContain('`image` is an absolute path to a file on this computer');
+        expect(client.getInstructions()).toContain('Body images: ![alt](/absolute/path.png) or a data: URI is uploaded');
+        await client.close();
     });
 });
