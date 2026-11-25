@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import type { DatabaseSync } from 'node:sqlite';
 import {
     OAuthAuthorizationServer,
     OAuthResourceServer,
@@ -14,11 +15,11 @@ import type { McpCredentials } from '../credentials';
 import { createClient } from '../client';
 import { createDriveDeps } from '../drive';
 import { MCP_PATH } from '../http';
-import { loadImage } from '../imageSource';
 import { runScript } from '../runScript';
 import { buildAuthUrl, checkIdentity, finalizeYouAuth } from '../youauth';
+import { UPLOAD_PATH, hostedImages } from './images';
 import type { SqliteKv } from './kv';
-import { PAGE_CSP, consentPage, messagePage } from './pages';
+import { consentPage, html, messagePage } from './pages';
 import { HOSTED_SCRIPT_LIMITS, scriptSlots, workerGuest } from './scripts';
 
 /** What the hosted server needs from Homebase: replaced by fakes in tests. */
@@ -41,6 +42,8 @@ export interface HostedOptions {
     /** The public origin, e.g. https://mcp.cloudx.run. Every URL is built from it, never from Host. */
     origin: string;
     kv: SqliteKv;
+    /** The image uploads (uploadsDb), apart from the grants in `kv`. */
+    uploads: DatabaseSync;
     homebase?: HomebaseDeps;
     /** MCP requests per user per minute. */
     rateLimit?: number;
@@ -59,6 +62,8 @@ const DAY = 24 * 60 * 60;
 /** Per client IP per minute: dynamic client registrations, and consent pages and forms. */
 const REGISTER_LIMIT = 10;
 const AUTHORIZE_LIMIT = 30;
+/** Per client IP per minute: upload pages and uploads. */
+const UPLOAD_LIMIT = 30;
 /** Larger than any real client's registration. */
 const MAX_REGISTRATION_BYTES = 8 * 1024;
 /** How long a token Homebase turned away must keep failing before its grant is revoked. */
@@ -99,18 +104,6 @@ export const RETRY_MESSAGE =
 export const RECONNECT_MESSAGE =
     'Journal lost access to your notes: the Journal MCP app was removed or its access revoked on your Homebase identity. Reconnect this Journal connector (sign in again) to keep using it.';
 
-/** The hosted server refuses file paths: they would be files on this box, not the user's. */
-async function loadRemoteImage(image: string) {
-    if (!image.startsWith('data:')) throw new Error('The hosted Journal server cannot read files: pass the image as a base64 data: URI.');
-    return loadImage(image);
-}
-
-const html = (body: string, status: number, headers = new Headers()) => {
-    headers.set('Content-Type', 'text/html; charset=utf-8');
-    headers.set('Cache-Control', 'no-store');
-    headers.append('Content-Security-Policy', PAGE_CSP);
-    return new Response(body, { status, headers });
-};
 const redirect = (location: string, headers = new Headers()) => {
     headers.set('Location', location);
     return new Response(null, { status: 302, headers });
@@ -150,7 +143,7 @@ function rateLimiter(limit: number) {
  * encrypted under a per-grant key that only the grant's own tokens unwrap. The client never sees the Homebase
  * token, and Homebase never sees the client's.
  */
-export function createHostedApp({ origin, kv, homebase = realHomebase, rateLimit = 120, scriptWorker }: HostedOptions) {
+export function createHostedApp({ origin, kv, uploads, homebase = realHomebase, rateLimit = 120, scriptWorker }: HostedOptions) {
     const issuer = `${origin}${BASE}`;
     const resource = `${origin}${MCP_PATH}`;
     const env = { OAUTH_KV: kv };
@@ -192,8 +185,10 @@ export function createHostedApp({ origin, kv, homebase = realHomebase, rateLimit
     const allowMcp = rateLimiter(rateLimit);
     const allowRegister = rateLimiter(REGISTER_LIMIT);
     const allowAuthorize = rateLimiter(AUTHORIZE_LIMIT);
+    const allowUpload = rateLimiter(UPLOAD_LIMIT);
     const admitScript = scriptSlots();
     const scriptGuest = workerGuest(scriptWorker);
+    const images = hostedImages(uploads, origin);
 
     async function serveMcp(request: Request, context: OAuthResourceContext<McpCredentials>): Promise<Response> {
         if (request.method !== 'POST') return new Response(null, { status: 405, headers: { Allow: 'POST' } });
@@ -206,11 +201,17 @@ export function createHostedApp({ origin, kv, homebase = realHomebase, rateLimit
             .json()
             .catch(() => null);
         const grant = { identity: creds.identity, rejected: false };
+        // Uploaded images are bound to the grant, looked up only for a call that uploads or places one.
+        let grantId: Promise<string> | undefined;
+        const grantIdOf = () => (grantId ??= oauth.unwrapToken(context.auth.token).then((token) => token!.grantId));
+        /** Uploads this request took, put back if no call in it succeeded: the agent can retry with the same source. */
+        const taken: (() => void)[] = [];
 
         const response = await grantContext.run(grant, async () => {
             // Stateless, as mcp/http.ts: a fresh server and transport per POST.
             const server = createJournalMcpServer(() => homebase.driveDeps(creds), undefined, {
-                loadImage: loadRemoteImage,
+                loadImage: async (src) => images.load(await grantIdOf(), src, taken),
+                createImageUpload: async (filename) => images.create(user, await grantIdOf(), filename),
                 runScript: (deps, code, dryRun) => admitScript(user, () => runScript(deps, code, dryRun, scriptGuest)),
                 scriptCpuMs: HOSTED_SCRIPT_LIMITS.cpuMs,
             });
@@ -222,6 +223,10 @@ export function createHostedApp({ origin, kv, homebase = realHomebase, rateLimit
                 await server.close();
             }
         });
+        if (taken.length) {
+            const answers = [await response.clone().json().catch(() => null)].flat() as { result?: { isError?: boolean } }[];
+            if (!answers.some((a) => a?.result && !a.result.isError)) for (const putBack of taken) putBack();
+        }
 
         // A 401/403 can also be one call the app may not make, or a Homebase hiccup: only an app token that
         // verifytoken calls dead, and still dead a minute later, ends the grant.
@@ -340,8 +345,11 @@ export function createHostedApp({ origin, kv, homebase = realHomebase, rateLimit
 
     return {
         oauth,
+        /** For the node bridge: a live upload URL may take an image-sized body without a Bearer token. */
+        opensLargeBody: images.isLive,
         async fetch(request: Request): Promise<Response> {
             const { pathname } = new URL(request.url);
+            if (pathname.startsWith(UPLOAD_PATH)) return allowUpload(clientIp(request)) ? images.serve(request) : tooMany();
             if (pathname === AUTHORIZE_PATH) return authorize(request);
             if (pathname === CALLBACK_PATH) return callback(request);
             if (pathname === REVOKE_PATH) return revoke(request);

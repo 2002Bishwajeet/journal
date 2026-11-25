@@ -2,7 +2,7 @@
 // See the gateway docs (github.com/2002Bishwajeet/mcp-gateway, docs/ARCHITECTURE.md, "Per-MCP contract").
 import type { IncomingMessage, RequestListener, ServerResponse } from 'node:http';
 
-/** Larger than any MCP call needs: a 5 MB image as a base64 data: URI is about 6.7 MB. */
+/** Larger than any MCP call or upload needs: a 5 MB image as a base64 data: URI is about 6.7 MB. */
 export const MAX_BODY_BYTES = 8 * 1024 * 1024;
 /** Every other body: OAuth forms and registrations. */
 export const SMALL_BODY_BYTES = 64 * 1024;
@@ -25,43 +25,60 @@ async function readBody(req: IncomingMessage, limit: number): Promise<Uint8Array
  * node:http to the app's Request → Response. The URL is the fixed public `origin` plus the request's path:
  * neither Host nor X-Forwarded-* is ever trusted. Bodies over their limit get 413 before the app sees them.
  * A `bearerPaths` request may carry up to MAX_BODY_BYTES with a Bearer token; without one it reaches the app
- * with no body (the app answers 401 without one). Every other body is capped at SMALL_BODY_BYTES.
+ * with no body (the app answers 401 without one). So may a request to a path `opensLargeBody` accepts (a live
+ * single-use upload URL), checked before any of the body is read, one body at a time per path (429 for a second).
+ * Every other body is capped at SMALL_BODY_BYTES.
  */
 export function nodeListener(
     fetchApp: (request: Request) => Promise<Response>,
     origin: string,
-    bearerPaths: string[] = []
+    bearerPaths: string[] = [],
+    opensLargeBody: (pathname: string) => Promise<boolean> = async () => false
 ): RequestListener {
+    /** Paths reading or serving a large body now: one at a time each. */
+    const opening = new Set<string>();
     async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
         const method = req.method ?? 'GET';
         const { pathname, search } = new URL(req.url ?? '/', 'http://localhost');
         const large = bearerPaths.includes(pathname);
         const bearer = /^Bearer\s/i.test(req.headers.authorization ?? '');
-        let body: Uint8Array<ArrayBuffer> | undefined;
-        if (large && !bearer) req.resume();
-        else if (method !== 'GET' && method !== 'HEAD') {
-            try {
-                body = await readBody(req, large ? MAX_BODY_BYTES : SMALL_BODY_BYTES);
-            } catch (e) {
-                if (!(e instanceof TooLarge)) throw e;
-                res.writeHead(413, { Connection: 'close' }).end();
-                req.destroy();
-                return;
+        const hasBody = method !== 'GET' && method !== 'HEAD';
+        const opens = hasBody && !large && (await opensLargeBody(pathname));
+        if (opens && opening.has(pathname)) {
+            res.writeHead(429, { Connection: 'close', 'Retry-After': '5' }).end();
+            req.destroy();
+            return;
+        }
+        if (opens) opening.add(pathname);
+        try {
+            let body: Uint8Array<ArrayBuffer> | undefined;
+            if (large && !bearer) req.resume();
+            else if (hasBody) {
+                try {
+                    body = await readBody(req, large || opens ? MAX_BODY_BYTES : SMALL_BODY_BYTES);
+                } catch (e) {
+                    if (!(e instanceof TooLarge)) throw e;
+                    res.writeHead(413, { Connection: 'close' }).end();
+                    req.destroy();
+                    return;
+                }
             }
+            const headers = new Headers();
+            for (const [name, value] of Object.entries(req.headers)) {
+                if (value === undefined) continue;
+                for (const v of Array.isArray(value) ? value : [value]) headers.append(name, v);
+            }
+            const response = await fetchApp(new Request(origin + pathname + search, { method, headers, body, redirect: 'manual' }));
+            const out: Record<string, string | string[]> = {};
+            response.headers.forEach((value, name) => {
+                if (name !== 'set-cookie') out[name] = value;
+            });
+            const cookies = response.headers.getSetCookie();
+            if (cookies.length) out['set-cookie'] = cookies;
+            res.writeHead(response.status, out).end(Buffer.from(await response.arrayBuffer()));
+        } finally {
+            if (opens) opening.delete(pathname);
         }
-        const headers = new Headers();
-        for (const [name, value] of Object.entries(req.headers)) {
-            if (value === undefined) continue;
-            for (const v of Array.isArray(value) ? value : [value]) headers.append(name, v);
-        }
-        const response = await fetchApp(new Request(origin + pathname + search, { method, headers, body, redirect: 'manual' }));
-        const out: Record<string, string | string[]> = {};
-        response.headers.forEach((value, name) => {
-            if (name !== 'set-cookie') out[name] = value;
-        });
-        const cookies = response.headers.getSetCookie();
-        if (cookies.length) out['set-cookie'] = cookies;
-        res.writeHead(response.status, out).end(Buffer.from(await response.arrayBuffer()));
     }
 
     return (req, res) => {

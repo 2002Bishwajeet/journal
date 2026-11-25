@@ -12,6 +12,10 @@ import * as writeTools from './write';
 import * as shareTools from './share';
 import { liveBlockLayoutWarnings, type WriteDeps } from './write';
 
+/** Where set_note_cover's image can come from; the hosted MCP server swaps in its own (mcp/createServer.ts). */
+export const COVER_IMAGE_SOURCES =
+    '`image` is an absolute path to a file on this computer (preferred: it costs no tokens) or a base64 `data:` URI. ';
+
 /** Shared by the tools that take markdown, in place of the full guide. */
 const RICH_BLOCKS = ' Supports rich blocks; call get_authoring_guide before writing a live block or an image.';
 
@@ -290,7 +294,8 @@ export const TOOLS: AnyJournalTool[] = [
         name: 'set_note_cover',
         title: 'Set note cover',
         description:
-            "Set the cover image of a Journal note with Read+write access, replacing its cover. `image` is an absolute path to a file on this computer (preferred: it costs no tokens) or a base64 `data:` URI. " +
+            'Set the cover image of a Journal note with Read+write access, replacing its cover. ' +
+            COVER_IMAGE_SOURCES +
             'PNG, JPEG or WebP, at most 5 MB; metadata such as EXIF and GPS is removed before upload. Recommended size 2400×1260, at least 1200×630. ' +
             'The image is uploaded as is (not resized): crop it to about 1.9:1 and resize it to 2400×1260 first; the result has a `note` when it is too small or the wrong shape. ' +
             '`positionY` is the vertical focal point, 0 (top) to 100 (bottom), default 50. ' +

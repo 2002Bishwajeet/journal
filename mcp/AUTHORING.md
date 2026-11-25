@@ -111,6 +111,8 @@ In markdown passed to `create_note`, `append_to_note`, `replace_in_note`'s `new_
 - `![alt](/absolute/path/to/file.png)` (wrap the path in `<>` if it has spaces) or
   `![alt](data:image/png;base64,…)` is uploaded to the note and shown there. Prefer a
   path: it costs no tokens.
+- The hosted server (mcp.cloudx.run) can't read your files: use `![alt](upload://…)` with
+  the `source` that `create_image_upload` gives, and keep a `data:` URI under 256 KB.
 - PNG, JPEG or WebP, at most 5 MB each. Metadata such as EXIF and GPS is removed before
   upload. If any image is invalid, the call fails and nothing is written.
 - `get_note` returns an uploaded image as `![alt](attachment://…)`, or as an `<img>` tag
@@ -165,7 +167,8 @@ In markdown passed to `create_note`, `append_to_note`, `replace_in_note`'s `new_
 ### Covers
 
 A cover is the wide image above the title. It is not in the markdown: set it with
-`set_note_cover` (`image` is a file path or a `data:` URI, PNG, JPEG or WebP up to 5 MB,
+`set_note_cover` (`image` is a file path or a `data:` URI, or on the hosted server an
+`upload://` source or an `https:` URL; PNG, JPEG or WebP up to 5 MB,
 recommended 2400×1260 and at least 1200×630, `positionY` 0 to 100 for the focal point,
 `dark: true` for a dark-mode variant next to an existing cover) and remove it with
 `clear_note_cover`. Use a cover rather than an image at the top of the body: it also feeds
