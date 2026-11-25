@@ -211,6 +211,27 @@ describe('the Claude Desktop extension (#1457)', () => {
     });
 });
 
+describe('connect online (#1512)', () => {
+    it('copies the hosted server address, and the page names no other', async () => {
+        startInstallCard(document);
+        expect(await copy($('[data-copy="online-url"]'))).toBe('https://mcp.cloudx.run/journal');
+        expect([...html.matchAll(/https:\/\/mcp\.cloudx\.run[^\s<"]*/g)].map((m) => m[0])).toEqual(
+            Array(2).fill('https://mcp.cloudx.run/journal')
+        );
+    });
+
+    it('gives the steps, how to disconnect and where tokens are kept', () => {
+        const text = $('#online').textContent!.replace(/\s+/g, ' ');
+        const steps = $$('#online ol.cmds > li').map((li) => li.textContent!.replace(/\s+/g, ' '));
+        expect(steps).toHaveLength(3);
+        expect(steps[0]).toContain('remote MCP server or custom connector');
+        expect(steps[1]).toContain('Type your Homebase identity');
+        expect(steps[2]).toContain('Approve Journal MCP');
+        expect(text).toContain('remove Journal MCP under Apps in your owner console');
+        expect(text).toContain('hashed and encrypted');
+    });
+});
+
 describe('the page copy', () => {
     it('never shows the old sample identity', () => {
         expect(html).not.toContain('you.dotyou.cloud');

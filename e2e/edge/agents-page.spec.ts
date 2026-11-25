@@ -3,7 +3,8 @@ import { test, expect } from '../fixtures';
 // #1454: the agents page's install card, as a non-technical Claude user meets it. Claude Desktop opens
 // first, the address field fills every command, a command stays on one line on a phone, and the page
 // is saved at 1280 and 390, light and dark, for the PR. #1457: the Claude Desktop tab leads with the
-// extension's download and three steps; its terminal route folds away under them.
+// extension's download and three steps; its terminal route folds away under them. #1512: after the four steps,
+// the hosted server's address to add as a remote MCP server, with its own Copy button.
 
 const VIEWPORTS = [
   { name: '1280', width: 1280, height: 900 },
@@ -24,6 +25,8 @@ test('the agents page install card, at 1280 and 390, light and dark', async ({ p
   await expect(page.locator('.identity')).toHaveText(Array(8).fill('alex.dotyou.cloud'));
   await address.fill('');
   await expect(page.locator('#install-desktop-login')).toHaveText('npx -y journal-mcp@latest login type.your.identity.here');
+  await expect(page.locator('#online-url')).toHaveText('https://mcp.cloudx.run/journal');
+  await expect(page.getByRole('button', { name: 'Copy the server address' })).toBeVisible();
 
   const terminal = page.locator('#panel-desktop details.alt-setup');
   for (const viewport of VIEWPORTS) {
@@ -51,6 +54,7 @@ test('the agents page install card, at 1280 and 390, light and dark', async ({ p
       await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
       await page.screenshot({ path: test.info().outputPath(`agents-${colorScheme}-${viewport.name}.png`), fullPage: true, animations: 'disabled' });
       await page.locator('#setup .setup-step').first().screenshot({ path: test.info().outputPath(`agents-install-${colorScheme}-${viewport.name}.png`), animations: 'disabled' });
+      await page.locator('#online').screenshot({ path: test.info().outputPath(`agents-online-${colorScheme}-${viewport.name}.png`), animations: 'disabled' });
     }
   }
 });
