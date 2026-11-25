@@ -119,6 +119,61 @@ Claude Desktop (`claude_desktop_config.json`):
 }
 ```
 
+## Hosted server (remote connector)
+
+The same tools as a remote MCP server at `https://mcp.cloudx.run/journal/mcp`, for any MCP client
+that can add a remote server by URL. The client finds the sign-in itself (MCP 2026-07-28
+authorization, Streamable HTTP). You see a page that names the app asking, type your Homebase
+identity, and approve **Journal MCP (<app name>)** on your identity. The local `journal-mcp`
+above is unchanged, and it's still the way to go if you'd rather not use a hosted server.
+
+- **Sign-in:** the server is an OAuth 2.1 authorization server toward the client, built on
+  `@cloudflare/workers-oauth-provider` (pinned) running on Node. It supports Client ID Metadata
+  Documents, with dynamic registration as a fallback, PKCE S256 only, the RFC 8707 `resource`,
+  RFC 9207 `iss`, and rotating refresh tokens that expire after 30 idle days. Redirect URIs
+  must be ones the client registered: exact `https`, or loopback `http` on any port.
+- **Toward Homebase** it is the same Journal MCP app as `mcp:login` (`JOURNAL_MCP_APP_ID`), so
+  Settings → Agent access applies unchanged. The client's token never reaches Homebase, and
+  the Homebase token never reaches the client.
+- **Storage:** a SQLite file. It holds only hashes of codes and tokens. Each grant's identity,
+  app token and shared secret are AES-256-GCM encrypted under a key that only that grant's
+  own tokens unwrap, so the file, a backup or the disk can't recover a Homebase token on
+  its own (`mcpHosted.test.ts` checks this).
+- **Disconnect:** remove the app in your Homebase owner console. The next call then gets a
+  "reconnect" error and the grant is deleted. A client can also revoke its token at the token
+  endpoint (RFC 7009), or `POST /journal/revoke` with it as a Bearer token.
+- **Limits:** 120 MCP requests a minute per grant, and an 8 MB request body. Images go in as
+  `data:` URIs only, because the server can't read files on your computer.
+- **Never tunnel `npm run mcp:http`:** it is the unauthenticated spike (#1504), serving your
+  keychain login on loopback.
+
+### Deploying it (yantra-box)
+
+It runs behind [mcp-gateway](https://github.com/2002Bishwajeet/mcp-gateway) (private), which owns
+the router, the Cloudflare Tunnel and the `mcp@journal.service` unit; routing and tunnel setup are
+documented there. It needs Node 22.19 or newer for `node:sqlite` and undici.
+
+1. Build the bundle with `npm run mcp:hosted:build`. That writes `mcp/dist/http.mjs`, one file
+   with nothing to install next to it.
+2. Install it on the box:
+
+   ```
+   ~/services/mcp/journal/start          # mcp/deploy/start (executable)
+   ~/services/mcp/journal/dist/http.mjs  # the bundle
+   ~/services/mcp/journal/data/          # grants.sqlite (created 0700 on first start)
+   ~/.config/mcp-gateway/journal.env     # from mcp/deploy/journal.env.example, mode 0600
+   ```
+
+   It listens on `127.0.0.1:8781` (`PORT`), keeps grants in `JOURNAL_MCP_DB`
+   (`data/grants.sqlite`), and builds every URL from `MCP_PUBLIC_ORIGIN`, never from the
+   request's Host.
+3. Run `cd ~/mcp-gateway && scripts/deploy.sh`.
+4. Check it: `https://mcp.cloudx.run/.well-known/oauth-authorization-server/journal` should
+   return the metadata, and `npx @modelcontextprotocol/inspector` should get through sign-in
+   to `https://mcp.cloudx.run/journal/mcp` and list the tools.
+
+The server never logs a token, a shared secret or note content.
+
 ## Tools
 
 - `list_folders` — folders you've granted access to.

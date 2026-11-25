@@ -40,7 +40,7 @@ describe('journal-mcp login --no-browser', () => {
     beforeEach(() => {
         vi.stubGlobal(
             'fetch',
-            vi.fn(async () => ({ ok: true, json: async () => ({ odinId: IDENTITY }) }))
+            vi.fn(async () => Response.json({ odinId: IDENTITY }))
         );
         mocks.getRegistrationParams.mockImplementation(async (finalizeUrl: string) => ({ return_url: finalizeUrl }));
         mocks.finalizeAuthentication.mockResolvedValue({ clientAuthToken: 'tok', sharedSecret: 'sec' });

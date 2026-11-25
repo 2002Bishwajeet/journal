@@ -22,6 +22,7 @@
     "mcp:login": "vite-node mcp/server.ts login",
     "mcp:logout": "vite-node mcp/server.ts logout",
     "mcp:http": "vite-node mcp/httpMain.ts",
+    "mcp:hosted:build": "vite build -c mcp/vite.hosted.config.ts",
     "mcp:pack": "vite build -c mcp/vite.config.ts && vite-node mcp/npmReadme.ts --write && npm pack ./mcp/package --pack-destination mcp",
     "mcp:mcpb": "vite build -c mcp/vite.config.ts && vite-node mcp/mcpb.ts --pack",
     "e2e": "playwright test --project=hermetic",
@@ -123,6 +124,7 @@
   },
   "devDependencies": {
     "@babel/core": "^8.1.2",
+    "@cloudflare/workers-oauth-provider": "1.3.0",
     "@eslint/js": "^10.0.1",
     "@jitl/quickjs-singlefile-mjs-release-sync": "0.32.0",
     "@modelcontextprotocol/sdk": "1.32.2",
@@ -153,6 +155,7 @@
     "typescript": "~6.0.3",
     "typescript-7": "npm:typescript@~7.0.2",
     "typescript-eslint": "^8.73.0",
+    "undici": "8.13.1",
     "vite": "^8.3.8",
     "vite-node": "6.0.0",
     "vite-plugin-pwa": "^2.0.0",

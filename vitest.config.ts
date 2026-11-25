@@ -28,6 +28,9 @@ export default defineConfig({
 
         fileParallelism: true,
         maxWorkers: 4,
+
+        // Run through vite, not Node's loader, so its `cloudflare:workers` import takes the alias below.
+        server: { deps: { inline: ['@cloudflare/workers-oauth-provider'] } },
     },
 
     resolve: {
@@ -43,6 +46,8 @@ export default defineConfig({
             '@2002bishwajeet/live-blocks': path.resolve(import.meta.dirname, './packages/live-blocks/src'),
             // Built by the live-blocks package's plugin (build/pieces.ts), which vitest does not load.
             ...pieceStubs,
+            // The hosted MCP's OAuth library imports it; mcp/vite.hosted.config.ts aliases it the same way.
+            'cloudflare:workers': path.resolve(import.meta.dirname, './mcp/hosted/workers.ts'),
         },
     },
 });

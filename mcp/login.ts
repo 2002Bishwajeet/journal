@@ -2,35 +2,16 @@ import * as http from 'node:http';
 import * as os from 'node:os';
 import * as readline from 'node:readline';
 import { spawn } from 'node:child_process';
-import { createEccPair, finalizeAuthentication, getRegistrationParams } from '@homebase-id/js-lib/auth';
+import { createEccPair } from '@homebase-id/js-lib/auth';
 import { getDomainFromUrl } from '@homebase-id/js-lib/helpers';
-import { JOURNAL_MCP_APP_ID, JOURNAL_MCP_APP_NAME, JOURNAL_MCP_APP_SLUG, appOrigin, mcpDriveRequest } from './config';
+import { appOrigin } from './config';
 import { saveCredentials } from './credentials';
+import { buildAuthUrl, checkIdentity, finalizeYouAuth } from './youauth';
 import { decodeMcpLoginCode } from '@/lib/mcpLoginCode';
 
-// Same identity validation as useYouAuthAuthorization.ts's checkIdentity (src/hooks/auth/useYouAuthAuthorization.ts:107-127).
-const IDENTITY_REGEX = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9]{2,25}(?::\d{1,5})?$/i;
 const LOGIN_TIMEOUT_MS = 5 * 60 * 1000;
 const NO_BROWSER_HINT = 'Over SSH? Re-run with --no-browser.';
-
-async function checkIdentity(odinId: string): Promise<boolean> {
-    if (!odinId) return false;
-    const strippedIdentity = getDomainFromUrl(odinId) ?? '';
-    if (!IDENTITY_REGEX.test(strippedIdentity)) return false;
-
-    try {
-        const response = await fetch(`https://${strippedIdentity}/api/guest/v1/auth/ident`);
-        if (!response.ok) return false;
-        const validation: unknown = await response.json();
-        const odinIdField =
-            typeof validation === 'object' && validation !== null && 'odinId' in validation
-                ? (validation as { odinId?: unknown }).odinId
-                : undefined;
-        return typeof odinIdField === 'string' && odinIdField.toLowerCase() === strippedIdentity;
-    } catch {
-        return false;
-    }
-}
+const friendlyName = () => `Journal MCP (${os.hostname()})`;
 
 function promptForIdentity(): Promise<string> {
     const rl = readline.createInterface({ input: process.stdin, output: process.stderr });
@@ -58,42 +39,13 @@ function looksHeadless(env: NodeJS.ProcessEnv): boolean {
     return Boolean(env.SSH_CONNECTION) || (process.platform === 'linux' && !env.DISPLAY && !env.WAYLAND_DISPLAY);
 }
 
-async function buildAuthUrl(identity: string, finalizeUrl: string, publicKey: CryptoKey): Promise<string> {
-    const params = await getRegistrationParams(
-        finalizeUrl,
-        JOURNAL_MCP_APP_NAME,
-        JOURNAL_MCP_APP_ID,
-        JOURNAL_MCP_APP_SLUG,
-        undefined,
-        undefined,
-        [mcpDriveRequest],
-        undefined,
-        undefined,
-        publicKey,
-        undefined,
-        `Journal MCP (${os.hostname()})`,
-        undefined
-    );
-
-    const searchParams = new URLSearchParams();
-    for (const [key, value] of Object.entries(params)) {
-        if (value) searchParams.set(key, String(value));
-    }
-    return `https://${identity}/api/owner/v1/youauth/authorize?${searchParams.toString()}`;
-}
-
 async function finalizeAndSave(
     privateKey: CryptoKey,
     identity: string,
     publicKey: string,
     salt: string
 ): Promise<string> {
-    // ponytail: the SDK's finalizeAuthentication derives the shared key via
-    // window.crypto.subtle (browser-only); Node has the same Web Crypto on
-    // globalThis.crypto. Drop this once the SDK uses globalThis.crypto.
-    const g = globalThis as { window?: { crypto?: Crypto } };
-    g.window ??= { crypto: globalThis.crypto };
-    const { clientAuthToken, sharedSecret } = await finalizeAuthentication(identity, privateKey, publicKey, salt);
+    const { clientAuthToken, sharedSecret } = await finalizeYouAuth(identity, privateKey, publicKey, salt);
     return saveCredentials({ identity, clientAuthToken, sharedSecret });
 }
 
@@ -118,7 +70,7 @@ function promptForCode(): Promise<string> {
 }
 
 async function loginWithPastedCode(identity: string, eccKey: Awaited<ReturnType<typeof createEccPair>>): Promise<string> {
-    const authUrl = await buildAuthUrl(identity, `${appOrigin()}/mcp/code`, eccKey.publicKey);
+    const authUrl = await buildAuthUrl(identity, `${appOrigin()}/mcp/code`, eccKey.publicKey, friendlyName());
     console.error(
         `Open this URL in any browser to approve Journal MCP, then paste the code it shows:\n${authUrl}\n`
     );
@@ -206,7 +158,7 @@ export async function login(
                 const port = typeof address === 'object' && address ? address.port : 0;
                 const finalizeUrl = `http://127.0.0.1:${port}/finalize`;
 
-                const authUrl = await buildAuthUrl(identity, finalizeUrl, eccKey.publicKey);
+                const authUrl = await buildAuthUrl(identity, finalizeUrl, eccKey.publicKey, friendlyName());
 
                 console.error(`Open this URL to approve Journal MCP:\n${authUrl}\n`);
                 onAuthUrl?.(authUrl);

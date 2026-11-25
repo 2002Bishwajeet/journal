@@ -33,11 +33,11 @@ To change part of a note, call get_note with format "outline" for its block ids,
 
 The lines above are all you need for headings, tables, task lists, callouts, toggles, math, footnotes, note links and link previews. Before writing a live block or an image, call get_authoring_guide with the section you need (native has images and galleries; html, react, charts, mermaid-svg, design); with no section it lists the sections.`;
 
-const RUN_SCRIPT_DESCRIPTION =
+const runScriptDescription = (cpuMs: number) =>
     'Run JavaScript against your granted Journal notes in a sandbox, so only what it logs comes back: for jobs that pick notes by their content ' +
     '(tag every note that mentions X, move notes whose tables have an empty column) without reading every body. ' +
     '`code` is the body of an async function with a `journal` API (get_authoring_guide section "script") that calls the same tools with the same grants. ' +
-    `No network, files, timers or modules; at most ${SCRIPT_LIMITS.cpuMs / 1000} s of CPU, ${SCRIPT_LIMITS.memoryBytes / 1024 / 1024} MB, ` +
+    `No network, files, timers or modules; at most ${cpuMs / 1000} s of CPU, ${SCRIPT_LIMITS.memoryBytes / 1024 / 1024} MB, ` +
     `${SCRIPT_LIMITS.reads} reads, ${SCRIPT_LIMITS.writes} writes and ${SCRIPT_LIMITS.outputChars} characters of console.log output. ` +
     "Scripts can't trash notes or add images. dryRun: true makes no writes and logs each write it would make.";
 
@@ -77,14 +77,20 @@ function json(x: unknown, notes: string[] = [], untrusted = false) {
  * be exercised. `clientName` comes from this server's own initialize handshake.
  * `updateNotice` (mcp/updateCheck.ts) ends the instructions when a newer version is out.
  * `source` can be a getter, read on each call: the Desktop Extension's throws until its first login is done (mcp/firstRun.ts).
+ * `hosted` is the hosted server's (mcp/hosted/app.ts): an image loader that never reads its own files, and run_script's
+ * sandbox off its main thread with a lower CPU limit.
  */
-export function createJournalMcpServer(source: McpDriveDeps | (() => McpDriveDeps), updateNotice?: string): McpServer {
+export function createJournalMcpServer(
+    source: McpDriveDeps | (() => McpDriveDeps),
+    updateNotice?: string,
+    hosted?: { loadImage: WriteDeps['loadImage']; runScript: typeof runScript; scriptCpuMs: number }
+): McpServer {
     const instructions = updateNotice ? `${INSTRUCTIONS}\n\n${updateNotice}` : INSTRUCTIONS;
     const server = new McpServer({ name: 'journal-mcp', version: '0.1.0' }, { instructions });
     const clientName = () => server.server.getClientVersion()?.name ?? '';
     const bind = () => {
         const { feed, ...driveDeps } = typeof source === 'function' ? source() : source;
-        const deps: WriteDeps = { ...driveDeps, loadImage, clientName };
+        const deps: WriteDeps = { ...driveDeps, loadImage: hosted?.loadImage ?? loadImage, clientName };
         return { deps, feed };
     };
 
@@ -108,12 +114,12 @@ export function createJournalMcpServer(source: McpDriveDeps | (() => McpDriveDep
         'run_script',
         {
             title: 'Run script',
-            description: RUN_SCRIPT_DESCRIPTION,
+            description: runScriptDescription(hosted?.scriptCpuMs ?? SCRIPT_LIMITS.cpuMs),
             inputSchema: { code: z.string(), dryRun: z.boolean().optional() },
             annotations: { readOnlyHint: false, destructiveHint: true },
         },
         async ({ code, dryRun }) => {
-            const { output, error, reads, writes } = await runScript(bind().deps, code, dryRun);
+            const { output, error, reads, writes } = await (hosted?.runScript ?? runScript)(bind().deps, code, dryRun);
             const summary = `${error ? 'The script stopped early; its error ends the output.' : 'The script finished.'} ${reads} reads, ${writes} writes${dryRun ? ' (dry run: none applied)' : ''}.`;
             return { content: [{ type: 'text' as const, text: untrustedContent(output) }, { type: 'text' as const, text: summary }], isError: !!error };
         }
