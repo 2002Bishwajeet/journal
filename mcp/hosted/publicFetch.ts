@@ -3,7 +3,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { lookup as dnsLookup, type LookupAddress, type LookupOptions } from 'node:dns';
 import { lookup as dnsLookupAll } from 'node:dns/promises';
 import net from 'node:net';
-import { Agent, buildConnector, setGlobalDispatcher, type Dispatcher } from 'undici';
+import { Agent, Dispatcher1Wrapper, buildConnector, setGlobalDispatcher, type Dispatcher } from 'undici';
 
 // Every address a request from this server must never reach: this host, private networks, link-local
 // (cloud metadata at 169.254.169.254), CGNAT, benchmarking, multicast and reserved ranges.
@@ -80,11 +80,12 @@ export const publicOnlyAgent = guardedAgent(isBlockedAddress, 'non-public');
  * X-Egress-Authorization, method and body unchanged. The relay answers with the target's response, a redirect as
  * it is, so fetch relays each hop again, and marks it `x-egress: 1`: an answer without it is the relay's own
  * refusal (a wrong key, a target it won't fetch), which fails like a network error rather than pass as the
- * target's. The relay is the only address this dispatcher connects to.
+ * target's. The relay is the only address this dispatcher connects to. It takes both handler APIs, so Node 22's
+ * own fetch (undici 6, legacy handlers) can pass it as `dispatcher` too.
  */
 export function viaEgressRelay(base: Dispatcher, relayUrl: string, key: string, gate: string): Dispatcher {
     const relayAt = new URL(relayUrl);
-    return base.compose((dispatch) => (options, handler) => {
+    return legacyToo(base.compose((dispatch) => (options, handler) => {
         const headers: string[] = [];
         for (const [name, value] of headerEntries(options.headers)) {
             const lower = name.toLowerCase();
@@ -93,8 +94,15 @@ export function viaEgressRelay(base: Dispatcher, relayUrl: string, key: string, 
         }
         headers.push('x-egress-url', targetUrl(String(options.origin), options.path), 'authorization', `Bearer ${key}`, 'x-egress-gate', gate);
         return dispatch({ ...options, origin: relayAt.origin, path: relayAt.pathname + relayAt.search, headers }, relayedOnly(handler));
-    });
+    }));
 }
+
+/**
+ * `dispatcher` taking legacy handlers (onConnect, onHeaders…: Node 22's bundled undici 6 fetch) as well as
+ * undici 8's, which it gets unchanged. undici 8 refuses a legacy handler outright, and an interceptor that
+ * forwards only the new callbacks would leave such a request hanging.
+ */
+const legacyToo = (dispatcher: Dispatcher): Dispatcher => new Dispatcher1Wrapper(dispatcher);
 
 /**
  * The request's URL from its origin and path, by concatenation: `new URL(path, origin)` would take a path
@@ -142,7 +150,7 @@ export const asUpstreamCall = <T>(call: () => T): T => upstreamCalls.run(true, c
  * again, so a host that rebinds after this lookup gets no direct connection.
  */
 export function withDirectUpstream(fetchImpl: typeof fetch, hosts: Set<string>, allowed: net.BlockList): typeof fetch {
-    const direct = guardedAgent((ip) => !inList(allowed, ip), 'non-allowed');
+    const direct = legacyToo(guardedAgent((ip) => !inList(allowed, ip), 'non-allowed'));
     return async (input, init) => {
         if (!upstreamCalls.getStore()) return fetchImpl(input, init);
         const host = bareHost(new URL(input instanceof Request ? input.url : String(input)).hostname);

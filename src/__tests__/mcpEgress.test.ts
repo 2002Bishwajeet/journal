@@ -296,6 +296,11 @@ describe('hosted MCP: direct upstream hosts (MCP_DIRECT_HOSTS, MCP_DIRECT_IPS)',
         expect(target.seen).toHaveLength(1);
     });
 
+    it("goes direct through Node's own fetch too, whichever undici it bundles", async () => {
+        const nodeFetch = withDirectUpstream(globalThis.fetch, new Set(['127.0.0.1']), allowed);
+        expect(await asUpstreamCall(async () => (await nodeFetch(`${target.url}/api`)).text())).toBe('direct');
+    });
+
     it('relays an upstream call to a host not listed without looking it up', async () => {
         const lookups = countLookups('unlisted.example');
         try {
