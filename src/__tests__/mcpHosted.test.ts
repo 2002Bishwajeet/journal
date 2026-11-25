@@ -41,7 +41,6 @@ const CIMD_ID = 'https://client.example/oauth/client.json';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 // The mocked outside world. The hosted app wraps fetch when it is first built, so this goes in before any test runs.
-const realFetch = globalThis.fetch;
 let homebaseStatus = 200;
 const fakeFetchImpl = async (input: RequestInfo | URL) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
@@ -64,6 +63,9 @@ const fakeFetch = vi.fn<typeof fetch>(fakeFetchImpl);
 /** A PNG with text chunks holding "SECRET" (mcpWriteTools.test.ts). */
 const COVER_PNG = new Uint8Array(readFileSync(fileURLToPath(new URL('./fixtures/images/cover-meta.png', import.meta.url))));
 vi.stubGlobal('fetch', fakeFetch);
+// fetchImage uses undici's own fetch; route it through the fake too. undiciFetch (the real one) reaches the network.
+const { fetch: undiciFetch } = await vi.importActual<typeof import('undici')>('undici');
+vi.mock('undici', async (importOriginal) => ({ ...(await importOriginal<typeof import('undici')>()), fetch: (...args: Parameters<typeof fetch>) => globalThis.fetch(...args) }));
 
 const NOTES: NoteSummary[] = [{ id: 'n1', title: 'Note One', folderId: 'F1', tags: [], modified: '2024-01-01T00:00:00.000Z' }];
 
@@ -614,8 +616,7 @@ describe('hosted MCP: node bridge and outbound fetch', () => {
         await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
         const { port } = server.address() as AddressInfo;
         for (const host of ['127.0.0.1', 'localhost']) {
-            // Node's fetch takes undici's dispatcher, as installPublicOnlyFetch sets it globally.
-            await expect(realFetch(`http://${host}:${port}/`, { dispatcher: publicOnlyAgent } as RequestInit)).rejects.toThrow();
+            await expect(undiciFetch(`http://${host}:${port}/`, { dispatcher: publicOnlyAgent })).rejects.toMatchObject({ cause: { message: expect.stringContaining('blocked non-public address') } });
         }
         await new Promise<void>((resolve) => server.close(() => resolve()));
     });
@@ -1043,7 +1044,7 @@ describe('hosted MCP: images (#1506)', () => {
         await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
         const { port } = server.address() as AddressInfo;
         const causes = async (url: string) => {
-            fakeFetch.mockImplementationOnce((input, init) => realFetch(input, init));
+            fakeFetch.mockImplementationOnce((input, init) => undiciFetch(String(input), init as never) as unknown as Promise<Response>);
             const error = await fetchImage(url).then(
                 () => null,
                 (e: Error) => e

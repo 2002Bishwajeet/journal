@@ -326,7 +326,7 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
         <nav class="tool-index" aria-label="Tools by job" data-reveal>
           <div><p class="tool-index-head">Find and read</p><ul><li><a href="#tool-list_folders"><code>list_folders</code></a></li><li><a href="#tool-list_notes"><code>list_notes</code></a></li><li><a href="#tool-search_notes"><code>search_notes</code></a></li><li><a href="#tool-get_note"><code>get_note</code></a></li><li><a href="#tool-get_authoring_guide"><code>get_authoring_guide</code></a></li></ul></div>
           <div><p class="tool-index-head">Write and edit</p><ul><li><a href="#tool-create_note"><code>create_note</code></a></li><li><a href="#tool-append_to_note"><code>append_to_note</code></a></li><li><a href="#tool-replace_in_note"><code>replace_in_note</code></a></li><li><a href="#tool-update_note"><code>update_note</code></a></li><li><a href="#tool-edit_block"><code>edit_block</code></a></li></ul></div>
-          <div><p class="tool-index-head">Covers</p><ul><li><a href="#tool-set_note_cover"><code>set_note_cover</code></a></li><li><a href="#tool-clear_note_cover"><code>clear_note_cover</code></a></li></ul></div>
+          <div><p class="tool-index-head">Covers</p><ul><li><a href="#tool-set_note_cover"><code>set_note_cover</code></a></li><li><a href="#tool-clear_note_cover"><code>clear_note_cover</code></a></li><li><a href="#tool-create_image_upload"><code>create_image_upload</code></a></li></ul></div>
           <div><p class="tool-index-head">Organise</p><ul><li><a href="#tool-create_folder"><code>create_folder</code></a></li><li><a href="#tool-delete_note"><code>delete_note</code></a></li><li><a href="#tool-run_script"><code>run_script</code></a></li></ul></div>
           <div><p class="tool-index-head">Share and publish</p><ul><li><a href="#tool-get_sharing"><code>get_sharing</code></a></li><li><a href="#tool-share_note"><code>share_note</code></a></li><li><a href="#tool-publish_to_feed"><code>publish_to_feed</code></a></li></ul></div>
         </nav>
@@ -607,6 +607,26 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
               </dl>
               <h5 class="spec-head">Returns</h5>
               <p><code>{ id, variant, cleared }</code>. <code>cleared</code> is false when there was nothing to remove.</p>
+            </div>
+          </article>
+
+          <article class="tool" id="tool-create_image_upload" aria-labelledby="t-create_image_upload" data-reveal>
+            <div class="tool-main">
+              <h4 class="tool-name" id="t-create_image_upload"><code>create_image_upload</code></h4>
+              <p>Only on the hosted server (<code>https://mcp.cloudx.run/journal/mcp</code>), which can't read your files. The agent gets a one-time upload URL, POSTs the image to it, then places it with the <code>upload://…</code> source it got back. You can open the link yourself and drop in a photo.</p>
+              <dl class="tool-facts">
+                <dt>Use it when</dt><dd>An image for a note's body or cover is a file or a photo pasted into the chat. PNG, JPEG or WebP, up to 5 MB; EXIF and GPS are removed.</dd>
+                <dt>Try asking</dt><dd class="ask">Put this photo at the top of my Trip plan note.</dd>
+              </dl>
+            </div>
+            <div class="tool-spec">
+              <h5 class="spec-head">Inputs</h5>
+              <dl class="params">
+                <div><dt><code>filename</code> <span>string, required</span></dt><dd>The image's file name, up to 200 characters.</dd></div>
+                <div><dt><code>contentType</code> <span>string, optional</span></dt><dd><code>image/png</code>, <code>image/jpeg</code> or <code>image/webp</code>.</dd></div>
+              </dl>
+              <h5 class="spec-head">Returns</h5>
+              <p><code>{ upload_url, upload_headers, expires_at, source }</code>. The URL takes one upload within 15 minutes; the image can be placed once, within an hour.</p>
             </div>
           </article>
         </div>

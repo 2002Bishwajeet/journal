@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
+import { fetch } from 'undici';
 import { MAX_IMAGE_BYTES, assertImageByteSize, prepareImageBytes, type PreparedImage } from '@/lib/images/imageBytes';
 import { loadImage } from '../imageSource';
 import { html, messagePage, uploadPage, uploadPageCsp } from './pages';
@@ -60,8 +61,8 @@ export function purgeUploads(db: DatabaseSync): void {
  * resolving, so DNS rebinding can't reach the box), no redirects, a timeout and the 5 MB cap while reading.
  */
 export async function fetchImage(url: string): Promise<Uint8Array> {
-    const init = { redirect: 'manual', signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), dispatcher: publicOnlyAgent } as RequestInit;
-    const response = await fetch(url, init).catch((cause: unknown) => {
+    // undici's own fetch: Node's global one bundles an older undici that can't drive this undici's Agent.
+    const response = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), dispatcher: publicOnlyAgent }).catch((cause: unknown) => {
         throw new Error(`Could not fetch ${url}: Journal fetches images only from public https addresses, within ${FETCH_TIMEOUT_MS / 1000} s.`, { cause });
     });
     if (response.status !== 200) {
