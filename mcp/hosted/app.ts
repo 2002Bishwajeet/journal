@@ -20,6 +20,7 @@ import { MCP_PATH } from '../http';
 import { runScript } from '../runScript';
 import { buildAuthUrl, checkIdentity, finalizeYouAuth } from '../youauth';
 import { UPLOAD_PATH, hostedImages } from './images';
+import { serveFont } from './fonts';
 import { asUpstreamCall } from './publicFetch';
 import type { SqliteKv } from './kv';
 import { consentPage, html, messagePage } from './pages';
@@ -404,6 +405,9 @@ export function createHostedApp({ origin, kv, uploads, homebase = realHomebase, 
         validBearer: async (token: string) => (await oauth.unwrapToken(token)) !== null,
         async fetch(request: Request): Promise<Response> {
             const { pathname } = new URL(request.url);
+            // The pages' fonts, at their exact paths: nothing else under /journal/assets/ exists.
+            const font = serveFont(pathname);
+            if (font) return font;
             if (pathname.startsWith(UPLOAD_PATH)) return allowUpload(clientIp(request)) ? images.serve(request) : tooMany();
             if (pathname === AUTHORIZE_PATH) return authorize(request);
             if (pathname === CALLBACK_PATH) return callback(request);

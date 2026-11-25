@@ -16,6 +16,7 @@ import type { OAuthClientInformationMixed, OAuthTokens } from '@modelcontextprot
 import { createHostedApp, RECONNECT_MESSAGE, RETRY_MESSAGE, type HomebaseDeps } from '../../mcp/hosted/app';
 import { PATHS_REFUSED, fetchImage, purgeUploads, uploadsDb } from '../../mcp/hosted/images';
 import { sqliteKv } from '../../mcp/hosted/kv';
+import { FONT_PATHS } from '../../mcp/hosted/pages';
 import { MAX_BODY_BYTES, MCP_BODY_BYTES, SMALL_BODY_BYTES, nodeListener } from '../../mcp/hosted/node';
 import { isBlockedAddress, publicOnlyAgent } from '../../mcp/hosted/publicFetch';
 import { installSafeConsole, safeConsole } from '../../mcp/hosted/safeConsole';
@@ -271,6 +272,49 @@ describe('hosted MCP: discovery', () => {
         expect(open.map((r) => r.status)).toEqual([200, 201, 400, 404, 400]);
         for (const r of open) expect(r.headers.get('www-authenticate')).toBeNull();
         expect((await s.appFetch(`${ORIGIN}/journal/mcp`, { method: 'POST', body: '{}' })).status).toBe(404);
+    });
+});
+
+describe('hosted MCP: pages (#1516)', () => {
+    const fontFile = (pkg: string, file: string) => new Uint8Array(readFileSync(path.resolve(import.meta.dirname, '../../node_modules/@fontsource-variable', pkg, 'files', file)));
+
+    it('serves the Latin fonts at their exact paths, with no token, cached for a year', async () => {
+        const s = setup();
+        const expected = {
+            [FONT_PATHS.inter]: fontFile('inter', 'inter-latin-wght-normal.woff2'),
+            [FONT_PATHS.playfair]: fontFile('playfair-display', 'playfair-display-latin-wght-normal.woff2'),
+        };
+        for (const [fontPath, bytes] of Object.entries(expected)) {
+            const response = await s.appFetch(`${ORIGIN}${fontPath}`);
+            expect(response.status).toBe(200);
+            expect(response.headers.get('content-type')).toBe('font/woff2');
+            expect(response.headers.get('cache-control')).toBe('public, max-age=31536000, immutable');
+            expect(response.headers.get('www-authenticate')).toBeNull();
+            expect(new Uint8Array(await response.arrayBuffer())).toEqual(bytes);
+        }
+        for (const other of ['/journal/assets/', '/journal/assets/inter.woff2', `${FONT_PATHS.inter}/x`, '/journal/assets/../mcp']) {
+            expect((await s.appFetch(`${ORIGIN}${other}`)).status, other).toBe(404);
+        }
+    });
+
+    it('renders the consent and message pages with the wordmark and fonts from this server, under a strict CSP', async () => {
+        const s = setup();
+        const consent = await s.appFetch(authorizeUrl({ client_id: CIMD_ID, redirect_uri: 'http://127.0.0.1/callback', code_challenge: (await pkce()).challenge }));
+        const invalid = await s.appFetch(`${ISSUER}/authorize`);
+        expect(invalid.status).toBe(400);
+        const brand = readFileSync(path.resolve(import.meta.dirname, '../../brand/logo/wordmark-light.svg'), 'utf8');
+        const shapes = brand.slice(brand.indexOf('</title>') + '</title>'.length, brand.lastIndexOf('</svg>'));
+        for (const response of [consent, invalid]) {
+            const csp = response.headers.get('content-security-policy')!;
+            for (const directive of ["default-src 'none'", "font-src 'self'", "base-uri 'none'", "frame-ancestors 'none'"]) expect(csp).toContain(directive);
+            expect(csp).not.toContain('script-src');
+            const page = await response.text();
+            expect(page).not.toContain('<script');
+            expect(page).toContain(shapes);
+            for (const fontPath of Object.values(FONT_PATHS)) expect(page).toContain(`<link rel="preload" href="${fontPath}" as="font" type="font/woff2" crossorigin>`);
+            // Nothing from another origin: the only absolute URL is the SVG namespace.
+            expect(page.match(/https?:\/\/[^"' )]+/g)).toEqual(['http://www.w3.org/2000/svg']);
+        }
     });
 });
 
@@ -1140,6 +1184,7 @@ describe('hosted MCP: images (#1506)', () => {
         const nonce = /'nonce-([^']+)'/.exec(csp)![1];
         expect(csp).toContain("default-src 'none'");
         expect(csp).toContain("connect-src 'self'");
+        expect(csp).toContain("font-src 'self'");
         const page = await response.text();
         expect(page).toContain(`<script nonce="${nonce}">`);
         // The script is JavaScript as written: parsing it (not running it) throws on a broken escape.
