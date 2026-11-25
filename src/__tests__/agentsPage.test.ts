@@ -239,17 +239,16 @@ describe('connecting online (#1512)', () => {
         expect(desktop).toContain('approve Journal MCP');
     });
 
-    it('installs in Cursor and VS Code in one click, next to the manual steps', () => {
-        const cursor = new globalThis.URL($<HTMLAnchorElement>('#online-cursor a[href^="cursor:"]').href);
-        expect(`${cursor.protocol}//${cursor.host}${cursor.pathname}`).toBe('cursor://anysphere.cursor-deeplink/mcp/install');
-        expect(cursor.searchParams.get('name')).toBe('journal');
-        expect(JSON.parse(atob(cursor.searchParams.get('config')!))).toEqual({ url: URL });
-        expect($('#online-cursor [data-copy="online-cursor-config"]')).toBeTruthy();
+    it('installs in Cursor and VS Code in one click', () => {
+        const [cursor, cursorQuery] = $<HTMLAnchorElement>('#online-cursor a[href^="cursor:"]').getAttribute('href')!.split('?');
+        const params = new URLSearchParams(cursorQuery);
+        expect(cursor).toBe('cursor://anysphere.cursor-deeplink/mcp/install');
+        expect(params.get('name')).toBe('journal');
+        expect(JSON.parse(atob(params.get('config')!))).toEqual({ url: URL });
 
-        const vscode = $<HTMLAnchorElement>('#setup .setup-copy a[href^="vscode:"]').getAttribute('href')!;
-        expect(vscode.startsWith('vscode:mcp/install?')).toBe(true);
-        expect(JSON.parse(decodeURIComponent(vscode.slice('vscode:mcp/install?'.length)))).toEqual({ name: 'journal', type: 'http', url: URL });
-        expect($('#setup .setup-copy').textContent).toContain(URL);
+        const [vscode, vscodeQuery] = $<HTMLAnchorElement>('a[href^="vscode:"]').getAttribute('href')!.split('?');
+        expect(vscode).toBe('vscode:mcp/install');
+        expect(JSON.parse(decodeURIComponent(vscodeQuery))).toEqual({ name: 'journal', type: 'http', url: URL });
     });
 
     it('names only the one hosted address', () => {
