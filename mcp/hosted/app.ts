@@ -120,8 +120,8 @@ const redirect = (location: string, headers = new Headers()) => {
 const message = (e: unknown) => (e instanceof Error ? e.message : 'Something went wrong.');
 const tooMany = () => new Response('Too many requests', { status: 429, headers: { 'Retry-After': '60' } });
 /**
- * Set by the gateway from Cf-Connecting-IP on every request (mcp-gateway docs/ARCHITECTURE.md). An IPv6
- * address is keyed by its /64, which one host usually holds whole.
+ * Set by the reverse proxy from the client IP on every request. An IPv6 address is keyed by its /64,
+ * which one host usually holds whole.
  */
 function clientIp(request: Request): string {
     const ip = request.headers.get('x-real-ip') || 'unknown';

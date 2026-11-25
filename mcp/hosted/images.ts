@@ -58,7 +58,7 @@ export function purgeUploads(db: DatabaseSync): void {
 
 /**
  * A web image's bytes: public addresses only (publicOnlyAgent checks each address it connects to, after
- * resolving, so DNS rebinding can't reach the box), no redirects, a timeout and the 5 MB cap while reading.
+ * resolving, so DNS rebinding can't reach the server), no redirects, a timeout and the 5 MB cap while reading.
  */
 export async function fetchImage(url: string): Promise<Uint8Array> {
     // undici's own fetch, so `dispatcher` takes this package's Agent whichever undici Node bundles (Node 26: 8.12).

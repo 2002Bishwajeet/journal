@@ -83,3 +83,4 @@ npm run test:watch # vitest watch mode
 - Pages only compose components; logic goes in hooks (`src/hooks/`)
 - Dynamic `import()` for heavy modules (WebLLM, ImportService, ExportService)
 - No `useCallback`/`useMemo` without profiling evidence
+- Run `/simplify` on every change before opening or merging its PR, including fix-agent and one-off PRs. It cuts code drastically. Commit first, then check the diff afterwards: simplify reviewers can re-commit.

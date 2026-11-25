@@ -1,5 +1,4 @@
-// Generic OAuth-on-Node adapter: no Journal imports, so any MCP behind mcp-gateway can copy it.
-// See the gateway docs (github.com/2002Bishwajeet/mcp-gateway, docs/ARCHITECTURE.md, "Per-MCP contract").
+// Generic OAuth-on-Node adapter: no Journal imports, so another MCP server can copy it.
 import type { IncomingMessage, RequestListener, ServerResponse } from 'node:http';
 
 /** An upload: a 5 MB image as a base64 data: URI is about 6.7 MB. */

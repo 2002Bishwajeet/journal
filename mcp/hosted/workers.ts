@@ -1,5 +1,4 @@
-// Generic OAuth-on-Node adapter: no Journal imports, so any MCP behind mcp-gateway can copy it.
-// See the gateway docs (github.com/2002Bishwajeet/mcp-gateway, docs/ARCHITECTURE.md, "Per-MCP contract").
+// Generic OAuth-on-Node adapter: no Journal imports, so another MCP server can copy it.
 // Stands in for `cloudflare:workers`, @cloudflare/workers-oauth-provider's only Workers import (aliased in
 // the MCP's vite and vitest configs). The library uses WorkerEntrypoint only in `instanceof` checks.
 export class WorkerEntrypoint {}

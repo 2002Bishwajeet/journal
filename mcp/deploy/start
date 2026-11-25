@@ -1,9 +1,0 @@
-#!/bin/sh
-# Started by the gateway's mcp@journal.service from ~/services/mcp/journal/ (see mcp/README.md).
-# Uses ~/.local/node/bin/node when it exists, else node from PATH.
-if [ -x "$HOME/.local/node/bin/node" ]; then
-    NODE="$HOME/.local/node/bin/node"
-else
-    NODE=node
-fi
-exec "$NODE" "$(dirname "$0")/dist/http.mjs"

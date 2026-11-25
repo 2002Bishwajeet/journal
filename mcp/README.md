@@ -121,72 +121,17 @@ Claude Desktop (`claude_desktop_config.json`):
 
 ## Hosted server (remote connector)
 
-The same tools as a remote MCP server at `https://mcp.cloudx.run/journal`, for any MCP client
-that can add a remote server by URL. The client finds the sign-in itself (MCP 2026-07-28
-authorization, Streamable HTTP). You see a page that names the app asking, type your Homebase
-identity, and approve **Journal MCP (<app name>)** on your identity. The local `journal-mcp`
-above is unchanged, and it's still the way to go if you'd rather not use a hosted server.
+Add `https://mcp.cloudx.run/journal` as a remote MCP server in your client. Sign in with
+your Homebase identity and approve **Journal MCP (<app name>)**. To disconnect, remove the app
+in your Homebase owner console. Tokens are stored only hashed or encrypted, and the server never
+logs a token or note content. The local `journal-mcp` above stays available if you'd rather not
+use a hosted server. Never tunnel `npm run mcp:http`: it is the unauthenticated local spike.
 
-- **Sign-in:** the server is an OAuth 2.1 authorization server toward the client, built on
-  `@cloudflare/workers-oauth-provider` (pinned) running on Node. It supports Client ID Metadata
-  Documents, with dynamic registration as a fallback, PKCE S256 only, the RFC 8707 `resource`,
-  RFC 9207 `iss`, and rotating refresh tokens that expire after 30 idle days. Redirect URIs
-  must be ones the client registered: exact `https`, or loopback `http` on any port.
-- **Toward Homebase** it is the same Journal MCP app as `mcp:login` (`JOURNAL_MCP_APP_ID`), so
-  Settings → Agent access applies unchanged. The client's token never reaches Homebase, and
-  the Homebase token never reaches the client.
-- **Storage:** a SQLite file. It holds only hashes of codes and tokens. Each grant's identity,
-  app token and shared secret are AES-256-GCM encrypted under a key that only that grant's
-  own tokens unwrap, so the file, a backup or the disk can't recover a Homebase token on
-  its own (`mcpHosted.test.ts` checks this).
-- **Disconnect:** remove the app in your Homebase owner console. The next call then gets a
-  "reconnect" error and the grant is deleted. A client can also revoke its token at the token
-  endpoint (RFC 7009), or `POST /journal/revoke` with it as a Bearer token.
-- **Images:** the server can't read files on your computer, and an image the model writes out
-  as base64 costs it a token per few bytes, so `create_image_upload` returns a single-use
-  `upload_url` (15 minutes) and an `upload://` source. The agent's own shell or code sandbox
-  POSTs the image there (`curl -F file=@photo.jpg <upload_url>`), and the bytes never pass
-  through the model; an agent that can't gives you the link, which opens a page where you
-  pick, take, drop or paste the photo. The image is checked and stripped of metadata on
-  arrival, kept for an hour for the same grant only (in `uploads.sqlite` next to the grants,
-  at most 5 waiting upload URLs and 25 MB unplaced per user), and uploaded to Homebase once a
-  note's markdown (`![alt](upload://…)`) or `set_note_cover` places it. `set_note_cover` also takes an
-  `https:` URL (fetched from public addresses only, no redirects, 10 s, 5 MB), and a `data:`
-  URI works up to 256 KB. File paths are refused.
-- **Endpoint:** `POST /journal` is the stateless Streamable HTTP endpoint; a plain `GET /journal`
-  returns the server's name, version and protocol version as JSON. Protected resource metadata
-  is at `/.well-known/oauth-protected-resource/journal`.
-- **Limits:** 120 MCP requests a minute per grant, a 1 MB MCP request body, 8 MB for an upload
-  URL's, and 64 KB for every other body.
-- **Never tunnel `npm run mcp:http`:** it is the unauthenticated spike (#1504), serving your
-  keychain login on loopback.
+### Self-hosting
 
-### Deploying it (yantra-box)
-
-It runs behind [mcp-gateway](https://github.com/2002Bishwajeet/mcp-gateway) (private), which owns
-the router, the Cloudflare Tunnel and the `mcp@journal.service` unit; routing and tunnel setup are
-documented there. It needs Node 22.19 or newer for `node:sqlite` and undici.
-
-1. Build the bundle with `npm run mcp:hosted:build`. That writes `mcp/dist/http.mjs`, one file
-   with nothing to install next to it.
-2. Install it on the box:
-
-   ```
-   ~/services/mcp/journal/start          # mcp/deploy/start (executable)
-   ~/services/mcp/journal/dist/http.mjs  # the bundle
-   ~/services/mcp/journal/data/          # grants.sqlite, uploads.sqlite (created 0700 on first start)
-   ~/.config/mcp-gateway/journal.env     # from mcp/deploy/journal.env.example, mode 0600
-   ```
-
-   It listens on `127.0.0.1:8781` (`PORT`), keeps grants in `JOURNAL_MCP_DB`
-   (`data/grants.sqlite`), and builds every URL from `MCP_PUBLIC_ORIGIN`, never from the
-   request's Host.
-3. Run `cd ~/mcp-gateway && scripts/deploy.sh`.
-4. Check it: `https://mcp.cloudx.run/.well-known/oauth-authorization-server/journal` should
-   return the metadata, and `npx @modelcontextprotocol/inspector` should get through sign-in
-   to `https://mcp.cloudx.run/journal` and list the tools.
-
-The server never logs a token, a shared secret or note content.
+Build with `npm run mcp:hosted:build`, then run `node mcp/dist/http.mjs` (Node 22.19+) behind an
+HTTPS reverse proxy. Set `MCP_PUBLIC_ORIGIN` to your public origin; `PORT` and `JOURNAL_MCP_DB`
+are optional.
 
 ## Tools
 
@@ -256,6 +201,8 @@ attributed to `agent:<client name>` (e.g. `agent:claude-code`).
   Example: *"Use ~/Pictures/lisbon.jpg as the cover of my Trip plan note."*
 - `clear_note_cover` — remove a note's cover and its dark-mode cover (`id`), or with
   `dark: true` only the dark-mode cover.
+- `create_image_upload` — (hosted only) returns a single-use upload URL and an `upload://` source
+  to use in a note or cover.
 - `get_sharing` — who can see a note (`id`): `access` (`private`, `public` or `people`),
   its link unless private, the circles and people it is shared with (`with`, circles by id),
   whether it is public through a shared folder (`inSharedFolder`), and a `share_note`

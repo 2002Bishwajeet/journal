@@ -1,5 +1,4 @@
-// Generic OAuth-on-Node adapter: no Journal imports, so any MCP behind mcp-gateway can copy it.
-// See the gateway docs (github.com/2002Bishwajeet/mcp-gateway, docs/ARCHITECTURE.md, "Per-MCP contract").
+// Generic OAuth-on-Node adapter: no Journal imports, so another MCP server can copy it.
 import { lookup as dnsLookup, type LookupAddress, type LookupOptions } from 'node:dns';
 import net from 'node:net';
 import { Agent, buildConnector, setGlobalDispatcher } from 'undici';
@@ -69,7 +68,7 @@ export const publicOnlyAgent = new Agent({
 /**
  * Sends every fetch this process makes through `publicOnlyAgent` (Node's fetch uses undici's global
  * dispatcher). The server fetches only addresses others hand it: CIMD client ids, and the Homebase
- * identity a user types, so none of them can make it call into the box or its network.
+ * identity a user types, so none of them can make it call into the server or its network.
  */
 export function installPublicOnlyFetch(): void {
     setGlobalDispatcher(publicOnlyAgent);
