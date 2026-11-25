@@ -233,6 +233,8 @@ describe('connecting online (#1512)', () => {
         expect(JSON.parse(`{${await copy($('[data-copy="online-cursor-config"]'))}}`)).toEqual({ journal: { url: URL } });
         expect(await copy($('[data-copy="online-codex-add"]'))).toBe(`codex mcp add journal --url ${URL}`);
         expect(await copy($('[data-copy="online-codex-login"]'))).toBe('codex mcp login journal');
+        expect(await copy($('[data-copy="online-hermes-config"]'))).toBe(`mcp_servers:\n  journal:\n    url: "${URL}"\n    auth: oauth`);
+        expect(await copy($('[data-copy="online-hermes-login"]'))).toBe('hermes mcp login journal');
         const desktop = $('#online-desktop').textContent!.replace(/\s+/g, ' ');
         expect(desktop).toContain('Settings → Connectors');
         expect(desktop).toContain('Add custom connector');
@@ -245,13 +247,6 @@ describe('connecting online (#1512)', () => {
         expect(cursor).toBe('cursor://anysphere.cursor-deeplink/mcp/install');
         expect(params.get('name')).toBe('journal');
         expect(JSON.parse(atob(params.get('config')!))).toEqual({ url: URL });
-    });
-
-    it('connects Hermes Agent online with OAuth', async () => {
-        startInstallCard(document);
-        expect($('#tab-hermes').getAttribute('aria-controls')).toBe('panel-hermes');
-        expect(await copy($('[data-copy="online-hermes-config"]'))).toBe(`mcp_servers:\n  journal:\n    url: "${URL}"\n    auth: oauth`);
-        expect(await copy($('[data-copy="online-hermes-login"]'))).toBe('hermes mcp login journal');
     });
 
     it('names only the one hosted address', () => {
