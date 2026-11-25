@@ -218,7 +218,7 @@ describe('ShareNoteDialog', () => {
             access.current = idleAccess({ isDirty: true, entries: [PERSON] });
             await open();
 
-            await act(async () => { buttons('Done')[0]?.click(); });
+            await act(async () => { buttons('Save')[0]?.click(); });
 
             expect(access.current.save).toHaveBeenCalledTimes(1);
             expect(onClose).toHaveBeenCalledTimes(1);
@@ -228,7 +228,7 @@ describe('ShareNoteDialog', () => {
             access.current = idleAccess({ isDirty: true, entries: [PERSON], save: vi.fn(async () => ({ shared: false })) });
             await open();
 
-            await act(async () => { buttons('Done')[0]?.click(); });
+            await act(async () => { buttons('Save')[0]?.click(); });
 
             expect(onClose).not.toHaveBeenCalled();
         });
@@ -241,7 +241,7 @@ describe('ShareNoteDialog', () => {
             });
             await open();
 
-            await act(async () => { buttons('Done')[0]?.click(); });
+            await act(async () => { buttons('Save')[0]?.click(); });
 
             expect(onClose).not.toHaveBeenCalled();
             expect(document.body.textContent).toContain("People you share with can read this note but can't edit it yet.");
@@ -257,7 +257,7 @@ describe('ShareNoteDialog', () => {
             await open();
             expect(document.body.textContent).toContain('Sharing with people turns it off');
 
-            await act(async () => { buttons('Done')[0]?.click(); });
+            await act(async () => { buttons('Save')[0]?.click(); });
             expect(access.current.save).not.toHaveBeenCalled();
             expect(document.body.textContent).toContain('Share with people?');
 

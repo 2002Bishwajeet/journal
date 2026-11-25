@@ -60,6 +60,12 @@ const CONFIRMS = {
         description: 'Everyone you shared the note with loses access. The note stays in its folder.',
         confirmText: 'Stop sharing',
     },
+    discard: {
+        title: 'Discard changes?',
+        description: 'You changed who can open this note, but did not save. If you close now, the changes are lost.',
+        confirmText: 'Discard',
+        cancelText: 'Keep editing',
+    },
 } as const;
 
 interface ShareNoteDialogProps {
@@ -131,6 +137,7 @@ export default function ShareNoteDialog({ isOpen, onClose, noteId, noteTitle, in
 
     const onConfirm = async () => {
         if (confirm === 'people') await saveAndClose();
+        else if (confirm === 'discard') onClose();
         else if (confirm === 'stop') {
             if (await access.stopSharing()) resolveRequest();
         } else if (confirm === 'public' && (await access.stopSharing()) && (await publishing.makePublic(pendingPublic))) resolveRequest();
@@ -138,7 +145,9 @@ export default function ShareNoteDialog({ isOpen, onClose, noteId, noteTitle, in
 
     const handleOpenChange = (open: boolean) => {
         // A close request mid-save is ignored, so nothing is left half done
-        if (!open && !busy) onClose();
+        if (open || busy) return;
+        if (access.isDirty && !readOnlyDriveUrl) setConfirm('discard');
+        else onClose();
     };
 
     const title = readOnlyDriveUrl ? 'Note shared' : 'Share Note';
@@ -197,7 +206,7 @@ export default function ShareNoteDialog({ isOpen, onClose, noteId, noteTitle, in
                         {describeRequest(request)}{' '}
                         {request.access === 'public'
                             ? 'To agree, use Make public under General access.'
-                            : 'Its changes are filled in below: check them, then press Done.'}
+                            : 'Its changes are filled in below: check them, then press Save.'}
                     </Notice>
                     {access.requestRefused.length > 0 && (
                         <ul className="flex flex-col gap-1 pl-11 text-sm text-muted-foreground">
@@ -242,7 +251,7 @@ export default function ShareNoteDialog({ isOpen, onClose, noteId, noteTitle, in
     const footer = readOnlyDriveUrl ? null : (
         <>
             {access.isShared && (
-                // Apart from Done: the left end of the bar, or last on a phone
+                // Apart from Done and Save: the left end of the bar, or last on a phone
                 <Button
                     variant="ghost"
                     className="text-red-700 hover:bg-red-500/10 hover:text-red-700 max-sm:order-last max-sm:h-11 sm:mr-auto dark:text-red-400 dark:hover:bg-red-400/10 dark:hover:text-red-400"
@@ -259,6 +268,8 @@ export default function ShareNoteDialog({ isOpen, onClose, noteId, noteTitle, in
                         <Loader2 className="animate-spin" />
                         Saving…
                     </>
+                ) : access.isDirty ? (
+                    'Save'
                 ) : (
                     'Done'
                 )}
