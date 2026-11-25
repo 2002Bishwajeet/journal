@@ -1,5 +1,6 @@
 import { parentPort, workerData } from 'node:worker_threads';
 import { runGuest, type GuestOptions } from '../scriptGuest';
+import { installPublicOnlyFetch } from './publicFetch';
 
 // run_script's sandbox on a worker thread (#1505), started by mcp/hosted/scripts.ts: the hosted
 // bundle runs this module when it isn't the main thread (mcp/hosted/main.ts). Every `journal` call
@@ -7,6 +8,9 @@ import { runGuest, type GuestOptions } from '../scriptGuest';
 
 export type ToHost = { type: 'call'; id: number; name: string; args: string } | { type: 'log'; line: string } | { type: 'fail'; text: string } | { type: 'done' };
 export type ToWorker = { id: number; ok: boolean; text: string };
+
+// The sandbox has no network, but this thread's fetch is guarded as the main thread's is.
+installPublicOnlyFetch();
 
 const port = parentPort!;
 const { code, options } = workerData as { code: string; options: GuestOptions };

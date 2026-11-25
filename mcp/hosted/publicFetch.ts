@@ -22,10 +22,12 @@ for (const [address, prefix] of [
     blocked.addSubnet(address, prefix, 'ipv4');
 }
 for (const [address, prefix] of [
-    ['::', 128],
-    ['::1', 128],
+    // ::, ::1 and the deprecated IPv4-compatible ::a.b.c.d (::127.0.0.1).
+    ['::', 96],
     ['fc00::', 7],
     ['fe80::', 10],
+    // Deprecated site-local.
+    ['fec0::', 10],
     ['ff00::', 8],
     // NAT64 and 6to4 carry an IPv4 address inside, private ones included.
     ['64:ff9b::', 96],

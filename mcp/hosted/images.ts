@@ -61,7 +61,7 @@ export function purgeUploads(db: DatabaseSync): void {
  * resolving, so DNS rebinding can't reach the box), no redirects, a timeout and the 5 MB cap while reading.
  */
 export async function fetchImage(url: string): Promise<Uint8Array> {
-    // undici's own fetch: Node's global one bundles an older undici that can't drive this undici's Agent.
+    // undici's own fetch, so `dispatcher` takes this package's Agent whichever undici Node bundles (Node 26: 8.12).
     const response = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), dispatcher: publicOnlyAgent }).catch((cause: unknown) => {
         throw new Error(`Could not fetch ${url}: Journal fetches images only from public https addresses, within ${FETCH_TIMEOUT_MS / 1000} s.`, { cause });
     });

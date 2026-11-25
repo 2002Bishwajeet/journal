@@ -30,7 +30,7 @@ setInterval(() => {
 }, 10 * 60 * 1000).unref();
 // In the bundle, this module's URL is the bundle: main.ts runs it as the script worker off the main thread.
 const app = createHostedApp({ origin, kv, uploads, scriptWorker: new URL(import.meta.url) });
-const server = createServer(nodeListener(app.fetch, origin, [MCP_PATH], app.opensLargeBody));
+const server = createServer(nodeListener(app.fetch, origin, [MCP_PATH], app.opensLargeBody, app.validBearer));
 // A client gets 30 s to send a whole request, 10 s for its headers: a slow upload can't hold its buffer open.
 server.requestTimeout = 30_000;
 server.headersTimeout = 10_000;

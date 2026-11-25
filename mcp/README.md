@@ -156,8 +156,8 @@ above is unchanged, and it's still the way to go if you'd rather not use a hoste
 - **Endpoint:** `POST /journal` is the stateless Streamable HTTP endpoint; a plain `GET /journal`
   returns the server's name, version and protocol version as JSON. Protected resource metadata
   is at `/.well-known/oauth-protected-resource/journal`.
-- **Limits:** 120 MCP requests a minute per grant, and an 8 MB request body (an upload URL's
-  too; every other unauthenticated body is capped at 64 KB).
+- **Limits:** 120 MCP requests a minute per grant, a 1 MB MCP request body, 8 MB for an upload
+  URL's, and 64 KB for every other body.
 - **Never tunnel `npm run mcp:http`:** it is the unauthenticated spike (#1504), serving your
   keychain login on loopback.
 
