@@ -1,5 +1,5 @@
 #!/bin/sh
-# Started by the gateway's mcp@journal.service from ~/services/mcp/journal/ (see mcp/README.md).
+# Run from the directory holding dist/http.mjs (see mcp/README.md, Self-hosting).
 # Uses ~/.local/node/bin/node when it exists, else node from PATH.
 if [ -x "$HOME/.local/node/bin/node" ]; then
     NODE="$HOME/.local/node/bin/node"

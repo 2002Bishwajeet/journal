@@ -158,30 +158,23 @@ above is unchanged, and it's still the way to go if you'd rather not use a hoste
 - **Never tunnel `npm run mcp:http`:** it is the unauthenticated spike (#1504), serving your
   keychain login on loopback.
 
-### Deploying it (yantra-box)
+### Self-hosting
 
-It runs behind [mcp-gateway](https://github.com/2002Bishwajeet/mcp-gateway) (private), which owns
-the router, the Cloudflare Tunnel and the `mcp@journal.service` unit; routing and tunnel setup are
-documented there. It needs Node 22.19 or newer for `node:sqlite` and undici.
+It needs Node 22.19 or newer for `node:sqlite` and undici.
 
 1. Build the bundle with `npm run mcp:hosted:build`. That writes `mcp/dist/http.mjs`, one file
    with nothing to install next to it.
-2. Install it on the box:
-
-   ```
-   ~/services/mcp/journal/start          # mcp/deploy/start (executable)
-   ~/services/mcp/journal/dist/http.mjs  # the bundle
-   ~/services/mcp/journal/data/          # grants.sqlite, uploads.sqlite (created 0700 on first start)
-   ~/.config/mcp-gateway/journal.env     # from mcp/deploy/journal.env.example, mode 0600
-   ```
-
-   It listens on `127.0.0.1:8781` (`PORT`), keeps grants in `JOURNAL_MCP_DB`
-   (`data/grants.sqlite`), and builds every URL from `MCP_PUBLIC_ORIGIN`, never from the
-   request's Host.
-3. Run `cd ~/mcp-gateway && scripts/deploy.sh`.
-4. Check it: `https://mcp.cloudx.run/.well-known/oauth-authorization-server/journal` should
-   return the metadata, and `npx @modelcontextprotocol/inspector` should get through sign-in
-   to `https://mcp.cloudx.run/journal/mcp` and list the tools.
+2. Put `mcp/deploy/start` (executable) next to a `dist/http.mjs` and run it from that directory,
+   with the environment from `mcp/deploy/journal.env.example`. It listens on `127.0.0.1:8781`
+   only (`PORT`), keeps grants in `JOURNAL_MCP_DB` (`data/grants.sqlite`, relative to the working
+   directory; `data/` is created 0700, with `uploads.sqlite` next to the grants), and builds every
+   URL from `MCP_PUBLIC_ORIGIN` (or `JOURNAL_MCP_ORIGIN`), never from the request's Host.
+3. Put a reverse proxy with TLS in front. It must set `X-Real-IP` from the real client IP and
+   route `/journal/*`, `/.well-known/oauth-protected-resource/journal/mcp` and
+   `/.well-known/oauth-authorization-server/journal` to the server.
+4. Check it: `<origin>/.well-known/oauth-authorization-server/journal` should return the
+   metadata, and `npx @modelcontextprotocol/inspector` should get through sign-in to
+   `<origin>/journal/mcp` and list the tools.
 
 The server never logs a token, a shared secret or note content.
 
