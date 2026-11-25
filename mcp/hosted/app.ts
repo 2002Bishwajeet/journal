@@ -354,10 +354,10 @@ export function createHostedApp({ origin, kv, uploads, homebase = realHomebase, 
             if (pathname === AUTHORIZE_PATH) return authorize(request);
             if (pathname === CALLBACK_PATH) return callback(request);
             if (pathname === REVOKE_PATH) return revoke(request);
-            // Exact paths only: the resource server would also take every path under /journal as protected.
             if (pathname === MCP_PATH && request.method === 'GET' && !request.headers.get('accept')?.includes('text/event-stream')) {
                 return Response.json({ ...SERVER_INFO, protocolVersion: LATEST_PROTOCOL_VERSION });
             }
+            // Exact paths only: the resource server would also take every path under /journal as protected.
             if (pathname === MCP_PATH || pathname === PRM_PATH) return rs.fetch(request, env, ctx());
             if (pathname === REGISTER_PATH) {
                 if (!allowRegister(clientIp(request))) return tooMany();
