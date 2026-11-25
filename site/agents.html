@@ -4,9 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Journal for agents: the MCP server</title>
-  <meta name="description" content="Set up the Journal MCP server in Claude Code, Claude Desktop, Cursor or Codex CLI, then read the reference for every tool: inputs, results and when to use each." />
+  <meta name="description" content="Set up the Journal MCP server in Claude Code, Claude Desktop, claude.ai, Cursor or Codex CLI, online with nothing to install or locally on your computer, then read the reference for every tool: inputs, results and when to use each." />
   <meta property="og:title" content="Journal for agents: the MCP server" />
-  <meta property="og:description" content="Let Claude Code, Claude Desktop, Cursor and Codex CLI read and write your notes, in the folders you grant." />
+  <meta property="og:description" content="Let Claude, Cursor and Codex CLI read and write your notes, in the folders you grant. Connect online, or run it on your own computer." />
   <!-- head -->
 </head>
 <body data-page="agents">
@@ -85,14 +85,16 @@
             <div class="setup-copy">
               <h3 class="h3" id="install-title">Which Claude do you use?</h3>
               <p>Pick your app, then follow its numbered steps in order. Each Copy button copies only what is in its own box. You sign in once per computer: every app on it shares the same login, kept in your system keychain.</p>
+              <p>Each app connects one of two ways. Local runs the server on your computer. Online connects to the hosted server at <code>https://mcp.cloudx.run/journal</code>, so there is nothing to install: you sign in with Homebase in your browser. Any other app that supports remote MCP servers can use that address too. Pick one way per app, not both, or the agent gets every tool twice.</p>
+              <p class="small">Online is in beta. It is free while the beta lasts, with fair-use limits that protect the service, and plans may come later. Its tokens are stored hashed and encrypted, and note content isn't logged; choose Local to keep everything on your own computer. To disconnect either way, remove Journal MCP under Apps in your Homebase owner console.</p>
               <table class="apps">
                 <caption>Which Claude apps work</caption>
                 <thead><tr><th scope="col">App</th><th scope="col">Works with Journal</th></tr></thead>
                 <tbody>
                   <tr><th scope="row">Claude Desktop (Mac, Windows)</th><td>Yes</td></tr>
                   <tr><th scope="row">Claude Code</th><td>Yes</td></tr>
-                  <tr><th scope="row">claude.ai on the web</th><td>Not yet</td></tr>
-                  <tr><th scope="row">Claude on iPhone and Android</th><td>Not yet</td></tr>
+                  <tr><th scope="row">claude.ai on the web</th><td>Yes, online</td></tr>
+                  <tr><th scope="row">Claude on iPhone and Android</th><td>Yes, online</td></tr>
                 </tbody>
               </table>
             </div>
@@ -114,6 +116,11 @@
                 </div>
 
                 <div class="tab-panel" role="tabpanel" id="panel-desktop" aria-labelledby="tab-desktop">
+                  <div class="tabs modes" role="tablist" aria-label="Claude Desktop: how to connect">
+                    <button class="tab" type="button" role="tab" id="mode-desktop-local" aria-controls="local-desktop" aria-selected="true">Local</button>
+                    <button class="tab" type="button" role="tab" id="mode-desktop-online" aria-controls="online-desktop" aria-selected="false" tabindex="-1">Online <span class="beta">Beta</span></button>
+                  </div>
+                  <div role="tabpanel" id="local-desktop" aria-labelledby="mode-desktop-local">
                   <div class="mcpb">
                     <a class="btn btn-primary" href="https://github.com/2002Bishwajeet/journal/releases?q=mcp-v&amp;expanded=true" data-mcpb>Download for Claude Desktop</a>
                     <p class="code-note">For Claude Desktop on Mac and Windows. It downloads one file, named like <code>journal-mcp-1.14.0.mcpb</code>, and there is nothing else to install.</p>
@@ -150,9 +157,30 @@
                     </li>
                   </ol>
                   </details>
+                  </div>
+                  <div role="tabpanel" id="online-desktop" aria-labelledby="mode-desktop-online" hidden>
+                  <ol class="cmds">
+                    <li class="mcpb-step"><p class="code-note">In Claude Desktop or on claude.ai, open Settings → Connectors and click Add custom connector.</p></li>
+                    <li class="snippet">
+                      <p class="code-note">Name it Journal and paste this as its URL:</p>
+                      <pre tabindex="0" aria-label="Claude Desktop: the connector URL"><code id="online-desktop-url">https://mcp.cloudx.run/journal</code></pre>
+                      <button class="copy-btn" type="button" data-copy="online-desktop-url" aria-label="Copy the connector URL">
+                        <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                        <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                        <span class="copy-label">Copy</span>
+                      </button>
+                    </li>
+                    <li class="mcpb-step"><p class="code-note">Click Connect, then sign in with your Homebase identity and approve Journal MCP. After that, Journal works in the Claude apps on your phone too.</p></li>
+                  </ol>
+                  </div>
                 </div>
 
                 <div class="tab-panel" role="tabpanel" id="panel-claude-code" aria-labelledby="tab-claude-code" hidden>
+                  <div class="tabs modes" role="tablist" aria-label="Claude Code: how to connect">
+                    <button class="tab" type="button" role="tab" id="mode-claude-code-local" aria-controls="local-claude-code" aria-selected="true">Local</button>
+                    <button class="tab" type="button" role="tab" id="mode-claude-code-online" aria-controls="online-claude-code" aria-selected="false" tabindex="-1">Online <span class="beta">Beta</span></button>
+                  </div>
+                  <div role="tabpanel" id="local-claude-code" aria-labelledby="mode-claude-code-local">
                   <ol class="cmds">
                     <li class="snippet">
                       <p class="code-note">Paste this into Claude Code and press Enter:</p>
@@ -183,9 +211,53 @@
                       </button>
                     </li>
                   </ol>
+                  </div>
+                  <div role="tabpanel" id="online-claude-code" aria-labelledby="mode-claude-code-online" hidden>
+                  <ol class="cmds">
+                    <li class="snippet">
+                      <p class="code-note">In a terminal, paste this and press Enter:</p>
+                      <pre tabindex="0" aria-label="Claude Code: add the online server"><code id="online-code-add">claude mcp add --transport http journal https://mcp.cloudx.run/journal</code></pre>
+                      <button class="copy-btn" type="button" data-copy="online-code-add" aria-label="Copy the command that adds the online server">
+                        <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                        <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                        <span class="copy-label">Copy</span>
+                      </button>
+                    </li>
+                    <li class="mcpb-step"><p class="code-note">In Claude Code, run <code>/mcp</code>, pick journal and choose Authenticate. Your browser opens: sign in with your Homebase identity and approve Journal MCP.</p></li>
+                  </ol>
+                  <details class="alt-setup">
+                  <summary>Or install it as a plugin<svg class="icon alt-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary>
+                  <ol class="cmds">
+                    <li class="snippet">
+                      <p class="code-note">Paste this into Claude Code and press Enter:</p>
+                      <pre tabindex="0" aria-label="Claude Code: add the plugin source"><code id="online-code-marketplace">/plugin marketplace add 2002Bishwajeet/journal</code></pre>
+                      <button class="copy-btn" type="button" data-copy="online-code-marketplace" aria-label="Copy the command that adds the plugin source for the online plugin">
+                        <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                        <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                        <span class="copy-label">Copy</span>
+                      </button>
+                    </li>
+                    <li class="snippet">
+                      <p class="code-note">Then this one, to install the online plugin:</p>
+                      <pre tabindex="0" aria-label="Claude Code: install the online plugin"><code id="online-code-plugin">/plugin install journal-online@journal</code></pre>
+                      <button class="copy-btn" type="button" data-copy="online-code-plugin" aria-label="Copy the command that installs the online plugin">
+                        <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                        <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                        <span class="copy-label">Copy</span>
+                      </button>
+                    </li>
+                    <li class="mcpb-step"><p class="code-note">Run <code>/mcp</code>, pick journal and choose Authenticate, then sign in with your Homebase identity and approve Journal MCP.</p></li>
+                  </ol>
+                  </details>
+                  </div>
                 </div>
 
                 <div class="tab-panel" role="tabpanel" id="panel-cursor" aria-labelledby="tab-cursor" hidden>
+                  <div class="tabs modes" role="tablist" aria-label="Cursor: how to connect">
+                    <button class="tab" type="button" role="tab" id="mode-cursor-local" aria-controls="local-cursor" aria-selected="true">Local</button>
+                    <button class="tab" type="button" role="tab" id="mode-cursor-online" aria-controls="online-cursor" aria-selected="false" tabindex="-1">Online <span class="beta">Beta</span></button>
+                  </div>
+                  <div role="tabpanel" id="local-cursor" aria-labelledby="mode-cursor-local">
                   <ol class="cmds">
                     <li class="snippet">
                       <p class="code-note">In a terminal, paste this and press Enter. It opens your browser to approve Journal:</p>
@@ -210,9 +282,31 @@
                       </button>
                     </li>
                   </ol>
+                  </div>
+                  <div role="tabpanel" id="online-cursor" aria-labelledby="mode-cursor-online" hidden>
+                  <ol class="cmds">
+                    <li class="snippet">
+                      <p class="code-note">Paste this inside <code>"mcpServers": { … }</code> in <code>~/.cursor/mcp.json</code> for every project, or <code>.cursor/mcp.json</code> for one, with a comma between it and any server already there. Then restart Cursor.</p>
+                      <pre tabindex="0" aria-label="Cursor: the online journal entry for mcp.json"><code id="online-cursor-config">"journal": {
+  "url": "https://mcp.cloudx.run/journal"
+}</code></pre>
+                      <button class="copy-btn" type="button" data-copy="online-cursor-config" aria-label="Copy the Cursor online config entry">
+                        <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                        <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                        <span class="copy-label">Copy</span>
+                      </button>
+                    </li>
+                    <li class="mcpb-step"><p class="code-note">In Cursor Settings, find journal under MCP and click its sign-in button, then sign in with your Homebase identity and approve Journal MCP.</p></li>
+                  </ol>
+                  </div>
                 </div>
 
                 <div class="tab-panel" role="tabpanel" id="panel-codex" aria-labelledby="tab-codex" hidden>
+                  <div class="tabs modes" role="tablist" aria-label="Codex CLI: how to connect">
+                    <button class="tab" type="button" role="tab" id="mode-codex-local" aria-controls="local-codex" aria-selected="true">Local</button>
+                    <button class="tab" type="button" role="tab" id="mode-codex-online" aria-controls="online-codex" aria-selected="false" tabindex="-1">Online <span class="beta">Beta</span></button>
+                  </div>
+                  <div role="tabpanel" id="local-codex" aria-labelledby="mode-codex-local">
                   <ol class="cmds">
                     <li class="snippet">
                       <p class="code-note">In a terminal, paste this and press Enter. It opens your browser to approve Journal:</p>
@@ -236,6 +330,29 @@ args = ["-y", "journal-mcp@latest"]</code></pre>
                       </button>
                     </li>
                   </ol>
+                  </div>
+                  <div role="tabpanel" id="online-codex" aria-labelledby="mode-codex-online" hidden>
+                  <ol class="cmds">
+                    <li class="snippet">
+                      <p class="code-note">In a terminal, paste this and press Enter:</p>
+                      <pre tabindex="0" aria-label="Codex CLI: add the online server"><code id="online-codex-add">codex mcp add journal --url https://mcp.cloudx.run/journal</code></pre>
+                      <button class="copy-btn" type="button" data-copy="online-codex-add" aria-label="Copy the command that adds the Codex CLI online server">
+                        <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                        <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                        <span class="copy-label">Copy</span>
+                      </button>
+                    </li>
+                    <li class="snippet">
+                      <p class="code-note">If no browser opened to sign in, run this. Sign in with your Homebase identity, approve Journal MCP, then start a new Codex session.</p>
+                      <pre tabindex="0" aria-label="Codex CLI: sign in to the online server"><code id="online-codex-login">codex mcp login journal</code></pre>
+                      <button class="copy-btn" type="button" data-copy="online-codex-login" aria-label="Copy the Codex CLI online sign-in command">
+                        <svg class="icon copy" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                        <svg class="icon check" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                        <span class="copy-label">Copy</span>
+                      </button>
+                    </li>
+                  </ol>
+                  </div>
                 </div>
               </div>
             </div>
