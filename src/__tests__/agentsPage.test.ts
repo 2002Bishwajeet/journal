@@ -57,7 +57,7 @@ describe('the install card', () => {
         expect(tabs[0].getAttribute('aria-selected')).toBe('true');
         expect($<HTMLElement>('#panel-desktop').hidden).toBe(false);
         expect($('.install [role="tablist"]').getAttribute('aria-labelledby')).toBe('install-title');
-        expect($('#install-title').textContent).toBe('Which Claude do you use?');
+        expect($('#install-title').textContent).toBe('Which app do you use?');
     });
 
     it('has one numbered row and one Copy button per command, in every tab', () => {

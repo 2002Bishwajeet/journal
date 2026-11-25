@@ -12,7 +12,7 @@ const VIEWPORTS = [
 
 test('the agents page install card, at 1280 and 390, light and dark', async ({ page }) => {
   await page.goto('/landing/agents');
-  await expect(page.getByRole('heading', { name: 'Which Claude do you use?' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Which app do you use?' })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Claude Desktop' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('link', { name: 'Download for Claude Desktop' })).toBeVisible();
   await expect(page.locator('#local-desktop > ol.cmds > li')).toHaveCount(3);
