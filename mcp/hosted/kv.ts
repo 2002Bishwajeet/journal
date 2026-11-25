@@ -17,6 +17,8 @@ export function sqliteKv(file: string) {
     db.exec('CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT NOT NULL, metadata TEXT, expiration INTEGER)');
     const now = () => Math.floor(Date.now() / 1000);
     const LIVE = '(expiration IS NULL OR expiration > ?)';
+    /** The keys starting with `prefix` sort from it up to (not including) it with its last character bumped. */
+    const upperOf = (prefix: string) => prefix.slice(0, -1) + String.fromCharCode(prefix.charCodeAt(prefix.length - 1) + 1);
 
     return {
         db,
@@ -37,9 +39,8 @@ export function sqliteKv(file: string) {
             db.prepare('DELETE FROM kv WHERE key = ?').run(key);
         },
         async list({ prefix = '', limit = 1000, cursor }: ListOptions = {}) {
-            // A range on the primary key, so SQLite seeks to the prefix instead of scanning every row:
-            // the keys starting with it sort from it up to (not including) it with its last character bumped.
-            const upper = prefix && prefix.slice(0, -1) + String.fromCharCode(prefix.charCodeAt(prefix.length - 1) + 1);
+            // A range on the primary key, so SQLite seeks to the prefix instead of scanning every row.
+            const upper = prefix && upperOf(prefix);
             const range = upper ? [prefix, upper] : [prefix];
             const rows = db
                 .prepare(`SELECT key, metadata, expiration FROM kv WHERE key >= ? ${upper ? 'AND key < ?' : ''} AND key > ? AND ${LIVE} ORDER BY key LIMIT ?`)
@@ -55,6 +56,10 @@ export function sqliteKv(file: string) {
                 list_complete: done,
                 ...(done ? {} : { cursor: page.at(-1)!.key }),
             };
+        },
+        /** The live keys starting with a non-empty `prefix`. */
+        count(prefix: string): number {
+            return (db.prepare(`SELECT COUNT(*) AS n FROM kv WHERE key >= ? AND key < ? AND ${LIVE}`).get(prefix, upperOf(prefix), now()) as { n: number }).n;
         },
         purgeExpired(): void {
             db.prepare('DELETE FROM kv WHERE expiration IS NOT NULL AND expiration <= ?').run(now());

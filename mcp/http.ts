@@ -3,8 +3,8 @@ import type { AddressInfo } from 'node:net';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createJournalMcpServer, type McpDriveDeps } from './createServer';
 
-/** The MCP endpoint's path: the resource is `https://mcp.cloudx.run/journal/mcp` behind a reverse proxy that routes `/journal` here. */
-export const MCP_PATH = '/journal/mcp';
+/** The MCP endpoint's path: the resource is `https://mcp.cloudx.run/journal` behind a reverse proxy that routes `/journal` here. */
+export const MCP_PATH = '/journal';
 
 /**
  * Hosted MCP spike (#1504): the Journal tools over stateless Streamable HTTP. Every POST gets its own server and

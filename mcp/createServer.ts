@@ -65,6 +65,9 @@ const PUBLISH_TO_FEED_DESCRIPTION =
     'Needs the owner to have let Journal MCP write to their feed: until then it publishes nothing and returns the link that asks them. ' +
     "Returns the post's `postId` and `url`, and `status` \"published\" or \"updated\".";
 
+/** The serverInfo `initialize` reports; the hosted GET /journal shows it too. */
+export const SERVER_INFO = { name: 'journal-mcp', version: '0.1.0' };
+
 /** What the server runs on: the drive half of WriteDeps, and the feed for publish_to_feed (absent in tests that don't publish). */
 export type McpDriveDeps = Omit<WriteDeps, 'clientName' | 'loadImage'> & { feed?: FeedDeps };
 
@@ -107,7 +110,7 @@ export function createJournalMcpServer(
 ): McpServer {
     const modeInstructions = hosted ? INSTRUCTIONS.replace(BODY_IMAGES, HOSTED_BODY_IMAGES) : INSTRUCTIONS;
     const instructions = updateNotice ? `${modeInstructions}\n\n${updateNotice}` : modeInstructions;
-    const server = new McpServer({ name: 'journal-mcp', version: '0.1.0' }, { instructions });
+    const server = new McpServer(SERVER_INFO, { instructions });
     const clientName = () => server.server.getClientVersion()?.name ?? '';
     const bind = () => {
         const { feed, ...driveDeps } = typeof source === 'function' ? source() : source;

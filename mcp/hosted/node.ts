@@ -1,8 +1,10 @@
 // Generic OAuth-on-Node adapter: no Journal imports, so another MCP server can copy it.
 import type { IncomingMessage, RequestListener, ServerResponse } from 'node:http';
 
-/** Larger than any MCP call or upload needs: a 5 MB image as a base64 data: URI is about 6.7 MB. */
+/** An upload: a 5 MB image as a base64 data: URI is about 6.7 MB. */
 export const MAX_BODY_BYTES = 8 * 1024 * 1024;
+/** An MCP call: images come through upload URLs, and a data: URI in one is at most 256 KB. */
+export const MCP_BODY_BYTES = 1024 * 1024;
 /** Every other body: OAuth forms and registrations. */
 export const SMALL_BODY_BYTES = 64 * 1024;
 
@@ -23,16 +25,18 @@ async function readBody(req: IncomingMessage, limit: number): Promise<Uint8Array
 /**
  * node:http to the app's Request → Response. The URL is the fixed public `origin` plus the request's path:
  * neither Host nor X-Forwarded-* is ever trusted. Bodies over their limit get 413 before the app sees them.
- * A `bearerPaths` request may carry up to MAX_BODY_BYTES with a Bearer token; without one it reaches the app
- * with no body (the app answers 401 without one). So may a request to a path `opensLargeBody` accepts (a live
- * single-use upload URL), checked before any of the body is read, one body at a time per path (429 for a second).
+ * A `bearerPaths` request may carry up to MCP_BODY_BYTES with a Bearer token `validBearer` accepts, checked
+ * before any of the body is read; without one it reaches the app with no body (the app answers 401). A request
+ * to a path `opensLargeBody` accepts (a live single-use upload URL), also checked first, may carry up to
+ * MAX_BODY_BYTES, one body at a time per path (429 for a second).
  * Every other body is capped at SMALL_BODY_BYTES.
  */
 export function nodeListener(
     fetchApp: (request: Request) => Promise<Response>,
     origin: string,
     bearerPaths: string[] = [],
-    opensLargeBody: (pathname: string) => Promise<boolean> = async () => false
+    opensLargeBody: (pathname: string) => Promise<boolean> = async () => false,
+    validBearer: (token: string) => Promise<boolean> = async () => true
 ): RequestListener {
     /** Paths reading or serving a large body now: one at a time each. */
     const opening = new Set<string>();
@@ -40,8 +44,9 @@ export function nodeListener(
         const method = req.method ?? 'GET';
         const { pathname, search } = new URL(req.url ?? '/', 'http://localhost');
         const large = bearerPaths.includes(pathname);
-        const bearer = /^Bearer\s/i.test(req.headers.authorization ?? '');
         const hasBody = method !== 'GET' && method !== 'HEAD';
+        const token = /^Bearer\s+(\S+)/i.exec(req.headers.authorization ?? '')?.[1];
+        const bearer = large && hasBody && token !== undefined && (await validBearer(token));
         const opens = hasBody && !large && (await opensLargeBody(pathname));
         if (opens && opening.has(pathname)) {
             res.writeHead(429, { Connection: 'close', 'Retry-After': '5' }).end();
@@ -54,7 +59,7 @@ export function nodeListener(
             if (large && !bearer) req.resume();
             else if (hasBody) {
                 try {
-                    body = await readBody(req, large || opens ? MAX_BODY_BYTES : SMALL_BODY_BYTES);
+                    body = await readBody(req, large ? MCP_BODY_BYTES : opens ? MAX_BODY_BYTES : SMALL_BODY_BYTES);
                 } catch (e) {
                     if (!(e instanceof TooLarge)) throw e;
                     res.writeHead(413, { Connection: 'close' }).end();

@@ -121,7 +121,7 @@ Claude Desktop (`claude_desktop_config.json`):
 
 ## Hosted server (remote connector)
 
-Add `https://mcp.cloudx.run/journal/mcp` as a remote MCP server in your client. Sign in with
+Add `https://mcp.cloudx.run/journal` as a remote MCP server in your client. Sign in with
 your Homebase identity and approve **Journal MCP (<app name>)**. To disconnect, remove the app
 in your Homebase owner console. Tokens are stored only hashed or encrypted, and the server never
 logs a token or note content. The local `journal-mcp` above stays available if you'd rather not

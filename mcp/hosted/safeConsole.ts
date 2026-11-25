@@ -10,12 +10,16 @@ const describe = (value: unknown): string => {
     return `[${typeof value}]`;
 };
 
-/** The console's printing methods over `write`, each line safe as above. */
+/**
+ * The console's printing methods over `write`, each line safe as above. Each returns undefined, as console's
+ * do: the OAuth library's default onError returns console.warn's result, and anything else becomes its Response.
+ */
 export function safeConsole(write: (stream: 'stdout' | 'stderr', line: string) => void) {
     const to =
         (stream: 'stdout' | 'stderr') =>
-        (...args: unknown[]) =>
+        (...args: unknown[]): void => {
             write(stream, args.map(describe).join(' '));
+        };
     return { log: to('stdout'), info: to('stdout'), debug: to('stdout'), warn: to('stderr'), error: to('stderr') };
 }
 

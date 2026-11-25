@@ -16,14 +16,15 @@ import type { OAuthClientInformationMixed, OAuthTokens } from '@modelcontextprot
 import { createHostedApp, RECONNECT_MESSAGE, RETRY_MESSAGE, type HomebaseDeps } from '../../mcp/hosted/app';
 import { PATHS_REFUSED, fetchImage, purgeUploads, uploadsDb } from '../../mcp/hosted/images';
 import { sqliteKv } from '../../mcp/hosted/kv';
-import { MAX_BODY_BYTES, SMALL_BODY_BYTES, nodeListener } from '../../mcp/hosted/node';
+import { MAX_BODY_BYTES, MCP_BODY_BYTES, SMALL_BODY_BYTES, nodeListener } from '../../mcp/hosted/node';
 import { isBlockedAddress, publicOnlyAgent } from '../../mcp/hosted/publicFetch';
-import { safeConsole } from '../../mcp/hosted/safeConsole';
+import { installSafeConsole, safeConsole } from '../../mcp/hosted/safeConsole';
 import { SCRIPT_RUNNING, SCRIPTS_BUSY, scriptSlots, workerGuest } from '../../mcp/hosted/scripts';
 import { runScript } from '../../mcp/runScript';
 import { checkIdentity } from '../../mcp/youauth';
 import { createJournalMcpServer, type McpDriveDeps } from '../../mcp/createServer';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { LATEST_PROTOCOL_VERSION } from '@modelcontextprotocol/sdk/types.js';
 import type { McpCredentials } from '../../mcp/credentials';
 import type { NoteSummary } from '@/lib/agent/tools/read';
 import type { PreparedImage } from '@/lib/images/imageBytes';
@@ -33,7 +34,7 @@ import type { DocumentMetadata } from '@/types';
 
 const ORIGIN = 'https://mcp.cloudx.run';
 const ISSUER = `${ORIGIN}/journal`;
-const RESOURCE = `${ORIGIN}/journal/mcp`;
+const RESOURCE = `${ORIGIN}/journal`;
 const IDENTITY = 'owner.example.com';
 const HB_TOKEN = 'HOMEBASE-APP-TOKEN-secret';
 const HB_SECRET = 'HOMEBASE-SHARED-SECRET-secret';
@@ -212,15 +213,18 @@ const runScriptCall = (s: Setup, accessToken: string, code: string) =>
     mcp(s, accessToken, { jsonrpc: '2.0', id: 8, method: 'tools/call', params: { name: 'run_script', arguments: { code } } });
 const registerDcr = (s: Setup, body: unknown, ip = '203.0.113.1') =>
     s.appFetch(`${ISSUER}/oauth/register`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-real-ip': ip }, body: JSON.stringify(body) });
+const DCR_CLIENT = { redirect_uris: ['https://app.example/cb'], token_endpoint_auth_method: 'none' };
+const consentFrom = (s: Setup, ip: string) =>
+    s.appFetch(authorizeUrl({ client_id: CIMD_ID, redirect_uri: 'http://127.0.0.1:5000/callback', code_challenge: 'x'.repeat(43) }), { headers: { 'x-real-ip': ip } });
 
 describe('hosted MCP: discovery', () => {
     it('challenges an unauthenticated call and publishes path-prefixed resource and authorization server metadata', async () => {
         const s = setup();
         const unauth = await s.appFetch(RESOURCE, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
         expect(unauth.status).toBe(401);
-        expect(unauth.headers.get('www-authenticate')).toContain(`resource_metadata="${ORIGIN}/.well-known/oauth-protected-resource/journal/mcp"`);
+        expect(unauth.headers.get('www-authenticate')).toContain(`resource_metadata="${ORIGIN}/.well-known/oauth-protected-resource/journal"`);
 
-        const prm = await (await s.appFetch(`${ORIGIN}/.well-known/oauth-protected-resource/journal/mcp`)).json();
+        const prm = await (await s.appFetch(`${ORIGIN}/.well-known/oauth-protected-resource/journal`)).json();
         expect(prm).toMatchObject({ resource: RESOURCE, authorization_servers: [ISSUER] });
 
         const asm = await (await s.appFetch(`${ORIGIN}/.well-known/oauth-authorization-server/journal`)).json();
@@ -235,6 +239,34 @@ describe('hosted MCP: discovery', () => {
         });
         expect(asm.token_endpoint_auth_methods_supported).toContain('none');
         expect((await s.appFetch(`${ORIGIN}/.well-known/oauth-authorization-server`)).status).toBe(404);
+    });
+
+    it('serves MCP at exactly /journal: GET shows server info, the OAuth and upload paths under it need no Bearer', async () => {
+        const s = setup();
+        const info = await s.appFetch(RESOURCE);
+        expect(info.status).toBe(200);
+        expect(await info.json()).toEqual({ name: 'journal-mcp', version: '0.1.0', protocolVersion: LATEST_PROTOCOL_VERSION });
+        expect(info.headers.get('cache-control')).toBe('no-store');
+        expect(info.headers.get('vary')).toBe('Accept');
+        // No SSE stream and no sessions: 401 without a token, 405 with one.
+        expect((await s.appFetch(RESOURCE, { headers: { accept: 'text/event-stream' } })).status).toBe(401);
+        const { tokens } = await connectCimd(s);
+        expect(await s.app.validBearer(tokens.access_token)).toBe(true);
+        expect(await s.app.validBearer('junk')).toBe(false);
+        const bearer = { authorization: `Bearer ${tokens.access_token}` };
+        expect((await s.appFetch(RESOURCE, { headers: { ...bearer, accept: 'text/event-stream' } })).status).toBe(405);
+        expect((await s.appFetch(RESOURCE, { method: 'DELETE', headers: bearer })).status).toBe(405);
+
+        const open = [
+            await s.appFetch(authorizeUrl({ client_id: CIMD_ID, redirect_uri: 'http://127.0.0.1/callback', code_challenge: (await pkce()).challenge })),
+            await registerDcr(s, { redirect_uris: ['http://127.0.0.1/callback'], token_endpoint_auth_method: 'none' }),
+            await s.appFetch(`${ISSUER}/oauth/token`, form({ grant_type: 'authorization_code', code: 'x', client_id: CIMD_ID })),
+            await s.appFetch(`${ISSUER}/upload/unknown`),
+            await s.appFetch(`${ISSUER}/callback`),
+        ];
+        expect(open.map((r) => r.status)).toEqual([200, 201, 400, 404, 400]);
+        for (const r of open) expect(r.headers.get('www-authenticate')).toBeNull();
+        expect((await s.appFetch(`${ORIGIN}/journal/mcp`, { method: 'POST', body: '{}' })).status).toBe(404);
     });
 });
 
@@ -424,12 +456,64 @@ describe('hosted MCP: the OAuth flow', () => {
         expect(rows.length).toBe(10);
         for (const { expiration } of rows) expect(expiration - Date.now() / 1000).toBeCloseTo(7 * 24 * 60 * 60, -2);
 
-        const consent = (ip: string) => s.appFetch(authorizeUrl({ client_id: CIMD_ID, redirect_uri: 'http://127.0.0.1:5000/callback', code_challenge: 'x'.repeat(43) }), { headers: { 'x-real-ip': ip } });
+        const consent = (ip: string) => consentFrom(s, ip);
         for (let i = 0; i < 30; i++) expect((await consent('203.0.113.9')).status).toBe(200);
         expect((await consent('203.0.113.9')).status).toBe(429);
         expect((await s.appFetch(`${ISSUER}/authorize`, { ...form({ handle: 'h', action: 'approve' }), headers: { 'x-real-ip': '203.0.113.9' } })).status).toBe(429);
         vi.setSystemTime(Date.now() + 61_000);
         expect((await consent('203.0.113.9')).status).toBe(200);
+    });
+
+    it('keys IPv6 clients by their /64, and limits token requests per IP', async () => {
+        const s = setup();
+        for (let i = 0; i < 10; i++) expect((await registerDcr(s, DCR_CLIENT, `2001:db8:1:2::${i + 1}`)).status).toBe(201);
+        expect((await registerDcr(s, DCR_CLIENT, '2001:db8:1:2:ffff:1:2:3')).status).toBe(429);
+        expect((await registerDcr(s, DCR_CLIENT, '2001:db8:1:3::1')).status).toBe(201);
+        // An IPv4-mapped address is its IPv4 address.
+        for (let i = 0; i < 10; i++) expect((await registerDcr(s, DCR_CLIENT, '203.0.113.77')).status).toBe(201);
+        expect((await registerDcr(s, DCR_CLIENT, '::ffff:203.0.113.77')).status).toBe(429);
+
+        const token = (ip: string) => s.appFetch(`${ISSUER}/oauth/token`, { ...form({ grant_type: 'authorization_code', code: 'x', client_id: CIMD_ID }), headers: { 'content-type': 'application/x-www-form-urlencoded', 'x-real-ip': ip } });
+        for (let i = 0; i < 60; i++) expect((await token('203.0.113.5')).status).toBe(400);
+        expect((await token('203.0.113.5')).status).toBe(429);
+        expect((await token('203.0.113.6')).status).toBe(400);
+    });
+
+    it('limits registrations and consent pages from all IPs together', async () => {
+        const s = setup();
+        for (let i = 0; i < 60; i++) expect((await registerDcr(s, DCR_CLIENT, `198.51.100.${i}`)).status).toBe(201);
+        expect((await registerDcr(s, DCR_CLIENT, '198.51.100.200')).status).toBe(429);
+
+        const consent = (ip: string) => consentFrom(s, ip);
+        for (let i = 0; i < 60; i++) expect((await consent(`192.0.2.${i}`)).status).toBe(200);
+        expect((await consent('192.0.2.200')).status).toBe(429);
+    });
+
+    it('refuses new registrations with a 503 once the store holds 5000 clients', async () => {
+        const s = setup();
+        const insert = s.kv.db.prepare('INSERT INTO kv (key, value) VALUES (?, ?)');
+        s.kv.db.exec('BEGIN');
+        for (let i = 0; i < 4999; i++) insert.run(`client:filler-${i}`, '{}');
+        s.kv.db.exec('COMMIT');
+        expect((await registerDcr(s, DCR_CLIENT)).status).toBe(201);
+        const full = await registerDcr(s, DCR_CLIENT, '198.51.100.9');
+        expect(full.status).toBe(503);
+        expect(await full.json()).toMatchObject({ error: 'temporarily_unavailable' });
+    });
+
+    it('answers OAuth errors with their status under the safe console, not a 500', async () => {
+        const saved = { ...console };
+        installSafeConsole();
+        try {
+            const s = setup();
+            const token = await s.appFetch(`${ISSUER}/oauth/token`, form({ grant_type: 'authorization_code', code: 'x', client_id: 'unknown-client' }));
+            expect(token.status).toBe(401);
+            expect(await token.json()).toMatchObject({ error: 'invalid_client' });
+            const register = await s.appFetch(`${ISSUER}/oauth/register`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{not json' });
+            expect(register.status).toBe(400);
+        } finally {
+            Object.assign(console, saved);
+        }
     });
 
     it('refuses a callback for another identity, and a replayed state', async () => {
@@ -610,6 +694,8 @@ describe('hosted MCP: node bridge and outbound fetch', () => {
         for (const ip of ['127.0.0.1', '10.1.2.3', '169.254.169.254', '192.168.1.1', '::1', '::ffff:127.0.0.1', 'fd00::1']) expect(isBlockedAddress(ip)).toBe(true);
         // NAT64 and 6to4, which wrap an IPv4 address (here 127.0.0.1 and 10.0.0.1).
         for (const ip of ['64:ff9b::7f00:1', '64:ff9b:1::a00:1', '2002:7f00:1::1']) expect(isBlockedAddress(ip)).toBe(true);
+        // IPv4-compatible (::/96) and site-local (fec0::/10).
+        for (const ip of ['::', '::127.0.0.1', '::a00:1', 'fec0::1', 'feff::1']) expect(isBlockedAddress(ip)).toBe(true);
         for (const ip of ['1.1.1.1', '2606:4700:4700::1111']) expect(isBlockedAddress(ip)).toBe(false);
 
         const server = createServer((_req, res) => res.end('reached'));
@@ -630,7 +716,9 @@ describe('hosted MCP: node bridge and outbound fetch', () => {
                     return new Response('ok', { headers: [['set-cookie', 'a=1'], ['set-cookie', 'b=2']] });
                 },
                 ORIGIN,
-                ['/journal/mcp']
+                ['/journal'],
+                async () => false,
+                async (token) => token === 't'
             )
         );
         await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -645,13 +733,16 @@ describe('hosted MCP: node bridge and outbound fetch', () => {
                 req.end(body);
             });
         const body = 'x'.repeat(SMALL_BODY_BYTES + 1);
-        expect(await send('/journal/mcp?x=1', body, { authorization: 'Bearer t' })).toEqual({ status: 200, cookies: ['a=1', 'b=2'] });
-        expect((await send('/journal/mcp', body)).status).toBe(200);
+        expect(await send('/journal?x=1', body, { authorization: 'Bearer t' })).toEqual({ status: 200, cookies: ['a=1', 'b=2'] });
+        expect((await send('/journal', body)).status).toBe(200);
         expect((await send('/journal/oauth/token', body, { authorization: 'Bearer t' })).status).toBe(413);
-        expect((await send('/journal/mcp', 'x'.repeat(MAX_BODY_BYTES + 1), { authorization: 'Bearer t' })).status).toBe(413);
+        expect((await send('/journal', 'x'.repeat(MCP_BODY_BYTES + 1), { authorization: 'Bearer t' })).status).toBe(413);
+        // A token the app doesn't know: the body is never read, however large.
+        expect((await send('/journal', 'x'.repeat(MAX_BODY_BYTES), { authorization: 'Bearer junk' })).status).toBe(200);
         expect(seen).toEqual([
-            { url: `${ORIGIN}/journal/mcp?x=1`, size: body.length },
-            { url: `${ORIGIN}/journal/mcp`, size: 0 },
+            { url: `${ORIGIN}/journal?x=1`, size: body.length },
+            { url: `${ORIGIN}/journal`, size: 0 },
+            { url: `${ORIGIN}/journal`, size: 0 },
         ]);
         await new Promise<void>((resolve) => server.close(() => resolve()));
     });
@@ -1075,7 +1166,7 @@ describe('hosted MCP: images (#1506)', () => {
 
     it('lets a live upload URL, and no other unauthenticated path, take an image-sized body through the node bridge', async () => {
         const server = createServer(
-            nodeListener(async (request) => new Response(String((await request.arrayBuffer()).byteLength)), ORIGIN, ['/journal/mcp'], async (pathname) => pathname === '/journal/upload/live')
+            nodeListener(async (request) => new Response(String((await request.arrayBuffer()).byteLength)), ORIGIN, ['/journal'], async (pathname) => pathname === '/journal/upload/live')
         );
         await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
         const { port } = server.address() as AddressInfo;

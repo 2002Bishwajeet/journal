@@ -106,7 +106,7 @@ function sqliteKv(file) {
 // 4. The deployment shape: one origin shared with other apps, Journal under /journal.
 const ORIGIN = 'https://mcp.cloudx.run';
 const ISSUER = `${ORIGIN}/journal`;
-const RESOURCE = `${ORIGIN}/journal/mcp`;
+const RESOURCE = `${ORIGIN}/journal`;
 const DB = path.join(tmpdir(), 'journal-oauth-spike.sqlite');
 rmSync(DB, { force: true });
 
@@ -153,7 +153,7 @@ function build(kv) {
             });
             return Response.redirect(redirectTo, 302);
         }
-        if (pathname === '/journal/mcp' || pathname.startsWith('/journal/mcp/') || pathname === '/.well-known/oauth-protected-resource/journal/mcp') return rs.fetch(request, env, ctx());
+        if (pathname === '/journal' || pathname === '/.well-known/oauth-protected-resource/journal') return rs.fetch(request, env, ctx());
         if (pathname.startsWith('/journal/') || pathname === '/.well-known/oauth-authorization-server/journal') return as.fetch(request, env, ctx());
         return new Response('not found', { status: 404 });
     };
@@ -182,7 +182,7 @@ const log = (k, v) => {
 const unauth = await localFetch(RESOURCE, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: '{}' });
 log('401 status', unauth.status);
 log('401 WWW-Authenticate', unauth.headers.get('www-authenticate'));
-const prm = await localFetch(`${ORIGIN}/.well-known/oauth-protected-resource/journal/mcp`);
+const prm = await localFetch(`${ORIGIN}/.well-known/oauth-protected-resource/journal`);
 log('PRM status', prm.status);
 log('PRM', await prm.json());
 const asm = await localFetch(`${ORIGIN}/.well-known/oauth-authorization-server/journal`);

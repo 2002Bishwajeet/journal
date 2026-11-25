@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import net from 'node:net';
 import type { DatabaseSync } from 'node:sqlite';
 import {
     OAuthAuthorizationServer,
@@ -8,9 +9,10 @@ import {
     type OAuthResourceContext,
 } from '@cloudflare/workers-oauth-provider';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
+import { LATEST_PROTOCOL_VERSION } from '@modelcontextprotocol/sdk/types.js';
 import { createEccPair, hasValidToken } from '@homebase-id/js-lib/auth';
 import { getDomainFromUrl } from '@homebase-id/js-lib/helpers';
-import { createJournalMcpServer, type McpDriveDeps } from '../createServer';
+import { SERVER_INFO, createJournalMcpServer, type McpDriveDeps } from '../createServer';
 import type { McpCredentials } from '../credentials';
 import { createClient } from '../client';
 import { createDriveDeps } from '../drive';
@@ -56,12 +58,19 @@ const AUTHORIZE_PATH = `${BASE}/authorize`;
 const CALLBACK_PATH = `${BASE}/callback`;
 const REVOKE_PATH = `${BASE}/revoke`;
 const REGISTER_PATH = `${BASE}/oauth/register`;
+const TOKEN_PATH = `${BASE}/oauth/token`;
 const PRM_PATH = `/.well-known/oauth-protected-resource${MCP_PATH}`;
 const ASM_PATH = `/.well-known/oauth-authorization-server${BASE}`;
 const DAY = 24 * 60 * 60;
-/** Per client IP per minute: dynamic client registrations, and consent pages and forms. */
+/** Per client IP per minute: dynamic client registrations, consent pages and forms, and token requests. */
 const REGISTER_LIMIT = 10;
 const AUTHORIZE_LIMIT = 30;
+const TOKEN_LIMIT = 60;
+/** From every IP together, per minute: registrations, and consent pages and forms. */
+const REGISTER_LIMIT_ALL = 60;
+const AUTHORIZE_LIMIT_ALL = 60;
+/** Registered clients the store holds before it refuses more. */
+const MAX_CLIENTS = 5000;
 /** Per client IP per minute: upload pages and uploads. */
 const UPLOAD_LIMIT = 30;
 /** Larger than any real client's registration. */
@@ -110,8 +119,20 @@ const redirect = (location: string, headers = new Headers()) => {
 };
 const message = (e: unknown) => (e instanceof Error ? e.message : 'Something went wrong.');
 const tooMany = () => new Response('Too many requests', { status: 429, headers: { 'Retry-After': '60' } });
-/** Set by the reverse proxy from the client IP on every request. */
-const clientIp = (request: Request) => request.headers.get('x-real-ip') || 'unknown';
+/**
+ * Set by the reverse proxy from the client IP on every request. An IPv6 address is keyed by its /64,
+ * which one host usually holds whole.
+ */
+function clientIp(request: Request): string {
+    const ip = request.headers.get('x-real-ip') || 'unknown';
+    if (!net.isIPv6(ip)) return ip;
+    if (/^::ffff:\d+\./i.test(ip)) return ip.slice(7);
+    const [head, tail] = ip.split('::');
+    const h = head ? head.split(':') : [];
+    const t = tail ? tail.split(':') : [];
+    const all = tail === undefined ? h : [...h, ...Array<string>(8 - h.length - t.length).fill('0'), ...t];
+    return `${all.slice(0, 4).map((g) => parseInt(g, 16).toString(16)).join(':')}::/64`;
+}
 
 /**
  * At most `limit` calls per key in a fixed minute, in memory: a restart resets it, which is fine for
@@ -184,7 +205,10 @@ export function createHostedApp({ origin, kv, uploads, homebase = realHomebase, 
 
     const allowMcp = rateLimiter(rateLimit);
     const allowRegister = rateLimiter(REGISTER_LIMIT);
+    const allowRegisterAll = rateLimiter(REGISTER_LIMIT_ALL);
     const allowAuthorize = rateLimiter(AUTHORIZE_LIMIT);
+    const allowAuthorizeAll = rateLimiter(AUTHORIZE_LIMIT_ALL);
+    const allowToken = rateLimiter(TOKEN_LIMIT);
     const allowUpload = rateLimiter(UPLOAD_LIMIT);
     const admitScript = scriptSlots();
     const scriptGuest = workerGuest(scriptWorker);
@@ -254,7 +278,7 @@ export function createHostedApp({ origin, kv, uploads, homebase = realHomebase, 
 
     /** GET: the consent page. POST: its form, which goes on to the user's Homebase identity or back to the client. */
     async function authorize(request: Request): Promise<Response> {
-        if (!allowAuthorize(clientIp(request))) return tooMany();
+        if (!allowAuthorize(clientIp(request)) || !allowAuthorizeAll('')) return tooMany();
         if (request.method === 'GET') {
             let authRequest: AuthRequest;
             try {
@@ -347,15 +371,25 @@ export function createHostedApp({ origin, kv, uploads, homebase = realHomebase, 
         oauth,
         /** For the node bridge: a live upload URL may take an image-sized body without a Bearer token. */
         opensLargeBody: images.isLive,
+        /** For the node bridge: whether a Bearer token is a live one, before an MCP call's body is read. */
+        validBearer: async (token: string) => (await oauth.unwrapToken(token)) !== null,
         async fetch(request: Request): Promise<Response> {
             const { pathname } = new URL(request.url);
             if (pathname.startsWith(UPLOAD_PATH)) return allowUpload(clientIp(request)) ? images.serve(request) : tooMany();
             if (pathname === AUTHORIZE_PATH) return authorize(request);
             if (pathname === CALLBACK_PATH) return callback(request);
             if (pathname === REVOKE_PATH) return revoke(request);
+            if (pathname === MCP_PATH && request.method === 'GET' && !request.headers.get('accept')?.includes('text/event-stream')) {
+                return Response.json({ ...SERVER_INFO, protocolVersion: LATEST_PROTOCOL_VERSION }, { headers: { 'Cache-Control': 'no-store', Vary: 'Accept' } });
+            }
+            // Exact paths only: the resource server would also take every path under /journal as protected.
             if (pathname === MCP_PATH || pathname === PRM_PATH) return rs.fetch(request, env, ctx());
+            if (pathname === TOKEN_PATH && !allowToken(clientIp(request))) return tooMany();
             if (pathname === REGISTER_PATH) {
-                if (!allowRegister(clientIp(request))) return tooMany();
+                if (!allowRegister(clientIp(request)) || !allowRegisterAll('')) return tooMany();
+                if (kv.count('client:') >= MAX_CLIENTS) {
+                    return Response.json({ error: 'temporarily_unavailable', error_description: 'Journal is not taking new client registrations right now. Try again later.' }, { status: 503 });
+                }
                 // Checked here, before the library parses it: what it stores is what the client sent.
                 if ((await request.clone().arrayBuffer()).byteLength > MAX_REGISTRATION_BYTES) return new Response('Registration too large', { status: 413 });
             }
