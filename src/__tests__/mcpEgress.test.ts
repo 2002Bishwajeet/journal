@@ -5,7 +5,7 @@ import { createServer, type IncomingMessage, type OutgoingHttpHeaders, type Serv
 import { syncBuiltinESMExports } from 'node:module';
 import net, { type AddressInfo } from 'node:net';
 import { Agent, fetch as undiciFetch } from 'undici';
-import { allowedOnlyAgent, asUpstreamCall, viaEgressRelay, withDirectUpstream } from '../../mcp/hosted/publicFetch';
+import { asUpstreamCall, viaEgressRelay, withDirectUpstream } from '../../mcp/hosted/publicFetch';
 
 // The hosted MCP's egress relay: with MCP_EGRESS_URL and MCP_EGRESS_KEY set, every outbound request goes to the
 // relay, never to its target, so no site the server fetches learns its address.
@@ -111,37 +111,31 @@ describe('hosted MCP: egress settings', () => {
     });
     const load = () => import('../../mcp/hosted/publicFetch');
 
-    it('fetches directly (public addresses only) without a relay, only through it with one, and refuses half a setting', async () => {
-        vi.stubEnv('MCP_EGRESS_URL', '');
-        vi.stubEnv('MCP_EGRESS_KEY', '');
-        const direct = await load();
-        expect(direct.outboundAgent).toBe(direct.publicOnlyAgent);
+    const withEnv = (url: string, key: string) => {
+        vi.stubEnv('MCP_EGRESS_URL', url);
+        vi.stubEnv('MCP_EGRESS_KEY', key);
+        return load();
+    };
 
-        vi.resetModules();
-        vi.stubEnv('MCP_EGRESS_URL', 'https://relay.example/');
-        vi.stubEnv('MCP_EGRESS_KEY', KEY);
-        const relayed = await load();
-        expect(relayed.outboundAgent).not.toBe(relayed.publicOnlyAgent);
-
-        for (const [url, key] of [
-            ['https://relay.example/', ''],
-            ['', KEY],
-            ['http://relay.example/', KEY],
-        ]) {
-            vi.resetModules();
-            vi.stubEnv('MCP_EGRESS_URL', url);
-            vi.stubEnv('MCP_EGRESS_KEY', key);
-            const error = await load().then(
-                () => null,
-                (e: Error) => e
-            );
-            expect(error?.message).toBe('Set both MCP_EGRESS_URL (https:) and MCP_EGRESS_KEY, or neither.');
-        }
+    it('fetches directly, public addresses only, without a relay', async () => {
+        const { outboundAgent, publicOnlyAgent } = await withEnv('', '');
+        expect(outboundAgent).toBe(publicOnlyAgent);
     });
 
-    it('fetches images through the relay, inside an upstream call too', async () => {
-        vi.stubEnv('MCP_EGRESS_URL', 'https://relay.example/');
-        vi.stubEnv('MCP_EGRESS_KEY', KEY);
+    it('fetches only through the relay with one', async () => {
+        const { outboundAgent, publicOnlyAgent } = await withEnv('https://relay.example/', KEY);
+        expect(outboundAgent).not.toBe(publicOnlyAgent);
+    });
+
+    it.each([
+        ['https://relay.example/', ''],
+        ['', KEY],
+        ['http://relay.example/', KEY],
+    ])('refuses to start with MCP_EGRESS_URL=%j and half a setting', async (url, key) => {
+        await expect(withEnv(url, key)).rejects.toThrow('Set both MCP_EGRESS_URL (https:) and MCP_EGRESS_KEY, or neither.');
+    });
+
+    it('fetches images through the relay', async () => {
         const dispatchers: unknown[] = [];
         vi.doMock('undici', async (importOriginal) => ({
             ...(await importOriginal<typeof import('undici')>()),
@@ -150,9 +144,9 @@ describe('hosted MCP: egress settings', () => {
                 return new Response(null, { status: 404 });
             },
         }));
-        const { outboundAgent, asUpstreamCall: upstream } = await load();
+        const { outboundAgent } = await withEnv('https://relay.example/', KEY);
         const { fetchImage } = await import('../../mcp/hosted/images');
-        await expect(upstream(() => fetchImage('https://127.0.0.1/cat.png'))).rejects.toThrow('answered 404');
+        await expect(fetchImage('https://127.0.0.1/cat.png')).rejects.toThrow('answered 404');
         expect(dispatchers).toEqual([outboundAgent]);
         vi.doUnmock('undici');
     });
@@ -162,23 +156,24 @@ describe('hosted MCP: direct upstream addresses (MCP_DIRECT_IPS)', () => {
     const allowed = new net.BlockList();
     allowed.addAddress('127.0.0.1');
     // Stands in for Node's fetch with the relay as its global dispatcher.
-    const fetchVia = withDirectUpstream((input, init) => undiciFetch(input as string, { dispatcher: viaRelay, ...init } as never) as never, allowed, allowedOnlyAgent(allowed));
+    const fetchVia = withDirectUpstream((input, init) => undiciFetch(input as string, { dispatcher: viaRelay, ...init } as never) as never, allowed);
     const answer = async (url: string) => (await fetchVia(url)).text();
     const port = () => new URL(target.url).port;
 
+    const { lookup } = dns;
+    const lookupAll = dnsPromises.lookup;
+    /** `host` resolves to `first` for the direct-or-relay check, then to `connect` when the connection is made. */
     function resolveTo(host: string, first: string, connect: string) {
-        const lookup = dns.lookup;
-        const lookupAll = dnsPromises.lookup;
-        dnsPromises.lookup = (async () => [{ address: first, family: 4 }]) as never;
+        dnsPromises.lookup = ((name: string, options: never) => (name === host ? Promise.resolve([{ address: first, family: 4 }]) : lookupAll(name, options))) as never;
         dns.lookup = ((name: string, options: unknown, done: (err: null, addresses: dns.LookupAddress[]) => void) =>
             name === host ? done(null, [{ address: connect, family: 4 }]) : lookup(name, options as never, done as never)) as never;
         syncBuiltinESMExports();
-        return () => {
-            dns.lookup = lookup;
-            dnsPromises.lookup = lookupAll;
-            syncBuiltinESMExports();
-        };
     }
+    afterEach(() => {
+        dns.lookup = lookup;
+        dnsPromises.lookup = lookupAll;
+        syncBuiltinESMExports();
+    });
 
     it('sends an upstream call to an allowed address direct, and nothing else', async () => {
         expect(await asUpstreamCall(() => answer(`${target.url}/api`))).toBe('direct');
@@ -191,32 +186,20 @@ describe('hosted MCP: direct upstream addresses (MCP_DIRECT_IPS)', () => {
     });
 
     it('relays an upstream call to a host that resolves to an address not allowed', async () => {
-        const restore = resolveTo('identity.example', '127.0.0.2', '127.0.0.2');
-        try {
-            expect(await asUpstreamCall(() => answer(`http://identity.example:${port()}/api`))).toBe(`relayed http://identity.example:${port()}/api`);
-        } finally {
-            restore();
-        }
+        resolveTo('identity.example', '127.0.0.2', '127.0.0.2');
+        expect(await asUpstreamCall(() => answer(`http://identity.example:${port()}/api`))).toBe(`relayed http://identity.example:${port()}/api`);
         expect(target.seen).toHaveLength(0);
     });
 
     it('resolves a name to an allowed address direct, and refuses one that rebinds before connecting', async () => {
-        const restore = resolveTo('identity.example', '127.0.0.1', '127.0.0.1');
-        try {
-            expect(await asUpstreamCall(() => answer(`http://identity.example:${port()}/api`))).toBe('direct');
-        } finally {
-            restore();
-        }
+        resolveTo('identity.example', '127.0.0.1', '127.0.0.1');
+        expect(await asUpstreamCall(() => answer(`http://identity.example:${port()}/api`))).toBe('direct');
         expect(target.seen).toHaveLength(1);
 
-        const rebind = resolveTo('rebind.example', '127.0.0.1', '127.0.0.2');
-        try {
-            await expect(asUpstreamCall(() => answer(`http://rebind.example:${port()}/api`))).rejects.toMatchObject({
-                cause: { message: 'blocked non-allowed address 127.0.0.2 for rebind.example' },
-            });
-        } finally {
-            rebind();
-        }
+        resolveTo('rebind.example', '127.0.0.1', '127.0.0.2');
+        await expect(asUpstreamCall(() => answer(`http://rebind.example:${port()}/api`))).rejects.toMatchObject({
+            cause: { message: 'blocked non-allowed address 127.0.0.2 for rebind.example' },
+        });
         expect(target.seen).toHaveLength(1);
         expect(relay.seen).toHaveLength(0);
     });

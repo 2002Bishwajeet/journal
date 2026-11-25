@@ -233,7 +233,7 @@ export function createHostedApp({ origin, kv, uploads, homebase = realHomebase, 
         /** Uploads this request took, put back if no call in it succeeded: the agent can retry with the same source. */
         const taken: (() => void)[] = [];
 
-        // The drive's calls are Homebase calls: asUpstreamCall (realHomebase).
+        // The drive's calls are Homebase calls (publicFetch.ts asUpstreamCall).
         const response = await grantContext.run(grant, () => asUpstreamCall(async () => {
             // Stateless, as mcp/http.ts: a fresh server and transport per POST.
             const server = createJournalMcpServer(() => homebase.driveDeps(creds), undefined, {

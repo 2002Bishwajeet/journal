@@ -39,7 +39,10 @@ for (const [address, prefix] of [
 }
 
 /** net.BlockList checks an IPv4-mapped IPv6 address (::ffff:7f00:1) against the IPv4 rules. */
-const inList = (list: net.BlockList, ip: string) => list.check(ip, net.isIPv6(ip) ? 'ipv6' : 'ipv4');
+const family = (ip: string) => (net.isIPv6(ip) ? 'ipv6' : 'ipv4');
+const inList = (list: net.BlockList, ip: string) => list.check(ip, family(ip));
+/** A URL's hostname without an IPv6 literal's brackets. */
+const bareHost = (hostname: string) => hostname.replace(/^\[|\]$/g, '');
 export const isBlockedAddress = (ip: string) => inList(blocked, ip);
 
 type LookupCallback = (err: NodeJS.ErrnoException | null, address: string | LookupAddress[], family?: number) => void;
@@ -58,7 +61,7 @@ function guardedAgent(refused: (ip: string) => boolean, kind: string): Agent {
     const connect = buildConnector({ lookup: lookup as never });
     return new Agent({
         connect(options, callback) {
-            const host = options.hostname.replace(/^\[|\]$/g, '');
+            const host = bareHost(options.hostname);
             if (net.isIP(host) && refused(host)) return callback(new Error(`blocked ${kind} address ${host}`), null);
             return connect(options, callback);
         },
@@ -71,9 +74,6 @@ function guardedAgent(refused: (ip: string) => boolean, kind: string): Agent {
  */
 export const publicOnlyAgent = guardedAgent(isBlockedAddress, 'non-public');
 
-/** Connects only to `allowed` addresses, checked on every connection's own DNS answer. */
-export const allowedOnlyAgent = (allowed: net.BlockList) => guardedAgent((ip) => !inList(allowed, ip), 'non-allowed');
-
 /**
  * `base` sending every request to the egress relay at `relayUrl` instead: the target URL in X-Egress-Url, the
  * relay's key as the Bearer token, the request's own Authorization in X-Egress-Authorization, method and body
@@ -81,7 +81,7 @@ export const allowedOnlyAgent = (allowed: net.BlockList) => guardedAgent((ip) =>
  * The relay is the only address this dispatcher connects to.
  */
 export function viaEgressRelay(base: Dispatcher, relayUrl: string, key: string): Dispatcher {
-    const relay = new URL(relayUrl);
+    const relayAt = new URL(relayUrl);
     return base.compose((dispatch) => (options, handler) => {
         const headers: string[] = [];
         for (const [name, value] of headerEntries(options.headers)) {
@@ -90,13 +90,17 @@ export function viaEgressRelay(base: Dispatcher, relayUrl: string, key: string):
             headers.push(lower === 'authorization' ? 'x-egress-authorization' : name, value);
         }
         headers.push('x-egress-url', new URL(options.path, options.origin).href, 'authorization', `Bearer ${key}`);
-        return dispatch({ ...options, origin: relay.origin, path: relay.pathname + relay.search, headers }, handler);
+        return dispatch({ ...options, origin: relayAt.origin, path: relayAt.pathname + relayAt.search, headers }, handler);
     });
 }
 
 function headerEntries(headers: Dispatcher.DispatchOptions['headers']): [string, string][] {
     if (!headers) return [];
-    if (Array.isArray(headers)) return headers.flatMap((name, i) => (i % 2 ? [] : [[name, headers[i + 1]] as [string, string]]));
+    if (Array.isArray(headers)) {
+        const pairs: [string, string][] = [];
+        for (let i = 0; i < headers.length; i += 2) pairs.push([headers[i], headers[i + 1]]);
+        return pairs;
+    }
     const entries = Symbol.iterator in headers ? [...(headers as Iterable<[string, unknown]>)] : Object.entries(headers);
     return entries.flatMap(([name, value]) => (value === undefined ? [] : [value].flat().map((v) => [name, String(v)] as [string, string])));
 }
@@ -106,14 +110,15 @@ const upstreamCalls = new AsyncLocalStorage<true>();
 export const asUpstreamCall = <T>(call: () => T): T => upstreamCalls.run(true, call);
 
 /**
- * `fetchImpl` sending an upstream call (asUpstreamCall) direct, through `direct`, when every address its host
- * resolves to is in `allowed`; everything else keeps the global dispatcher. `direct` checks each connection's
- * own DNS answer again, so a host that rebinds after this lookup gets no direct connection.
+ * `fetchImpl` sending an upstream call (asUpstreamCall) direct when every address its host resolves to is in
+ * `allowed`; everything else keeps the global dispatcher. The direct dispatcher checks each connection's own
+ * DNS answer again, so a host that rebinds after this lookup gets no direct connection.
  */
-export function withDirectUpstream(fetchImpl: typeof fetch, allowed: net.BlockList, direct: Dispatcher): typeof fetch {
+export function withDirectUpstream(fetchImpl: typeof fetch, allowed: net.BlockList): typeof fetch {
+    const direct = guardedAgent((ip) => !inList(allowed, ip), 'non-allowed');
     return async (input, init) => {
         if (!upstreamCalls.getStore()) return fetchImpl(input, init);
-        const host = new URL(input instanceof Request ? input.url : String(input)).hostname.replace(/^\[|\]$/g, '');
+        const host = bareHost(new URL(input instanceof Request ? input.url : String(input)).hostname);
         const addresses = net.isIP(host) ? [host] : (await dnsLookupAll(host, { all: true }).catch(() => [])).map((entry) => entry.address);
         if (!addresses.length || !addresses.every((ip) => inList(allowed, ip))) return fetchImpl(input, init);
         return fetchImpl(input, { ...init, dispatcher: direct } as RequestInit);
@@ -148,6 +153,6 @@ export function installPublicOnlyFetch(): void {
     const ips = process.env.MCP_DIRECT_IPS?.split(',').map((ip) => ip.trim()).filter(Boolean) ?? [];
     if (!relay || !ips.length) return;
     const allowed = new net.BlockList();
-    for (const ip of ips) allowed.addAddress(ip, net.isIPv6(ip) ? 'ipv6' : 'ipv4');
-    globalThis.fetch = withDirectUpstream(globalThis.fetch, allowed, allowedOnlyAgent(allowed));
+    for (const ip of ips) allowed.addAddress(ip, family(ip));
+    globalThis.fetch = withDirectUpstream(globalThis.fetch, allowed);
 }
