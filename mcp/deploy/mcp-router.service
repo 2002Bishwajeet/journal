@@ -1,0 +1,19 @@
+# The mcp.cloudx.run router (mcp/deploy/Caddyfile) as a systemd *user* service, next to journal-mcp.service:
+#   mkdir -p ~/journal-mcp && cp mcp/deploy/Caddyfile ~/journal-mcp/
+#   cp mcp/deploy/mcp-router.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now mcp-router
+[Unit]
+Description=Router for mcp.cloudx.run (Caddy on 127.0.0.1:8780)
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/env caddy run --config %h/journal-mcp/Caddyfile --adapter caddyfile
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+
+[Install]
+WantedBy=default.target

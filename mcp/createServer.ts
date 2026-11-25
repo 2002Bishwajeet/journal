@@ -77,14 +77,19 @@ function json(x: unknown, notes: string[] = [], untrusted = false) {
  * be exercised. `clientName` comes from this server's own initialize handshake.
  * `updateNotice` (mcp/updateCheck.ts) ends the instructions when a newer version is out.
  * `source` can be a getter, read on each call: the Desktop Extension's throws until its first login is done (mcp/firstRun.ts).
+ * `readImage` replaces the image loader: the hosted server (mcp/hosted/app.ts) must never read its own files.
  */
-export function createJournalMcpServer(source: McpDriveDeps | (() => McpDriveDeps), updateNotice?: string): McpServer {
+export function createJournalMcpServer(
+    source: McpDriveDeps | (() => McpDriveDeps),
+    updateNotice?: string,
+    readImage: WriteDeps['loadImage'] = loadImage
+): McpServer {
     const instructions = updateNotice ? `${INSTRUCTIONS}\n\n${updateNotice}` : INSTRUCTIONS;
     const server = new McpServer({ name: 'journal-mcp', version: '0.1.0' }, { instructions });
     const clientName = () => server.server.getClientVersion()?.name ?? '';
     const bind = () => {
         const { feed, ...driveDeps } = typeof source === 'function' ? source() : source;
-        const deps: WriteDeps = { ...driveDeps, loadImage, clientName };
+        const deps: WriteDeps = { ...driveDeps, loadImage: readImage, clientName };
         return { deps, feed };
     };
 
