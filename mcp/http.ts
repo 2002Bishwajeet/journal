@@ -3,7 +3,7 @@ import type { AddressInfo } from 'node:net';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createJournalMcpServer, type McpDriveDeps } from './createServer';
 
-/** The MCP endpoint's path: the resource is `https://mcp.cloudx.run/journal/mcp` once the tunnel routes `/journal` here. */
+/** The MCP endpoint's path: the resource is `https://mcp.cloudx.run/journal/mcp` behind a reverse proxy that routes `/journal` here. */
 export const MCP_PATH = '/journal/mcp';
 
 /**
