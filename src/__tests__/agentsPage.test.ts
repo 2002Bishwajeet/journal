@@ -97,7 +97,7 @@ describe('the install card', () => {
         startInstallCard(document);
         const identities = $$('.identity');
         // Every login command (four tabs), the Claude Desktop extension's address step, the terminal output (two) and the revoke text.
-        expect(identities.length).toBe(8);
+        expect(identities.length).toBe(9);
         expect($$('.identity-hint').every((hint) => !(hint as HTMLElement).hidden)).toBe(true);
 
         expect(identities.some((el) => el.hasAttribute('data-filled'))).toBe(false);
@@ -109,6 +109,7 @@ describe('the install card', () => {
         expect($$('.identity-hint').every((hint) => (hint as HTMLElement).hidden)).toBe(true);
         expect(await copy($('[data-copy="install-desktop-login"]'))).toBe('npx -y journal-mcp@latest login alex.dotyou.cloud');
         expect(await copy($('[data-copy="install-code-login"]'))).toBe('/journal:login alex.dotyou.cloud');
+        expect(await copy($('[data-copy="install-hermes-config"]'))).toBe('mcp_servers:\n  journal:\n    command: "npx"\n    args: ["-y", "journal-mcp@latest"]');
         expect($('.fixes').textContent).toContain('login alex.dotyou.cloud');
 
         type('');
@@ -144,7 +145,7 @@ describe('the install card', () => {
     });
 
     it('shows each login with the hint under it', () => {
-        for (const id of ['install-desktop-login', 'install-code-login', 'install-cursor-login', 'install-codex-login']) {
+        for (const id of ['install-desktop-login', 'install-code-login', 'install-cursor-login', 'install-codex-login', 'install-hermes-login']) {
             const row = $(`#${id}`).closest('li')!;
             expect(row.querySelector('.identity-hint')!.textContent).toBe('Replace with your Homebase address, e.g. alex.dotyou.cloud');
         }
@@ -215,7 +216,7 @@ describe('connecting online (#1512)', () => {
     const URL = 'https://mcp.cloudx.run/journal';
 
     it('gives every client a Local tab, shown first, and an Online one', () => {
-        for (const key of ['desktop', 'claude-code', 'cursor', 'codex']) {
+        for (const key of ['desktop', 'claude-code', 'cursor', 'codex', 'hermes']) {
             const tabs = $$<HTMLButtonElement>(`#panel-${key} [role="tablist"] [role="tab"]`);
             expect(tabs.map((t) => t.textContent!.replace(/\s+/g, ' '))).toEqual(['Local', 'Online Beta']);
             expect(tabs.map((t) => t.getAttribute('aria-selected'))).toEqual(['true', 'false']);
