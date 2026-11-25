@@ -144,6 +144,29 @@ describe('with peer access', () => {
         expect(syncService.revalidatePeerNote).toHaveBeenCalledWith('doc-1', AUTHOR);
     });
 
+    it('keeps the local copy up when access arrives after the note opened, so the editor is not remounted', async () => {
+        m.access = undefined;
+        let finish: (r: { status: 'local' }) => void = () => {};
+        const syncService = {
+            ensurePeerNoteContent: vi.fn(() => new Promise((r) => { finish = r; })),
+            revalidatePeerNote: vi.fn(async () => 'unchanged'),
+        } as unknown as SyncService;
+        const statuses: string[] = [];
+        function Probe() {
+            statuses.push(usePeerNoteContent({ docId: 'doc-1', authorOdinId: AUTHOR, isEnabled: true, syncService }).status);
+            return null;
+        }
+        await act(async () => { root.render(h(Probe)); });
+        // The security context loads (or fails, which reads as access): the author is asked now.
+        m.access = true;
+        await act(async () => { root.render(h(Probe)); });
+        await flush();
+        expect(syncService.ensurePeerNoteContent).toHaveBeenCalledWith('doc-1', AUTHOR);
+        await act(async () => finish({ status: 'local' }));
+        expect(syncService.revalidatePeerNote).toHaveBeenCalledWith('doc-1', AUTHOR);
+        expect(new Set(statuses)).toEqual(new Set(['local']));
+    });
+
     it('subscribes over peer and fetches peer images, thumbnails, downloads and link previews', async () => {
         await renderHook(() => {
             useWebsocketSubscriber(onNotification, AUTHOR, TYPES, DRIVES);
