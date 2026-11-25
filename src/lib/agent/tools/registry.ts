@@ -12,11 +12,11 @@ import * as writeTools from './write';
 import * as shareTools from './share';
 import { liveBlockLayoutWarnings, type WriteDeps } from './write';
 
-/** Shared by the tools that take markdown, in place of the full guide. */
 /** Where set_note_cover's image can come from; the hosted MCP server swaps in its own (mcp/createServer.ts). */
 export const COVER_IMAGE_SOURCES =
     '`image` is an absolute path to a file on this computer (preferred: it costs no tokens) or a base64 `data:` URI. ';
 
+/** Shared by the tools that take markdown, in place of the full guide. */
 const RICH_BLOCKS = ' Supports rich blocks; call get_authoring_guide before writing a live block or an image.';
 
 /** What a tool returns: `data` (sent as JSON, or as is with `text`) plus advisory `notes` shown after it. */
