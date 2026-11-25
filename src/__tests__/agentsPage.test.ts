@@ -96,7 +96,7 @@ describe('the install card', () => {
     it('writes the address into every command and the revoke text as you type', async () => {
         startInstallCard(document);
         const identities = $$('.identity');
-        // Every login command (four tabs), the Claude Desktop extension's address step, the terminal output (two) and the revoke text.
+        // Every login command (five tabs), the Claude Desktop extension's address step, the terminal output (two) and the revoke text.
         expect(identities.length).toBe(9);
         expect($$('.identity-hint').every((hint) => !(hint as HTMLElement).hidden)).toBe(true);
 
@@ -109,7 +109,7 @@ describe('the install card', () => {
         expect($$('.identity-hint').every((hint) => (hint as HTMLElement).hidden)).toBe(true);
         expect(await copy($('[data-copy="install-desktop-login"]'))).toBe('npx -y journal-mcp@latest login alex.dotyou.cloud');
         expect(await copy($('[data-copy="install-code-login"]'))).toBe('/journal:login alex.dotyou.cloud');
-        expect(await copy($('[data-copy="install-hermes-config"]'))).toBe('mcp_servers:\n  journal:\n    command: "npx"\n    args: ["-y", "journal-mcp@latest"]');
+        expect(await copy($('[data-copy="install-hermes-login"]'))).toBe('npx -y journal-mcp@latest login alex.dotyou.cloud');
         expect($('.fixes').textContent).toContain('login alex.dotyou.cloud');
 
         type('');
