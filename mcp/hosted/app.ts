@@ -20,6 +20,7 @@ import { MCP_PATH } from '../http';
 import { runScript } from '../runScript';
 import { buildAuthUrl, checkIdentity, finalizeYouAuth } from '../youauth';
 import { UPLOAD_PATH, hostedImages } from './images';
+import { asUpstreamCall } from './publicFetch';
 import type { SqliteKv } from './kv';
 import { consentPage, html, messagePage } from './pages';
 import { HOSTED_SCRIPT_LIMITS, scriptSlots, workerGuest } from './scripts';
@@ -33,10 +34,11 @@ export interface HomebaseDeps {
     driveDeps(creds: McpCredentials): McpDriveDeps;
 }
 
+// Homebase calls are upstream calls (publicFetch.ts): direct to an MCP_DIRECT_IPS host, else through the relay.
 const realHomebase: HomebaseDeps = {
-    checkIdentity,
-    finalize: finalizeYouAuth,
-    tokenValid: (creds) => hasValidToken(createClient(creds)),
+    checkIdentity: (identity) => asUpstreamCall(() => checkIdentity(identity)),
+    finalize: (...args) => asUpstreamCall(() => finalizeYouAuth(...args)),
+    tokenValid: (creds) => asUpstreamCall(() => hasValidToken(createClient(creds))),
     driveDeps: createDriveDeps,
 };
 
@@ -231,7 +233,8 @@ export function createHostedApp({ origin, kv, uploads, homebase = realHomebase, 
         /** Uploads this request took, put back if no call in it succeeded: the agent can retry with the same source. */
         const taken: (() => void)[] = [];
 
-        const response = await grantContext.run(grant, async () => {
+        // The drive's calls are Homebase calls: asUpstreamCall (realHomebase).
+        const response = await grantContext.run(grant, () => asUpstreamCall(async () => {
             // Stateless, as mcp/http.ts: a fresh server and transport per POST.
             const server = createJournalMcpServer(() => homebase.driveDeps(creds), undefined, {
                 loadImage: async (src) => images.load(await grantIdOf(), src, taken),
@@ -246,7 +249,7 @@ export function createHostedApp({ origin, kv, uploads, homebase = realHomebase, 
             } finally {
                 await server.close();
             }
-        });
+        }));
         if (taken.length) {
             const answers = [await response.clone().json().catch(() => null)].flat() as { result?: { isError?: boolean } }[];
             if (!answers.some((a) => a?.result && !a.result.isError)) for (const putBack of taken) putBack();

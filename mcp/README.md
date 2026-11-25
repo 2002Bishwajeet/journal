@@ -132,6 +132,12 @@ use a hosted server. Never tunnel `npm run mcp:http`: it is the unauthenticated 
 Build with `npm run mcp:hosted:build`, then run `node mcp/dist/http.mjs` (Node 22.19+) behind an
 HTTPS reverse proxy. Set `MCP_PUBLIC_ORIGIN` to your public origin; `PORT` and `JOURNAL_MCP_DB`
 are optional.
+Optionally, so the server's IP isn't revealed to the sites it fetches, set `MCP_EGRESS_URL` (https:)
+and `MCP_EGRESS_KEY` to an egress relay: every request then goes to `MCP_EGRESS_URL` with
+`Authorization: Bearer <MCP_EGRESS_KEY>`, the target URL in `X-Egress-Url` and the request's own
+Authorization in `X-Egress-Authorization`, and the relay returns the target's response as is, redirects
+unfollowed. With a relay, `MCP_DIRECT_IPS` (comma-separated addresses) sends Homebase calls to a host that
+resolves only to those addresses direct.
 
 ## Tools
 
