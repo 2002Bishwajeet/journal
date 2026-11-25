@@ -21,7 +21,7 @@ test('the agents page install card, at 1280 and 390, light and dark', async ({ p
   const address = page.getByLabel('Your Homebase address');
   await address.fill('alex.dotyou.cloud');
   await expect(page.locator('#install-desktop-login')).toHaveText('npx -y journal-mcp@latest login alex.dotyou.cloud');
-  await expect(page.locator('.identity')).toHaveText(Array(8).fill('alex.dotyou.cloud'));
+  await expect(page.locator('.identity')).toHaveText(Array(9).fill('alex.dotyou.cloud'));
   await address.fill('');
   await expect(page.locator('#install-desktop-login')).toHaveText('npx -y journal-mcp@latest login type.your.identity.here');
 
@@ -71,7 +71,7 @@ test('the online setup in each client tab, at 1280 and 390, light and dark', asy
   await page.locator('#panel-claude-code').getByRole('tab', { name: 'Local', exact: true }).click();
   await expect(page.locator('#install-code-login')).toBeVisible();
 
-  const clients = [['Claude Desktop', 'desktop'], ['Claude Code', 'claude-code'], ['Cursor', 'cursor'], ['Codex CLI', 'codex']] as const;
+  const clients = [['Claude Desktop', 'desktop'], ['Claude Code', 'claude-code'], ['Cursor', 'cursor'], ['Codex CLI', 'codex'], ['Hermes Agent', 'hermes']] as const;
   for (const viewport of VIEWPORTS) {
     await page.setViewportSize(viewport);
     for (const colorScheme of ['light', 'dark'] as const) {
