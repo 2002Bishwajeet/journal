@@ -8,9 +8,10 @@ import {
     type OAuthResourceContext,
 } from '@cloudflare/workers-oauth-provider';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
+import { LATEST_PROTOCOL_VERSION } from '@modelcontextprotocol/sdk/types.js';
 import { createEccPair, hasValidToken } from '@homebase-id/js-lib/auth';
 import { getDomainFromUrl } from '@homebase-id/js-lib/helpers';
-import { createJournalMcpServer, type McpDriveDeps } from '../createServer';
+import { SERVER_INFO, createJournalMcpServer, type McpDriveDeps } from '../createServer';
 import type { McpCredentials } from '../credentials';
 import { createClient } from '../client';
 import { createDriveDeps } from '../drive';
@@ -353,6 +354,10 @@ export function createHostedApp({ origin, kv, uploads, homebase = realHomebase, 
             if (pathname === AUTHORIZE_PATH) return authorize(request);
             if (pathname === CALLBACK_PATH) return callback(request);
             if (pathname === REVOKE_PATH) return revoke(request);
+            // Exact paths only: the resource server would also take every path under /journal as protected.
+            if (pathname === MCP_PATH && request.method === 'GET' && !request.headers.get('accept')?.includes('text/event-stream')) {
+                return Response.json({ ...SERVER_INFO, protocolVersion: LATEST_PROTOCOL_VERSION });
+            }
             if (pathname === MCP_PATH || pathname === PRM_PATH) return rs.fetch(request, env, ctx());
             if (pathname === REGISTER_PATH) {
                 if (!allowRegister(clientIp(request))) return tooMany();

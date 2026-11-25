@@ -121,7 +121,7 @@ Claude Desktop (`claude_desktop_config.json`):
 
 ## Hosted server (remote connector)
 
-The same tools as a remote MCP server at `https://mcp.cloudx.run/journal/mcp`, for any MCP client
+The same tools as a remote MCP server at `https://mcp.cloudx.run/journal`, for any MCP client
 that can add a remote server by URL. The client finds the sign-in itself (MCP 2026-07-28
 authorization, Streamable HTTP). You see a page that names the app asking, type your Homebase
 identity, and approve **Journal MCP (<app name>)** on your identity. The local `journal-mcp`
@@ -153,6 +153,9 @@ above is unchanged, and it's still the way to go if you'd rather not use a hoste
   note's markdown (`![alt](upload://…)`) or `set_note_cover` places it. `set_note_cover` also takes an
   `https:` URL (fetched from public addresses only, no redirects, 10 s, 5 MB), and a `data:`
   URI works up to 256 KB. File paths are refused.
+- **Endpoint:** `POST /journal` is the stateless Streamable HTTP endpoint; a plain `GET /journal`
+  returns the server's name, version and protocol version as JSON. Protected resource metadata
+  is at `/.well-known/oauth-protected-resource/journal`.
 - **Limits:** 120 MCP requests a minute per grant, and an 8 MB request body (an upload URL's
   too; every other unauthenticated body is capped at 64 KB).
 - **Never tunnel `npm run mcp:http`:** it is the unauthenticated spike (#1504), serving your
@@ -181,7 +184,7 @@ documented there. It needs Node 22.19 or newer for `node:sqlite` and undici.
 3. Run `cd ~/mcp-gateway && scripts/deploy.sh`.
 4. Check it: `https://mcp.cloudx.run/.well-known/oauth-authorization-server/journal` should
    return the metadata, and `npx @modelcontextprotocol/inspector` should get through sign-in
-   to `https://mcp.cloudx.run/journal/mcp` and list the tools.
+   to `https://mcp.cloudx.run/journal` and list the tools.
 
 The server never logs a token, a shared secret or note content.
 

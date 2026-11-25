@@ -24,6 +24,7 @@ import { runScript } from '../../mcp/runScript';
 import { checkIdentity } from '../../mcp/youauth';
 import { createJournalMcpServer, type McpDriveDeps } from '../../mcp/createServer';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { LATEST_PROTOCOL_VERSION } from '@modelcontextprotocol/sdk/types.js';
 import type { McpCredentials } from '../../mcp/credentials';
 import type { NoteSummary } from '@/lib/agent/tools/read';
 import type { PreparedImage } from '@/lib/images/imageBytes';
@@ -33,7 +34,7 @@ import type { DocumentMetadata } from '@/types';
 
 const ORIGIN = 'https://mcp.cloudx.run';
 const ISSUER = `${ORIGIN}/journal`;
-const RESOURCE = `${ORIGIN}/journal/mcp`;
+const RESOURCE = `${ORIGIN}/journal`;
 const IDENTITY = 'owner.example.com';
 const HB_TOKEN = 'HOMEBASE-APP-TOKEN-secret';
 const HB_SECRET = 'HOMEBASE-SHARED-SECRET-secret';
@@ -218,9 +219,9 @@ describe('hosted MCP: discovery', () => {
         const s = setup();
         const unauth = await s.appFetch(RESOURCE, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
         expect(unauth.status).toBe(401);
-        expect(unauth.headers.get('www-authenticate')).toContain(`resource_metadata="${ORIGIN}/.well-known/oauth-protected-resource/journal/mcp"`);
+        expect(unauth.headers.get('www-authenticate')).toContain(`resource_metadata="${ORIGIN}/.well-known/oauth-protected-resource/journal"`);
 
-        const prm = await (await s.appFetch(`${ORIGIN}/.well-known/oauth-protected-resource/journal/mcp`)).json();
+        const prm = await (await s.appFetch(`${ORIGIN}/.well-known/oauth-protected-resource/journal`)).json();
         expect(prm).toMatchObject({ resource: RESOURCE, authorization_servers: [ISSUER] });
 
         const asm = await (await s.appFetch(`${ORIGIN}/.well-known/oauth-authorization-server/journal`)).json();
@@ -235,6 +236,30 @@ describe('hosted MCP: discovery', () => {
         });
         expect(asm.token_endpoint_auth_methods_supported).toContain('none');
         expect((await s.appFetch(`${ORIGIN}/.well-known/oauth-authorization-server`)).status).toBe(404);
+    });
+
+    it('serves MCP at exactly /journal: GET shows server info, the OAuth and upload paths under it need no Bearer', async () => {
+        const s = setup();
+        const info = await s.appFetch(RESOURCE);
+        expect(info.status).toBe(200);
+        expect(await info.json()).toEqual({ name: 'journal-mcp', version: '0.1.0', protocolVersion: LATEST_PROTOCOL_VERSION });
+        // No SSE stream and no sessions: 401 without a token, 405 with one.
+        expect((await s.appFetch(RESOURCE, { headers: { accept: 'text/event-stream' } })).status).toBe(401);
+        const { tokens } = await connectCimd(s);
+        const bearer = { authorization: `Bearer ${tokens.access_token}` };
+        expect((await s.appFetch(RESOURCE, { headers: { ...bearer, accept: 'text/event-stream' } })).status).toBe(405);
+        expect((await s.appFetch(RESOURCE, { method: 'DELETE', headers: bearer })).status).toBe(405);
+
+        const open = [
+            await s.appFetch(authorizeUrl({ client_id: CIMD_ID, redirect_uri: 'http://127.0.0.1/callback', code_challenge: (await pkce()).challenge })),
+            await registerDcr(s, { redirect_uris: ['http://127.0.0.1/callback'], token_endpoint_auth_method: 'none' }),
+            await s.appFetch(`${ISSUER}/oauth/token`, form({ grant_type: 'authorization_code', code: 'x', client_id: CIMD_ID })),
+            await s.appFetch(`${ISSUER}/upload/unknown`),
+            await s.appFetch(`${ISSUER}/callback`),
+        ];
+        expect(open.map((r) => r.status)).toEqual([200, 201, 400, 404, 400]);
+        for (const r of open) expect(r.headers.get('www-authenticate')).toBeNull();
+        expect((await s.appFetch(`${ORIGIN}/journal/mcp`, { method: 'POST', body: '{}' })).status).toBe(404);
     });
 });
 
@@ -630,7 +655,7 @@ describe('hosted MCP: node bridge and outbound fetch', () => {
                     return new Response('ok', { headers: [['set-cookie', 'a=1'], ['set-cookie', 'b=2']] });
                 },
                 ORIGIN,
-                ['/journal/mcp']
+                ['/journal']
             )
         );
         await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -645,13 +670,13 @@ describe('hosted MCP: node bridge and outbound fetch', () => {
                 req.end(body);
             });
         const body = 'x'.repeat(SMALL_BODY_BYTES + 1);
-        expect(await send('/journal/mcp?x=1', body, { authorization: 'Bearer t' })).toEqual({ status: 200, cookies: ['a=1', 'b=2'] });
-        expect((await send('/journal/mcp', body)).status).toBe(200);
+        expect(await send('/journal?x=1', body, { authorization: 'Bearer t' })).toEqual({ status: 200, cookies: ['a=1', 'b=2'] });
+        expect((await send('/journal', body)).status).toBe(200);
         expect((await send('/journal/oauth/token', body, { authorization: 'Bearer t' })).status).toBe(413);
-        expect((await send('/journal/mcp', 'x'.repeat(MAX_BODY_BYTES + 1), { authorization: 'Bearer t' })).status).toBe(413);
+        expect((await send('/journal', 'x'.repeat(MAX_BODY_BYTES + 1), { authorization: 'Bearer t' })).status).toBe(413);
         expect(seen).toEqual([
-            { url: `${ORIGIN}/journal/mcp?x=1`, size: body.length },
-            { url: `${ORIGIN}/journal/mcp`, size: 0 },
+            { url: `${ORIGIN}/journal?x=1`, size: body.length },
+            { url: `${ORIGIN}/journal`, size: 0 },
         ]);
         await new Promise<void>((resolve) => server.close(() => resolve()));
     });
@@ -1075,7 +1100,7 @@ describe('hosted MCP: images (#1506)', () => {
 
     it('lets a live upload URL, and no other unauthenticated path, take an image-sized body through the node bridge', async () => {
         const server = createServer(
-            nodeListener(async (request) => new Response(String((await request.arrayBuffer()).byteLength)), ORIGIN, ['/journal/mcp'], async (pathname) => pathname === '/journal/upload/live')
+            nodeListener(async (request) => new Response(String((await request.arrayBuffer()).byteLength)), ORIGIN, ['/journal'], async (pathname) => pathname === '/journal/upload/live')
         );
         await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
         const { port } = server.address() as AddressInfo;

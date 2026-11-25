@@ -35,5 +35,5 @@ const server = createServer(nodeListener(app.fetch, origin, [MCP_PATH], app.open
 server.requestTimeout = 30_000;
 server.headersTimeout = 10_000;
 server.listen(port, '127.0.0.1', () => {
-    console.error(`Journal MCP (hosted) on 127.0.0.1:${port}, serving ${origin}/journal/mcp`);
+    console.error(`Journal MCP (hosted) on 127.0.0.1:${port}, serving ${origin}${MCP_PATH}`);
 });
