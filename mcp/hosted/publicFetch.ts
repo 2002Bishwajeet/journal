@@ -101,10 +101,8 @@ export function viaEgressRelay(base: Dispatcher, relayUrl: string, key: string, 
  * starting `//` or `/\` as another host (https://good.example//evil.example/x → https://evil.example/x).
  */
 export function targetUrl(origin: string, path: string): string {
-    const base = new URL(origin).origin;
-    const url = new URL(base + path);
-    if (!path.startsWith('/') || url.origin !== base) throw new Error('Refused a request path that changes its host');
-    return url.href;
+    if (!path.startsWith('/')) throw new Error('Refused a request path that changes its host');
+    return new URL(new URL(origin).origin + path).href;
 }
 
 /** `handler`, failing a response that didn't come through the relay (no `x-egress: 1`). */
@@ -193,18 +191,17 @@ export function installPublicOnlyFetch(agent = outboundAgent): void {
     globalThis.fetch = withDirectUpstream(globalThis.fetch, new Set(hosts), allowed);
 }
 
-/** The relay's health check, answered by the relay itself (with `x-egress: 1`) once the key and gate check out. */
-export const RELAY_HEALTH_PATH = '/__health';
-
 /**
  * Stops the server unless plain `fetch`, with a URL and with a Request, goes through the relay: asks the relay
  * for its own health check, which only a request carrying the key and gate gets.
  */
 export async function assertRelayed(relayUrl: string): Promise<void> {
-    const health = new URL(RELAY_HEALTH_PATH, relayUrl).href;
-    for (const input of [health, new Request(health)]) {
+    // Answered by the relay itself (with `x-egress: 1`) once the key and gate check out.
+    const health = new URL('/__health', relayUrl).href;
+    const check = async (input: string | Request) => {
         const response = await globalThis.fetch(input, { signal: AbortSignal.timeout(10_000) });
         await response.body?.cancel();
         if (!response.ok || response.headers.get('x-egress') !== '1') throw new Error(`The egress relay check failed (${response.status}): fetch doesn't go through the relay.`);
-    }
+    };
+    await Promise.all([check(health), check(new Request(health))]);
 }

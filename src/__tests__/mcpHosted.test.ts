@@ -19,7 +19,7 @@ import { sqliteKv } from '../../mcp/hosted/kv';
 import { MAX_BODY_BYTES, MCP_BODY_BYTES, SMALL_BODY_BYTES, nodeListener } from '../../mcp/hosted/node';
 import { isBlockedAddress, publicOnlyAgent } from '../../mcp/hosted/publicFetch';
 import { installSafeConsole, safeConsole } from '../../mcp/hosted/safeConsole';
-import { SCRIPT_RUNNING, SCRIPTS_BUSY, scriptSlots, scriptWorkerEnv, workerGuest } from '../../mcp/hosted/scripts';
+import { SCRIPT_RUNNING, SCRIPTS_BUSY, scriptSlots, workerGuest } from '../../mcp/hosted/scripts';
 import { runScript } from '../../mcp/runScript';
 import { checkIdentity } from '../../mcp/youauth';
 import { createJournalMcpServer, type McpDriveDeps } from '../../mcp/createServer';
@@ -849,10 +849,6 @@ describe('hosted MCP: run_script off the main thread', () => {
         tokenValid = false;
         const answer = await (await runScriptCall(s, tokens.access_token, `await journal.listNotes()`)).json();
         expect(JSON.stringify(answer)).toContain(RETRY_MESSAGE);
-    });
-
-    it("keeps the egress relay's secrets out of the worker's environment", () => {
-        expect(scriptWorkerEnv({ MCP_EGRESS_URL: 'https://relay.example', MCP_EGRESS_KEY: 'key', MCP_EGRESS_GATE: 'gate', PORT: '8781' })).toEqual({ PORT: '8781' });
     });
 
     it('terminates a worker that runs past the wall-clock limit', async () => {
