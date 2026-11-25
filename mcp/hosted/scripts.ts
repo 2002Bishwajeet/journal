@@ -61,7 +61,8 @@ export function workerGuest(workerUrl: URL, { cpuMs, wallMs } = HOSTED_SCRIPT_LI
 }
 
 /** Admits a run when its user has none going and there is room; otherwise throws, for the tool's error. */
-export function scriptSlots({ perUser, total } = HOSTED_SCRIPT_LIMITS) {
+export function scriptSlots() {
+    const { perUser, total } = HOSTED_SCRIPT_LIMITS;
     const running = new Map<string, number>();
     let all = 0;
     return async function admit<T>(user: string, run: () => Promise<T>): Promise<T> {

@@ -12,7 +12,7 @@ import { UnauthorizedError, type OAuthClientProvider } from '@modelcontextprotoc
 import type { OAuthClientInformationMixed, OAuthTokens } from '@modelcontextprotocol/sdk/shared/auth.js';
 import { createHostedApp, RECONNECT_MESSAGE, RETRY_MESSAGE, type HomebaseDeps } from '../../mcp/hosted/app';
 import { sqliteKv } from '../../mcp/hosted/kv';
-import { nodeListener } from '../../mcp/hosted/node';
+import { MAX_BODY_BYTES, SMALL_BODY_BYTES, nodeListener } from '../../mcp/hosted/node';
 import { isBlockedAddress, publicOnlyAgent } from '../../mcp/hosted/publicFetch';
 import { safeConsole } from '../../mcp/hosted/safeConsole';
 import { SCRIPT_RUNNING, SCRIPTS_BUSY, scriptSlots, workerGuest } from '../../mcp/hosted/scripts';
@@ -585,35 +585,6 @@ describe('hosted MCP: the grant store', () => {
 });
 
 describe('hosted MCP: node bridge and outbound fetch', () => {
-    it('builds the URL from the fixed origin, never Host, and answers 413 to an oversized body', async () => {
-        const seen: string[] = [];
-        const server = createServer(
-            nodeListener(
-                async (request) => {
-                    seen.push(request.url);
-                    return new Response('ok', { headers: [['set-cookie', 'a=1'], ['set-cookie', 'b=2']] });
-                },
-                ORIGIN,
-                { smallLimit: 1024 }
-            )
-        );
-        await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
-        const { port } = server.address() as AddressInfo;
-        const send = (body: string, host = 'evil.example') =>
-            new Promise<{ status?: number; cookies?: string[] }>((resolve, reject) => {
-                const req = httpRequest({ host: '127.0.0.1', port, path: '/journal/mcp?x=1', method: 'POST', headers: { host } }, (res) => {
-                    res.resume();
-                    resolve({ status: res.statusCode, cookies: res.headers['set-cookie'] });
-                });
-                req.on('error', reject);
-                req.end(body);
-            });
-        expect(await send('small')).toEqual({ status: 200, cookies: ['a=1', 'b=2'] });
-        expect(seen).toEqual([`${ORIGIN}/journal/mcp?x=1`]);
-        expect((await send('x'.repeat(2048))).status).toBe(413);
-        await new Promise<void>((resolve) => server.close(() => resolve()));
-    });
-
     it('refuses non-public addresses, IPv4-mapped and resolved names included', async () => {
         for (const ip of ['127.0.0.1', '10.1.2.3', '169.254.169.254', '192.168.1.1', '::1', '::ffff:127.0.0.1', 'fd00::1']) expect(isBlockedAddress(ip)).toBe(true);
         // NAT64 and 6to4, which wrap an IPv4 address (here 127.0.0.1 and 10.0.0.1).
@@ -630,37 +601,37 @@ describe('hosted MCP: node bridge and outbound fetch', () => {
         await new Promise<void>((resolve) => server.close(() => resolve()));
     });
 
-    it('reads a large body only for a Bearer request to the MCP path, and none at all for one without a token', async () => {
+    it('builds the URL from the fixed origin, never Host, reads a large body only for a Bearer request to the MCP path, and none without a token', async () => {
         const seen: { url: string; size: number }[] = [];
         const server = createServer(
             nodeListener(
                 async (request) => {
-                    seen.push({ url: new URL(request.url).pathname, size: (await request.arrayBuffer()).byteLength });
-                    return new Response('ok');
+                    seen.push({ url: request.url, size: (await request.arrayBuffer()).byteLength });
+                    return new Response('ok', { headers: [['set-cookie', 'a=1'], ['set-cookie', 'b=2']] });
                 },
                 ORIGIN,
-                { bearerPaths: ['/journal/mcp'], limit: 4096, smallLimit: 1024 }
+                ['/journal/mcp']
             )
         );
         await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
         const { port } = server.address() as AddressInfo;
         const send = (path: string, body: string, headers: Record<string, string> = {}) =>
-            new Promise<number | undefined>((resolve, reject) => {
-                const req = httpRequest({ host: '127.0.0.1', port, path, method: 'POST', headers }, (res) => {
+            new Promise<{ status?: number; cookies?: string[] }>((resolve, reject) => {
+                const req = httpRequest({ host: '127.0.0.1', port, path, method: 'POST', headers: { host: 'evil.example', ...headers } }, (res) => {
                     res.resume();
-                    resolve(res.statusCode);
+                    resolve({ status: res.statusCode, cookies: res.headers['set-cookie'] });
                 });
                 req.on('error', reject);
                 req.end(body);
             });
-        const body = 'x'.repeat(2048);
-        expect(await send('/journal/mcp', body, { authorization: 'Bearer t' })).toBe(200);
-        expect(await send('/journal/mcp', body)).toBe(200);
-        expect(await send('/journal/oauth/token', body, { authorization: 'Bearer t' })).toBe(413);
-        expect(await send('/journal/mcp', 'x'.repeat(5000), { authorization: 'Bearer t' })).toBe(413);
+        const body = 'x'.repeat(SMALL_BODY_BYTES + 1);
+        expect(await send('/journal/mcp?x=1', body, { authorization: 'Bearer t' })).toEqual({ status: 200, cookies: ['a=1', 'b=2'] });
+        expect((await send('/journal/mcp', body)).status).toBe(200);
+        expect((await send('/journal/oauth/token', body, { authorization: 'Bearer t' })).status).toBe(413);
+        expect((await send('/journal/mcp', 'x'.repeat(MAX_BODY_BYTES + 1), { authorization: 'Bearer t' })).status).toBe(413);
         expect(seen).toEqual([
-            { url: '/journal/mcp', size: 2048 },
-            { url: '/journal/mcp', size: 0 },
+            { url: `${ORIGIN}/journal/mcp?x=1`, size: body.length },
+            { url: `${ORIGIN}/journal/mcp`, size: 0 },
         ]);
         await new Promise<void>((resolve) => server.close(() => resolve()));
     });
@@ -690,6 +661,8 @@ describe('hosted MCP: run_script off the main thread', () => {
         const ran = await (await runScriptCall(s, tokens.access_token, `console.log(await journal.listNotes())`)).json();
         expect(JSON.stringify(ran.result.content)).toContain('Note One');
         expect(ran.result.isError).toBe(false);
+        const listed = await (await mcp(s, tokens.access_token, { jsonrpc: '2.0', id: 9, method: 'tools/list' })).json();
+        expect(listed.result.tools.find((t: { name: string }) => t.name === 'run_script').description).toContain('at most 3 s of CPU');
 
         // The main thread keeps serving while the script spins.
         let ticks = 0;
@@ -719,7 +692,7 @@ describe('hosted MCP: run_script off the main thread', () => {
     });
 
     it('takes one run per user and two in all, and says why it turned one away', async () => {
-        const admit = scriptSlots({ cpuMs: 0, wallMs: 0, perUser: 1, total: 2 });
+        const admit = scriptSlots();
         let release!: () => void;
         const held = new Promise<void>((resolve) => (release = resolve));
         const a = admit('a', () => held);

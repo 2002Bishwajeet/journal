@@ -19,7 +19,7 @@ import { runScript } from '../runScript';
 import { buildAuthUrl, checkIdentity, finalizeYouAuth } from '../youauth';
 import type { SqliteKv } from './kv';
 import { PAGE_CSP, consentPage, messagePage } from './pages';
-import { scriptSlots, workerGuest } from './scripts';
+import { HOSTED_SCRIPT_LIMITS, scriptSlots, workerGuest } from './scripts';
 
 /** What the hosted server needs from Homebase: replaced by fakes in tests. */
 export interface HomebaseDeps {
@@ -41,7 +41,7 @@ export interface HostedOptions {
     /** The public origin, e.g. https://mcp.cloudx.run. Every URL is built from it, never from Host. */
     origin: string;
     kv: SqliteKv;
-    homebase?: Partial<HomebaseDeps>;
+    homebase?: HomebaseDeps;
     /** MCP requests per user per minute. */
     rateLimit?: number;
     /** The module run_script's worker starts on: the hosted bundle itself (mcp/hosted/main.ts). */
@@ -150,8 +150,7 @@ function rateLimiter(limit: number) {
  * encrypted under a per-grant key that only the grant's own tokens unwrap. The client never sees the Homebase
  * token, and Homebase never sees the client's.
  */
-export function createHostedApp({ origin, kv, homebase: homebaseOverrides, rateLimit = 120, scriptWorker }: HostedOptions) {
-    const homebase = { ...realHomebase, ...homebaseOverrides };
+export function createHostedApp({ origin, kv, homebase = realHomebase, rateLimit = 120, scriptWorker }: HostedOptions) {
     const issuer = `${origin}${BASE}`;
     const resource = `${origin}${MCP_PATH}`;
     const env = { OAUTH_KV: kv };
@@ -210,9 +209,11 @@ export function createHostedApp({ origin, kv, homebase: homebaseOverrides, rateL
 
         const response = await grantContext.run(grant, async () => {
             // Stateless, as mcp/http.ts: a fresh server and transport per POST.
-            const server = createJournalMcpServer(() => homebase.driveDeps(creds), undefined, loadRemoteImage, (deps, code, dryRun) =>
-                admitScript(user, () => runScript(deps, code, dryRun, scriptGuest))
-            );
+            const server = createJournalMcpServer(() => homebase.driveDeps(creds), undefined, {
+                loadImage: loadRemoteImage,
+                runScript: (deps, code, dryRun) => admitScript(user, () => runScript(deps, code, dryRun, scriptGuest)),
+                scriptCpuMs: HOSTED_SCRIPT_LIMITS.cpuMs,
+            });
             const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
             await server.connect(transport);
             try {

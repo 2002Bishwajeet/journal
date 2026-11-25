@@ -7,14 +7,6 @@ export const MAX_BODY_BYTES = 8 * 1024 * 1024;
 /** Every other body: OAuth forms and registrations. */
 export const SMALL_BODY_BYTES = 64 * 1024;
 
-export interface BodyLimits {
-    /** Paths whose requests may carry up to `limit` with a Bearer token; without one, their body isn't read at all. */
-    bearerPaths?: string[];
-    limit?: number;
-    /** Every other request's limit. */
-    smallLimit?: number;
-}
-
 class TooLarge extends Error {}
 
 async function readBody(req: IncomingMessage, limit: number): Promise<Uint8Array<ArrayBuffer>> {
@@ -31,13 +23,14 @@ async function readBody(req: IncomingMessage, limit: number): Promise<Uint8Array
 
 /**
  * node:http to the app's Request → Response. The URL is the fixed public `origin` plus the request's path:
- * neither Host nor X-Forwarded-* is ever trusted. Bodies over their limit get 413 before the app sees them,
- * and a `bearerPaths` request without a token reaches the app with no body: it answers 401 without one.
+ * neither Host nor X-Forwarded-* is ever trusted. Bodies over their limit get 413 before the app sees them.
+ * A `bearerPaths` request may carry up to MAX_BODY_BYTES with a Bearer token; without one it reaches the app
+ * with no body (the app answers 401 without one). Every other body is capped at SMALL_BODY_BYTES.
  */
 export function nodeListener(
     fetchApp: (request: Request) => Promise<Response>,
     origin: string,
-    { bearerPaths = [], limit = MAX_BODY_BYTES, smallLimit = SMALL_BODY_BYTES }: BodyLimits = {}
+    bearerPaths: string[] = []
 ): RequestListener {
     async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
         const method = req.method ?? 'GET';
@@ -48,7 +41,7 @@ export function nodeListener(
         if (large && !bearer) req.resume();
         else if (method !== 'GET' && method !== 'HEAD') {
             try {
-                body = await readBody(req, large ? limit : smallLimit);
+                body = await readBody(req, large ? MAX_BODY_BYTES : SMALL_BODY_BYTES);
             } catch (e) {
                 if (!(e instanceof TooLarge)) throw e;
                 res.writeHead(413, { Connection: 'close' }).end();
