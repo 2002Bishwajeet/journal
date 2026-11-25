@@ -1,3 +1,5 @@
+// Generic OAuth-on-Node adapter: no Journal imports, so any MCP behind mcp-gateway can copy it.
+// See the gateway docs (github.com/2002Bishwajeet/mcp-gateway, docs/ARCHITECTURE.md, "Per-MCP contract").
 import { lookup as dnsLookup, type LookupAddress, type LookupOptions } from 'node:dns';
 import net from 'node:net';
 import { Agent, buildConnector, setGlobalDispatcher } from 'undici';

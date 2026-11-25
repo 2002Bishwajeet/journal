@@ -1,3 +1,5 @@
+// Generic OAuth-on-Node adapter: no Journal imports, so any MCP behind mcp-gateway can copy it.
+// See the gateway docs (github.com/2002Bishwajeet/mcp-gateway, docs/ARCHITECTURE.md, "Per-MCP contract").
 import type { IncomingMessage, RequestListener, ServerResponse } from 'node:http';
 
 /** Larger than any MCP call needs: a 5 MB image as a base64 data: URI is about 6.7 MB. */
@@ -53,8 +55,8 @@ export function nodeListener(fetchApp: (request: Request) => Promise<Response>, 
 
     return (req, res) => {
         handle(req, res).catch(() => {
-            // Never log the error: it can hold note content or a request's tokens.
-            console.error('Journal MCP: a request failed');
+            // Never log the error: it can hold user content or a request's tokens.
+            console.error('MCP: a request failed');
             if (!res.headersSent) res.writeHead(500);
             res.end();
         });

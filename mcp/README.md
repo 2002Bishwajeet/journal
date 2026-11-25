@@ -149,34 +149,26 @@ above is unchanged, and it's still the way to go if you'd rather not use a hoste
 
 ### Deploying it (yantra-box)
 
-It costs nothing to run: a user service, a router and a Cloudflare Tunnel on one box. It needs
-Node 22.19 or newer for `node:sqlite` and undici, and it runs as an unprivileged user with no
-Docker.
+It runs behind [mcp-gateway](https://github.com/2002Bishwajeet/mcp-gateway) (private), which owns
+the router, the Cloudflare Tunnel and the `mcp@journal.service` unit; routing and tunnel setup are
+documented there. It needs Node 22.19 or newer for `node:sqlite` and undici.
 
 1. Build the bundle with `npm run mcp:hosted:build`. That writes `mcp/dist/http.mjs`, one file
    with nothing to install next to it.
-2. Install it as the user service [`deploy/journal-mcp.service`](deploy/journal-mcp.service).
-   It listens on `127.0.0.1:8791` (`PORT`), keeps grants in `JOURNAL_MCP_DB`
-   (`~/.local/state/journal-mcp/grants.sqlite`), and builds every URL from `JOURNAL_MCP_ORIGIN`,
-   never from the request's Host. The install steps are at the top of the file.
-3. The router is [`deploy/Caddyfile`](deploy/Caddyfile), its own Caddy on `127.0.0.1:8780`
-   (user service [`deploy/mcp-router.service`](deploy/mcp-router.service)), apart from
-   `/etc/caddy/Caddyfile`. It forwards `/journal/*`,
-   `/.well-known/oauth-protected-resource/journal/mcp` and
-   `/.well-known/oauth-authorization-server/journal` to the service. Another MCP gets its own
-   `handle` blocks there.
-4. The owner creates the Cloudflare Tunnel and routes `mcp.cloudx.run` to the router. In the
-   tunnel's `config.yml` (its credentials file stays on the box and is never committed):
+2. Install it on the box:
 
-   ```yaml
-   ingress:
-     - hostname: mcp.cloudx.run
-       service: http://127.0.0.1:8780
-     - service: http_status:404
+   ```
+   ~/services/mcp/journal/start          # mcp/deploy/start (executable)
+   ~/services/mcp/journal/dist/http.mjs  # the bundle
+   ~/services/mcp/journal/data/          # grants.sqlite (created 0700 on first start)
+   ~/.config/mcp-gateway/journal.env     # from mcp/deploy/journal.env.example, mode 0600
    ```
 
-   Then run `cloudflared tunnel route dns <tunnel> mcp.cloudx.run`.
-5. Check it: `https://mcp.cloudx.run/.well-known/oauth-authorization-server/journal` should
+   It listens on `127.0.0.1:8781` (`PORT`), keeps grants in `JOURNAL_MCP_DB`
+   (`data/grants.sqlite`), and builds every URL from `MCP_PUBLIC_ORIGIN`, never from the
+   request's Host.
+3. Run `cd ~/mcp-gateway && scripts/deploy.sh`.
+4. Check it: `https://mcp.cloudx.run/.well-known/oauth-authorization-server/journal` should
    return the metadata, and `npx @modelcontextprotocol/inspector` should get through sign-in
    to `https://mcp.cloudx.run/journal/mcp` and list the tools.
 
