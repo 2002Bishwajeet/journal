@@ -53,7 +53,7 @@ describe('identityFrom', () => {
 describe('the install card', () => {
     it('opens on Claude Desktop', () => {
         const tabs = $$<HTMLButtonElement>('.install .code-head [role="tab"]');
-        expect(tabs.map((t) => t.textContent)).toEqual(['Claude Desktop', 'Claude Code', 'Cursor', 'Codex CLI']);
+        expect(tabs.map((t) => t.textContent)).toEqual(['Claude Desktop', 'Claude Code', 'Cursor', 'Codex CLI', 'Hermes Agent']);
         expect(tabs[0].getAttribute('aria-selected')).toBe('true');
         expect($<HTMLElement>('#panel-desktop').hidden).toBe(false);
         expect($('.install [role="tablist"]').getAttribute('aria-labelledby')).toBe('install-title');
@@ -239,16 +239,19 @@ describe('connecting online (#1512)', () => {
         expect(desktop).toContain('approve Journal MCP');
     });
 
-    it('installs in Cursor and VS Code in one click', () => {
-        const [cursor, cursorQuery] = $<HTMLAnchorElement>('#online-cursor a[href^="cursor:"]').getAttribute('href')!.split('?');
-        const params = new URLSearchParams(cursorQuery);
+    it('installs in Cursor in one click', () => {
+        const [cursor, query] = $<HTMLAnchorElement>('#online-cursor a[href^="cursor:"]').getAttribute('href')!.split('?');
+        const params = new URLSearchParams(query);
         expect(cursor).toBe('cursor://anysphere.cursor-deeplink/mcp/install');
         expect(params.get('name')).toBe('journal');
         expect(JSON.parse(atob(params.get('config')!))).toEqual({ url: URL });
+    });
 
-        const [vscode, vscodeQuery] = $<HTMLAnchorElement>('a[href^="vscode:"]').getAttribute('href')!.split('?');
-        expect(vscode).toBe('vscode:mcp/install');
-        expect(JSON.parse(decodeURIComponent(vscodeQuery))).toEqual({ name: 'journal', type: 'http', url: URL });
+    it('connects Hermes Agent online with OAuth', async () => {
+        startInstallCard(document);
+        expect($('#tab-hermes').getAttribute('aria-controls')).toBe('panel-hermes');
+        expect(await copy($('[data-copy="online-hermes-config"]'))).toBe(`mcp_servers:\n  journal:\n    url: "${URL}"\n    auth: oauth`);
+        expect(await copy($('[data-copy="online-hermes-login"]'))).toBe('hermes mcp login journal');
     });
 
     it('names only the one hosted address', () => {
