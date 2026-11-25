@@ -21,7 +21,7 @@ export interface PreparedImage {
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 // What is kept: the chunks and segments that draw the image. Everything else (EXIF, XMP, text, comments,
 // IPTC, private chunks, trailing bytes) is metadata or a hiding place for it.
-const PNG_KEPT = new Set(['IHDR', 'PLTE', 'IDAT', 'IEND', 'tRNS', 'gAMA', 'cHRM', 'sRGB', 'iCCP', 'sBIT', 'pHYs', 'bKGD']);
+const PNG_KEPT = new Set(['IHDR', 'PLTE', 'IDAT', 'IEND', 'tRNS', 'gAMA', 'cHRM', 'sRGB', 'iCCP', 'sBIT', 'pHYs', 'bKGD', 'acTL', 'fcTL', 'fdAT']);
 const WEBP_KEPT = new Set(['VP8 ', 'VP8L', 'VP8X', 'ALPH', 'ICCP', 'ANIM', 'ANMF']);
 // VP8X flag bits that announce an EXIF or XMP chunk.
 const VP8X_EXIF_XMP_FLAGS = 0x08 | 0x04;

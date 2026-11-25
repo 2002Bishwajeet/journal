@@ -101,6 +101,31 @@ describe('stripImageMetadata', () => {
         expect(text(stripped)).not.toMatch(/SECRET|Exif|MM\0\*/);
     });
 
+    it('keeps the APNG animation chunks (acTL, fcTL, fdAT) and still drops text, time and private chunks', () => {
+        const chunk = (type: string, body: number[] | string) => {
+            const data = typeof body === 'string' ? [...Buffer.from(body, 'latin1')] : body;
+            const length = data.length;
+            return [length >>> 24, (length >>> 16) & 0xff, (length >>> 8) & 0xff, length & 0xff, ...Buffer.from(type, 'latin1'), ...data, 0, 0, 0, 0];
+        };
+        const apng = new Uint8Array([
+            ...[0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a],
+            ...chunk('IHDR', [0, 0, 0, 1, 0, 0, 0, 1, 8, 6, 0, 0, 0]),
+            ...chunk('acTL', [0, 0, 0, 2, 0, 0, 0, 0]),
+            ...chunk('tEXt', 'Comment\0SECRET-TEXT'),
+            ...chunk('fcTL', new Array(26).fill(0)),
+            ...chunk('IDAT', [1, 2, 3]),
+            ...chunk('tIME', [7, 0xea, 1, 1, 0, 0, 0]),
+            ...chunk('fcTL', new Array(26).fill(1)),
+            ...chunk('fdAT', [0, 0, 0, 2, 4, 5, 6]),
+            ...chunk('prVt', 'SECRET-PRIVATE'),
+            ...chunk('IEND', []),
+        ]);
+
+        const stripped = stripImageMetadata(apng, 'image/png');
+        expect(pngChunkTypes(stripped)).toEqual(['IHDR', 'acTL', 'fcTL', 'IDAT', 'fcTL', 'fdAT', 'IEND']);
+        expect(text(stripped)).not.toContain('SECRET');
+    });
+
     it('drops the WebP EXIF and XMP chunks, clears their VP8X flags and fixes the RIFF size', () => {
         const original = fixture('cover-exif.webp');
         expect(webpChunkTypes(original)).toEqual(['VP8X', 'VP8 ', 'EXIF', 'XMP ']);
