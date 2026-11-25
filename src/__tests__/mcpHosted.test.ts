@@ -1,17 +1,23 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeAll } from 'vitest';
 import { mkdtempSync } from 'node:fs';
 import { createServer, request as httpRequest } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { build } from 'vite';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { UnauthorizedError, type OAuthClientProvider } from '@modelcontextprotocol/sdk/client/auth.js';
 import type { OAuthClientInformationMixed, OAuthTokens } from '@modelcontextprotocol/sdk/shared/auth.js';
-import { createHostedApp, RECONNECT_MESSAGE, type HomebaseDeps } from '../../mcp/hosted/app';
+import { createHostedApp, RECONNECT_MESSAGE, RETRY_MESSAGE, type HomebaseDeps } from '../../mcp/hosted/app';
 import { sqliteKv } from '../../mcp/hosted/kv';
 import { nodeListener } from '../../mcp/hosted/node';
 import { isBlockedAddress, publicOnlyAgent } from '../../mcp/hosted/publicFetch';
+import { safeConsole } from '../../mcp/hosted/safeConsole';
+import { SCRIPT_RUNNING, SCRIPTS_BUSY, scriptSlots, workerGuest } from '../../mcp/hosted/scripts';
+import { runScript } from '../../mcp/runScript';
+import { checkIdentity } from '../../mcp/youauth';
 import type { McpDriveDeps } from '../../mcp/createServer';
 import type { McpCredentials } from '../../mcp/credentials';
 import type { NoteSummary } from '@/lib/agent/tools/read';
@@ -28,7 +34,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // The mocked outside world. The hosted app wraps fetch when it is first built, so this goes in before any test runs.
 const realFetch = globalThis.fetch;
 let homebaseStatus = 200;
-const fakeFetch = vi.fn(async (input: RequestInfo | URL) => {
+const fakeFetchImpl = async (input: RequestInfo | URL) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
     if (url.href === CIMD_ID) {
         return Response.json({
@@ -42,16 +48,21 @@ const fakeFetch = vi.fn(async (input: RequestInfo | URL) => {
     }
     if (url.host === IDENTITY) return new Response('{}', { status: homebaseStatus });
     throw new Error(`unexpected fetch ${url.href}`);
-});
+};
+const fakeFetch = vi.fn(fakeFetchImpl);
 vi.stubGlobal('fetch', fakeFetch);
 
 const NOTES: NoteSummary[] = [{ id: 'n1', title: 'Note One', folderId: 'F1', tags: [], modified: '2024-01-01T00:00:00.000Z' }];
 
 let tokenValid: boolean | null = true;
 const seenCreds: McpCredentials[] = [];
+const checkedIdentities: string[] = [];
 const finalized: { identity: string; algorithm: string; publicKey: string; salt: string }[] = [];
 const homebase: HomebaseDeps = {
-    checkIdentity: async (identity) => identity === IDENTITY,
+    checkIdentity: async (identity) => {
+        checkedIdentities.push(identity);
+        return identity === IDENTITY;
+    },
     finalize: async (identity, privateKey, publicKey, salt) => {
         finalized.push({ identity, algorithm: privateKey.algorithm.name, publicKey, salt });
         return { clientAuthToken: HB_TOKEN, sharedSecret: HB_SECRET };
@@ -72,9 +83,17 @@ const homebase: HomebaseDeps = {
     },
 };
 
+// run_script's worker is the hosted bundle itself, as deployed: built once for this file.
+let bundle: URL;
+beforeAll(async () => {
+    const outDir = mkdtempSync(path.join(tmpdir(), 'journal-hosted-bundle-'));
+    await build({ configFile: path.resolve(import.meta.dirname, '../../mcp/vite.hosted.config.ts'), logLevel: 'silent', build: { outDir } });
+    bundle = pathToFileURL(path.join(outDir, 'http.mjs'));
+}, 60_000);
+
 function setup(rateLimit?: number) {
     const kv = sqliteKv(path.join(mkdtempSync(path.join(tmpdir(), 'journal-hosted-')), 'grants.sqlite'));
-    const app = createHostedApp({ origin: ORIGIN, kv, homebase, rateLimit });
+    const app = createHostedApp({ origin: ORIGIN, kv, homebase, rateLimit, scriptWorker: bundle });
     const appFetch = (input: RequestInfo | URL, init?: RequestInit) => app.fetch(new Request(input, init));
     return { kv, app, appFetch };
 }
@@ -148,12 +167,12 @@ function authorizeUrl(params: Record<string, string>): string {
     return `${ISSUER}/authorize?${new URLSearchParams({ response_type: 'code', state: 'client-state', scope: 'journal', resource: RESOURCE, code_challenge_method: 'S256', ...params })}`;
 }
 
-/** A CIMD client's whole flow by hand, from the authorize URL to its tokens. */
-async function connectCimd(s: Setup, redirectUri = 'http://127.0.0.1:51234/callback') {
+/** A client's whole flow by hand, from the authorize URL to its tokens: the CIMD client unless told otherwise. */
+async function connectCimd(s: Setup, redirectUri = 'http://127.0.0.1:51234/callback', clientId = CIMD_ID) {
     const { verifier, challenge } = await pkce();
-    const signedIn = await signIn(s, authorizeUrl({ client_id: CIMD_ID, redirect_uri: redirectUri, code_challenge: challenge }));
+    const signedIn = await signIn(s, authorizeUrl({ client_id: clientId, redirect_uri: redirectUri, code_challenge: challenge }));
     const code = signedIn.location!.searchParams.get('code')!;
-    const response = await s.appFetch(`${ISSUER}/oauth/token`, form({ grant_type: 'authorization_code', code, code_verifier: verifier, client_id: CIMD_ID, redirect_uri: redirectUri, resource: RESOURCE }));
+    const response = await s.appFetch(`${ISSUER}/oauth/token`, form({ grant_type: 'authorization_code', code, code_verifier: verifier, client_id: clientId, redirect_uri: redirectUri, resource: RESOURCE }));
     expect(response.status).toBe(200);
     return { ...signedIn, tokens: (await response.json()) as OAuthTokens };
 }
@@ -168,6 +187,10 @@ const mcp = (s: Setup, accessToken: string, body: unknown) =>
         body: JSON.stringify(body),
     });
 const listNotes = (s: Setup, accessToken: string) => mcp(s, accessToken, { jsonrpc: '2.0', id: 7, method: 'tools/call', params: { name: 'list_notes', arguments: {} } });
+const runScriptCall = (s: Setup, accessToken: string, code: string) =>
+    mcp(s, accessToken, { jsonrpc: '2.0', id: 8, method: 'tools/call', params: { name: 'run_script', arguments: { code } } });
+const registerDcr = (s: Setup, body: unknown, ip = '203.0.113.1') =>
+    s.appFetch(`${ISSUER}/oauth/register`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-real-ip': ip }, body: JSON.stringify(body) });
 
 describe('hosted MCP: discovery', () => {
     it('challenges an unauthenticated call and publishes path-prefixed resource and authorization server metadata', async () => {
@@ -315,18 +338,77 @@ describe('hosted MCP: the OAuth flow', () => {
         expect(Object.fromEntries(back.searchParams)).toMatchObject({ error: 'access_denied', state: 'client-state', iss: ISSUER });
     });
 
-    it('refuses a non-Homebase identity without using up the consent, and a form posted from another browser', async () => {
+    it('checks the form came from this browser before fetching anything, and asks again after a wrong identity', async () => {
         const s = setup();
         const { challenge } = await pkce();
         const jar = cookieJar();
         const page = await s.appFetch(authorizeUrl({ client_id: CIMD_ID, redirect_uri: 'http://127.0.0.1:5000/callback', code_challenge: challenge }));
         jar.take(page);
-        const handle = /name="handle" value="([^"]+)"/.exec(await page.text())![1];
-        const post = (identity: string, cookie: string) =>
+        const handleOf = (html: string) => /name="handle" value="([^"]+)"/.exec(html)![1];
+        const post = (handle: string, identity: string, cookie: string) =>
             s.appFetch(`${ISSUER}/authorize`, { ...form({ handle, identity, action: 'approve' }), headers: { 'content-type': 'application/x-www-form-urlencoded', cookie } });
-        expect((await post('not-an-identity.example', jar.header)).status).toBe(400);
-        expect((await post(IDENTITY, '')).status).toBe(400);
-        expect((await post(IDENTITY, jar.header)).status).toBe(302);
+        const first = handleOf(await page.text());
+        checkedIdentities.length = 0;
+        // Another browser (no binding cookie): refused before the identity is looked up.
+        expect((await post(first, IDENTITY, '')).status).toBe(400);
+        expect(checkedIdentities).toEqual([]);
+
+        const wrong = await post(first, 'not-an-identity.example', jar.header);
+        expect(wrong.status).toBe(400);
+        expect(checkedIdentities).toEqual(['not-an-identity.example']);
+        jar.take(wrong);
+        const html = await wrong.text();
+        expect(html).toContain('That is not a Homebase identity: not-an-identity.example');
+        // An identity with a port is refused without a lookup either.
+        const ported = await post(handleOf(html), 'owner.example.com:8443', jar.header);
+        expect(ported.status).toBe(400);
+        expect(checkedIdentities).toEqual(['not-an-identity.example']);
+        jar.take(ported);
+        expect((await post(handleOf(await ported.text()), IDENTITY, jar.header)).status).toBe(302);
+        // The first handle is used up.
+        expect((await post(first, IDENTITY, jar.header)).status).toBe(400);
+    });
+
+    it('bounds the identity lookup: a timeout, no redirects, at most 4 KB read', async () => {
+        const seen: RequestInit[] = [];
+        let body = JSON.stringify({ odinId: IDENTITY });
+        fakeFetch.mockImplementation(async (_input: RequestInfo | URL, init?: RequestInit) => {
+            seen.push(init!);
+            return new Response(body);
+        });
+        try {
+            expect(await checkIdentity(IDENTITY)).toBe(true);
+            expect(seen[0].signal).toBeInstanceOf(AbortSignal);
+            expect(seen[0].redirect).toBe('error');
+            body = JSON.stringify({ odinId: IDENTITY, padding: 'x'.repeat(5000) });
+            expect(await checkIdentity(IDENTITY)).toBe(false);
+        } finally {
+            fakeFetch.mockReset();
+            fakeFetch.mockImplementation(fakeFetchImpl);
+        }
+    });
+
+    it('limits registrations and consent pages per client IP, refuses a large registration, and lets clients expire after a week', async () => {
+        vi.useFakeTimers({ toFake: ['Date'], now: Date.now() });
+        const s = setup();
+        const client = { client_name: 'Web', redirect_uris: ['https://app.example/cb'], token_endpoint_auth_method: 'none' };
+        expect((await registerDcr(s, { ...client, client_name: 'x'.repeat(9000) })).status).toBe(413);
+        for (let i = 1; i < 10; i++) expect((await registerDcr(s, client)).status).toBe(201);
+        const limited = await registerDcr(s, client);
+        expect(limited.status).toBe(429);
+        expect(limited.headers.get('retry-after')).toBe('60');
+        expect((await registerDcr(s, client, '198.51.100.7')).status).toBe(201);
+
+        const rows = s.kv.db.prepare("SELECT expiration FROM kv WHERE key LIKE 'client:%'").all() as { expiration: number }[];
+        expect(rows.length).toBe(10);
+        for (const { expiration } of rows) expect(expiration - Date.now() / 1000).toBeCloseTo(7 * 24 * 60 * 60, -2);
+
+        const consent = (ip: string) => s.appFetch(authorizeUrl({ client_id: CIMD_ID, redirect_uri: 'http://127.0.0.1:5000/callback', code_challenge: 'x'.repeat(43) }), { headers: { 'x-real-ip': ip } });
+        for (let i = 0; i < 30; i++) expect((await consent('203.0.113.9')).status).toBe(200);
+        expect((await consent('203.0.113.9')).status).toBe(429);
+        expect((await s.appFetch(`${ISSUER}/authorize`, { ...form({ handle: 'h', action: 'approve' }), headers: { 'x-real-ip': '203.0.113.9' } })).status).toBe(429);
+        vi.setSystemTime(Date.now() + 61_000);
+        expect((await consent('203.0.113.9')).status).toBe(200);
     });
 
     it('refuses a callback for another identity, and a replayed state', async () => {
@@ -374,16 +456,38 @@ describe('hosted MCP: refresh tokens', () => {
 });
 
 describe('hosted MCP: revocation', () => {
-    it('revokes the grant when Homebase turns the app token away, and tells the agent to reconnect', async () => {
+    it('revokes the grant once Homebase still turns the app token away a minute later, and tells the agent to reconnect', async () => {
+        vi.useFakeTimers({ toFake: ['Date'], now: Date.now() });
         const s = setup();
         const { tokens } = await connectCimd(s);
         homebaseStatus = 401;
         tokenValid = false;
+        const answer = (text: string) => ({ jsonrpc: '2.0', id: 7, result: { content: [{ type: 'text', text }], isError: true } });
+        expect(await (await listNotes(s, tokens.access_token)).json()).toEqual(answer(RETRY_MESSAGE));
+        vi.setSystemTime(Date.now() + 30_000);
+        expect(await (await listNotes(s, tokens.access_token)).json()).toEqual(answer(RETRY_MESSAGE));
+        vi.setSystemTime(Date.now() + 31_000);
         const response = await listNotes(s, tokens.access_token);
         expect(response.status).toBe(200);
-        expect(await response.json()).toEqual({ jsonrpc: '2.0', id: 7, result: { content: [{ type: 'text', text: RECONNECT_MESSAGE }], isError: true } });
+        expect(await response.json()).toEqual(answer(RECONNECT_MESSAGE));
         expect((await listNotes(s, tokens.access_token)).status).toBe(401);
         expect((await (await refresh(s, tokens.refresh_token!)).json()).error).toBe('invalid_grant');
+    });
+
+    it('forgets a failure once a call gets through again', async () => {
+        vi.useFakeTimers({ toFake: ['Date'], now: Date.now() });
+        const s = setup();
+        const { tokens } = await connectCimd(s);
+        homebaseStatus = 401;
+        tokenValid = false;
+        expect(JSON.stringify(await (await listNotes(s, tokens.access_token)).json())).toContain(RETRY_MESSAGE);
+        homebaseStatus = 200;
+        tokenValid = true;
+        expect(JSON.stringify(await (await listNotes(s, tokens.access_token)).json())).toContain('Note One');
+        vi.setSystemTime(Date.now() + 120_000);
+        homebaseStatus = 401;
+        tokenValid = false;
+        expect(JSON.stringify(await (await listNotes(s, tokens.access_token)).json())).toContain(RETRY_MESSAGE);
     });
 
     it('keeps the grant for a 403 when the app token is still valid', async () => {
@@ -405,11 +509,13 @@ describe('hosted MCP: revocation', () => {
         expect((await listNotes(s, tokens.access_token)).status).toBe(401);
     });
 
-    it('limits MCP requests per grant', async () => {
+    it('limits MCP requests per user, across their clients', async () => {
         const s = setup(2);
         const { tokens } = await connectCimd(s);
+        const { client_id } = await (await registerDcr(s, { client_name: 'Other', redirect_uris: ['http://127.0.0.1/callback'], token_endpoint_auth_method: 'none' })).json();
+        const { tokens: other } = await connectCimd(s, 'http://127.0.0.1:5000/callback', client_id);
         expect((await listNotes(s, tokens.access_token)).status).toBe(200);
-        expect((await listNotes(s, tokens.access_token)).status).toBe(200);
+        expect((await listNotes(s, other.access_token)).status).toBe(200);
         const limited = await listNotes(s, tokens.access_token);
         expect(limited.status).toBe(429);
         expect(limited.headers.get('retry-after')).toBe('60');
@@ -488,7 +594,7 @@ describe('hosted MCP: node bridge and outbound fetch', () => {
                     return new Response('ok', { headers: [['set-cookie', 'a=1'], ['set-cookie', 'b=2']] });
                 },
                 ORIGIN,
-                1024
+                { smallLimit: 1024 }
             )
         );
         await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -510,6 +616,8 @@ describe('hosted MCP: node bridge and outbound fetch', () => {
 
     it('refuses non-public addresses, IPv4-mapped and resolved names included', async () => {
         for (const ip of ['127.0.0.1', '10.1.2.3', '169.254.169.254', '192.168.1.1', '::1', '::ffff:127.0.0.1', 'fd00::1']) expect(isBlockedAddress(ip)).toBe(true);
+        // NAT64 and 6to4, which wrap an IPv4 address (here 127.0.0.1 and 10.0.0.1).
+        for (const ip of ['64:ff9b::7f00:1', '64:ff9b:1::a00:1', '2002:7f00:1::1']) expect(isBlockedAddress(ip)).toBe(true);
         for (const ip of ['1.1.1.1', '2606:4700:4700::1111']) expect(isBlockedAddress(ip)).toBe(false);
 
         const server = createServer((_req, res) => res.end('reached'));
@@ -520,5 +628,122 @@ describe('hosted MCP: node bridge and outbound fetch', () => {
             await expect(realFetch(`http://${host}:${port}/`, { dispatcher: publicOnlyAgent } as RequestInit)).rejects.toThrow();
         }
         await new Promise<void>((resolve) => server.close(() => resolve()));
+    });
+
+    it('reads a large body only for a Bearer request to the MCP path, and none at all for one without a token', async () => {
+        const seen: { url: string; size: number }[] = [];
+        const server = createServer(
+            nodeListener(
+                async (request) => {
+                    seen.push({ url: new URL(request.url).pathname, size: (await request.arrayBuffer()).byteLength });
+                    return new Response('ok');
+                },
+                ORIGIN,
+                { bearerPaths: ['/journal/mcp'], limit: 4096, smallLimit: 1024 }
+            )
+        );
+        await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+        const { port } = server.address() as AddressInfo;
+        const send = (path: string, body: string, headers: Record<string, string> = {}) =>
+            new Promise<number | undefined>((resolve, reject) => {
+                const req = httpRequest({ host: '127.0.0.1', port, path, method: 'POST', headers }, (res) => {
+                    res.resume();
+                    resolve(res.statusCode);
+                });
+                req.on('error', reject);
+                req.end(body);
+            });
+        const body = 'x'.repeat(2048);
+        expect(await send('/journal/mcp', body, { authorization: 'Bearer t' })).toBe(200);
+        expect(await send('/journal/mcp', body)).toBe(200);
+        expect(await send('/journal/oauth/token', body, { authorization: 'Bearer t' })).toBe(413);
+        expect(await send('/journal/mcp', 'x'.repeat(5000), { authorization: 'Bearer t' })).toBe(413);
+        expect(seen).toEqual([
+            { url: '/journal/mcp', size: 2048 },
+            { url: '/journal/mcp', size: 0 },
+        ]);
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+    });
+});
+
+describe('hosted MCP: the grant store queries', () => {
+    it('lists a prefix through the primary key index, and only that prefix', async () => {
+        const { kv } = setup();
+        for (const key of ['grant:a:1', 'grant:a:2', 'grant:b:1', 'grant;x', 'token:a']) await kv.put(key, '{}');
+        expect((await kv.list({ prefix: 'grant:a:' })).keys.map((k) => k.name)).toEqual(['grant:a:1', 'grant:a:2']);
+        expect((await kv.list({ prefix: 'grant:', limit: 2 })).cursor).toBe('grant:a:2');
+        expect((await kv.list({ prefix: 'grant:', cursor: 'grant:a:2' })).keys.map((k) => k.name)).toEqual(['grant:b:1']);
+        expect((await kv.list()).keys).toHaveLength(5);
+        const prepare = vi.spyOn(kv.db, 'prepare');
+        await kv.list({ prefix: 'grant:' });
+        const sql = prepare.mock.calls[0][0];
+        prepare.mockRestore();
+        const plan = kv.db.prepare(`EXPLAIN QUERY PLAN ${sql}`).all('grant:', 'grant;', '', 0, 10) as { detail: string }[];
+        expect(plan.map((row) => row.detail).join(' ')).toMatch(/SEARCH kv USING (COVERING )?INDEX sqlite_autoindex_kv_1 \(key>\? AND key<\?\)/);
+    });
+});
+
+describe('hosted MCP: run_script off the main thread', () => {
+    it('runs a script in the worker, its journal calls served by the drive, and stops an endless loop at 3 s of CPU', async () => {
+        const s = setup();
+        const { tokens } = await connectCimd(s);
+        const ran = await (await runScriptCall(s, tokens.access_token, `console.log(await journal.listNotes())`)).json();
+        expect(JSON.stringify(ran.result.content)).toContain('Note One');
+        expect(ran.result.isError).toBe(false);
+
+        // The main thread keeps serving while the script spins.
+        let ticks = 0;
+        const timer = setInterval(() => ticks++, 100);
+        const spun = await (await runScriptCall(s, tokens.access_token, 'for (;;) {}')).json();
+        clearInterval(timer);
+        expect(spun.result.isError).toBe(true);
+        expect(JSON.stringify(spun.result.content)).toContain('Script stopped: it used more than 3 s of CPU time.');
+        expect(ticks).toBeGreaterThan(20);
+    });
+
+    it("notices Homebase turning a script's calls away, as it does a tool's", async () => {
+        const s = setup();
+        const { tokens } = await connectCimd(s);
+        homebaseStatus = 401;
+        tokenValid = false;
+        const answer = await (await runScriptCall(s, tokens.access_token, `await journal.listNotes()`)).json();
+        expect(JSON.stringify(answer)).toContain(RETRY_MESSAGE);
+    });
+
+    it('terminates a worker that runs past the wall-clock limit', async () => {
+        const guest = workerGuest(bundle, { cpuMs: 60_000, wallMs: 500, perUser: 1, total: 2 });
+        const started = performance.now();
+        const result = await runScript({} as never, 'for (;;) {}', false, guest);
+        expect(result.error).toBe('Script stopped: it ran for more than 0.5 s.');
+        expect(performance.now() - started).toBeLessThan(3000);
+    });
+
+    it('takes one run per user and two in all, and says why it turned one away', async () => {
+        const admit = scriptSlots({ cpuMs: 0, wallMs: 0, perUser: 1, total: 2 });
+        let release!: () => void;
+        const held = new Promise<void>((resolve) => (release = resolve));
+        const a = admit('a', () => held);
+        await expect(admit('a', async () => 1)).rejects.toThrow(SCRIPT_RUNNING);
+        const b = admit('b', () => held);
+        await expect(admit('c', async () => 1)).rejects.toThrow(SCRIPTS_BUSY);
+        release();
+        await Promise.all([a, b]);
+        expect(await admit('a', async () => 'again')).toBe('again');
+    });
+});
+
+describe('hosted MCP: logging', () => {
+    it('prints strings, never an object or error that could hold the Homebase token', () => {
+        const lines: string[] = [];
+        const out = safeConsole((stream, line) => lines.push(`${stream}: ${line}`));
+        const axiosError = Object.assign(new Error(`Request failed for ${HB_TOKEN}`), {
+            name: 'AxiosError',
+            config: { headers: { bx0900: HB_TOKEN } },
+            request: { _header: `bx0900: ${HB_TOKEN}` },
+        });
+        out.error('[odin-js]', axiosError, { dsr: { headers: { bx0900: HB_TOKEN } } }, 404, true, undefined);
+        out.log('started');
+        expect(lines).toEqual(['stderr: [odin-js] [AxiosError] [Object] 404 true [undefined]', 'stdout: started']);
+        expect(lines.join('\n')).not.toContain(HB_TOKEN);
     });
 });

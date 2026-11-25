@@ -38,9 +38,13 @@ export function sqliteKv(file: string) {
             db.prepare('DELETE FROM kv WHERE key = ?').run(key);
         },
         async list({ prefix = '', limit = 1000, cursor }: ListOptions = {}) {
+            // A range on the primary key, so SQLite seeks to the prefix instead of scanning every row:
+            // the keys starting with it sort from it up to (not including) it with its last character bumped.
+            const upper = prefix && prefix.slice(0, -1) + String.fromCharCode(prefix.charCodeAt(prefix.length - 1) + 1);
+            const range = upper ? [prefix, upper] : [prefix];
             const rows = db
-                .prepare(`SELECT key, metadata, expiration FROM kv WHERE substr(key, 1, ?) = ? AND key > ? AND ${LIVE} ORDER BY key LIMIT ?`)
-                .all(prefix.length, prefix, cursor ?? '', now(), limit + 1) as { key: string; metadata: string | null; expiration: number | null }[];
+                .prepare(`SELECT key, metadata, expiration FROM kv WHERE key >= ? ${upper ? 'AND key < ?' : ''} AND key > ? AND ${LIVE} ORDER BY key LIMIT ?`)
+                .all(...range, cursor ?? '', now(), limit + 1) as { key: string; metadata: string | null; expiration: number | null }[];
             const page = rows.slice(0, limit);
             const done = rows.length <= limit;
             return {

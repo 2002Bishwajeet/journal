@@ -27,6 +27,10 @@ for (const [address, prefix] of [
     ['fc00::', 7],
     ['fe80::', 10],
     ['ff00::', 8],
+    // NAT64 and 6to4 carry an IPv4 address inside, private ones included.
+    ['64:ff9b::', 96],
+    ['64:ff9b:1::', 48],
+    ['2002::', 16],
 ] as const) {
     blocked.addSubnet(address, prefix, 'ipv6');
 }

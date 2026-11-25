@@ -8,15 +8,33 @@ import { JOURNAL_MCP_APP_ID, JOURNAL_MCP_APP_NAME, JOURNAL_MCP_APP_SLUG, mcpDriv
 // Same identity validation as useYouAuthAuthorization.ts's checkIdentity (src/hooks/auth/useYouAuthAuthorization.ts:107-127).
 const IDENTITY_REGEX = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9]{2,25}(?::\d{1,5})?$/i;
 
+/** Far more than Homebase's `{ "odinId": … }` answer. */
+const IDENT_MAX_BYTES = 4096;
+
+/** The body as text, or null past `limit` bytes (the rest is never read). */
+async function readAtMost(body: ReadableStream<Uint8Array>, limit: number): Promise<string | null> {
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    for await (const chunk of body) {
+        size += chunk.length;
+        if (size > limit) return null;
+        chunks.push(chunk);
+    }
+    return Buffer.concat(chunks).toString('utf8');
+}
+
 export async function checkIdentity(odinId: string): Promise<boolean> {
     if (!odinId) return false;
     const strippedIdentity = getDomainFromUrl(odinId) ?? '';
     if (!IDENTITY_REGEX.test(strippedIdentity)) return false;
 
     try {
-        const response = await fetch(`https://${strippedIdentity}/api/guest/v1/auth/ident`);
-        if (!response.ok) return false;
-        const validation: unknown = await response.json();
+        // Bounded: anyone can make the hosted server run this, with any address that passes the regex.
+        const response = await fetch(`https://${strippedIdentity}/api/guest/v1/auth/ident`, { signal: AbortSignal.timeout(5000), redirect: 'error' });
+        if (!response.ok || !response.body) return false;
+        const text = await readAtMost(response.body, IDENT_MAX_BYTES);
+        if (text === null) return false;
+        const validation: unknown = JSON.parse(text);
         const odinIdField =
             typeof validation === 'object' && validation !== null && 'odinId' in validation
                 ? (validation as { odinId?: unknown }).odinId

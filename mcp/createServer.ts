@@ -78,11 +78,13 @@ function json(x: unknown, notes: string[] = [], untrusted = false) {
  * `updateNotice` (mcp/updateCheck.ts) ends the instructions when a newer version is out.
  * `source` can be a getter, read on each call: the Desktop Extension's throws until its first login is done (mcp/firstRun.ts).
  * `readImage` replaces the image loader: the hosted server (mcp/hosted/app.ts) must never read its own files.
+ * `scriptRunner` replaces run_script's: the hosted server's runs the sandbox off its main thread.
  */
 export function createJournalMcpServer(
     source: McpDriveDeps | (() => McpDriveDeps),
     updateNotice?: string,
-    readImage: WriteDeps['loadImage'] = loadImage
+    readImage: WriteDeps['loadImage'] = loadImage,
+    scriptRunner: typeof runScript = runScript
 ): McpServer {
     const instructions = updateNotice ? `${INSTRUCTIONS}\n\n${updateNotice}` : INSTRUCTIONS;
     const server = new McpServer({ name: 'journal-mcp', version: '0.1.0' }, { instructions });
@@ -118,7 +120,7 @@ export function createJournalMcpServer(
             annotations: { readOnlyHint: false, destructiveHint: true },
         },
         async ({ code, dryRun }) => {
-            const { output, error, reads, writes } = await runScript(bind().deps, code, dryRun);
+            const { output, error, reads, writes } = await scriptRunner(bind().deps, code, dryRun);
             const summary = `${error ? 'The script stopped early; its error ends the output.' : 'The script finished.'} ${reads} reads, ${writes} writes${dryRun ? ' (dry run: none applied)' : ''}.`;
             return { content: [{ type: 'text' as const, text: untrustedContent(output) }, { type: 'text' as const, text: summary }], isError: !!error };
         }

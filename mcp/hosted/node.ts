@@ -4,6 +4,16 @@ import type { IncomingMessage, RequestListener, ServerResponse } from 'node:http
 
 /** Larger than any MCP call needs: a 5 MB image as a base64 data: URI is about 6.7 MB. */
 export const MAX_BODY_BYTES = 8 * 1024 * 1024;
+/** Every other body: OAuth forms and registrations. */
+export const SMALL_BODY_BYTES = 64 * 1024;
+
+export interface BodyLimits {
+    /** Paths whose requests may carry up to `limit` with a Bearer token; without one, their body isn't read at all. */
+    bearerPaths?: string[];
+    limit?: number;
+    /** Every other request's limit. */
+    smallLimit?: number;
+}
 
 class TooLarge extends Error {}
 
@@ -21,15 +31,24 @@ async function readBody(req: IncomingMessage, limit: number): Promise<Uint8Array
 
 /**
  * node:http to the app's Request → Response. The URL is the fixed public `origin` plus the request's path:
- * neither Host nor X-Forwarded-* is ever trusted. Bodies over `limit` get 413 before the app sees them.
+ * neither Host nor X-Forwarded-* is ever trusted. Bodies over their limit get 413 before the app sees them,
+ * and a `bearerPaths` request without a token reaches the app with no body: it answers 401 without one.
  */
-export function nodeListener(fetchApp: (request: Request) => Promise<Response>, origin: string, limit = MAX_BODY_BYTES): RequestListener {
+export function nodeListener(
+    fetchApp: (request: Request) => Promise<Response>,
+    origin: string,
+    { bearerPaths = [], limit = MAX_BODY_BYTES, smallLimit = SMALL_BODY_BYTES }: BodyLimits = {}
+): RequestListener {
     async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
         const method = req.method ?? 'GET';
+        const { pathname, search } = new URL(req.url ?? '/', 'http://localhost');
+        const large = bearerPaths.includes(pathname);
+        const bearer = /^Bearer\s/i.test(req.headers.authorization ?? '');
         let body: Uint8Array<ArrayBuffer> | undefined;
-        if (method !== 'GET' && method !== 'HEAD') {
+        if (large && !bearer) req.resume();
+        else if (method !== 'GET' && method !== 'HEAD') {
             try {
-                body = await readBody(req, limit);
+                body = await readBody(req, large ? limit : smallLimit);
             } catch (e) {
                 if (!(e instanceof TooLarge)) throw e;
                 res.writeHead(413, { Connection: 'close' }).end();
@@ -42,7 +61,6 @@ export function nodeListener(fetchApp: (request: Request) => Promise<Response>, 
             if (value === undefined) continue;
             for (const v of Array.isArray(value) ? value : [value]) headers.append(name, v);
         }
-        const { pathname, search } = new URL(req.url ?? '/', 'http://localhost');
         const response = await fetchApp(new Request(origin + pathname + search, { method, headers, body, redirect: 'manual' }));
         const out: Record<string, string | string[]> = {};
         response.headers.forEach((value, name) => {

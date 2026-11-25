@@ -20,8 +20,8 @@ function layout(title: string, body: string): string {
     return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>${escape(title)}</title><style>${STYLE}</style></head><body>${body}</body></html>`;
 }
 
-/** Who is asking, where the browser goes after, and the identity to sign in with. */
-export function consentPage(consent: ConsentDescription, handle: string, action: string): string {
+/** Who is asking, where the browser goes after, and the identity to sign in with; `problem` with the last one typed. */
+export function consentPage(consent: ConsentDescription, handle: string, action: string, problem?: string): string {
     const name = escape(consent.clientName);
     const origin = consent.clientDomain
         ? `<p>${name} is the app at <strong>${escape(consent.clientDomain)}</strong>.</p>`
@@ -32,7 +32,7 @@ export function consentPage(consent: ConsentDescription, handle: string, action:
     return layout(
         `Connect ${consent.clientName} to Journal`,
         `<h1>Connect ${name} to Journal?</h1>${origin}
-<p>It will be able to read and edit the Journal notes you give AI agents in Journal → Settings → Agent access. After you approve it on your Homebase identity, you go back to <strong>${escape(consent.redirectHost)}</strong>.</p>${loopback}
+<p>It will be able to read and edit the Journal notes you give AI agents in Journal → Settings → Agent access. After you approve it on your Homebase identity, you go back to <strong>${escape(consent.redirectHost)}</strong>.</p>${loopback}${problem ? `<p class="warn">${escape(problem)}</p>` : ''}
 <form method="post" action="${escape(action)}">
 <input type="hidden" name="handle" value="${escape(handle)}">
 <label for="identity">Your Homebase identity</label>
