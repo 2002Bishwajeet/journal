@@ -1,9 +1,0 @@
-#!/bin/sh
-# Run from the directory holding dist/http.mjs (see mcp/README.md, Self-hosting).
-# Uses ~/.local/node/bin/node when it exists, else node from PATH.
-if [ -x "$HOME/.local/node/bin/node" ]; then
-    NODE="$HOME/.local/node/bin/node"
-else
-    NODE=node
-fi
-exec "$NODE" "$(dirname "$0")/dist/http.mjs"

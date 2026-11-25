@@ -1,8 +1,8 @@
 import path from 'node:path';
 import { defineConfig } from 'vite';
 
-// Bundles the hosted MCP server (mcp/hosted/main.ts, #1505) into one file, mcp/dist/http.mjs, that the
-// gateway runs with plain `node` through mcp/deploy/start: nothing is installed next to it.
+// Bundles the hosted MCP server (mcp/hosted/main.ts, #1505) into one file, mcp/dist/http.mjs, that runs
+// with plain `node`: nothing is installed next to it.
 export default defineConfig({
     root: path.resolve(import.meta.dirname, '..'),
     publicDir: false,

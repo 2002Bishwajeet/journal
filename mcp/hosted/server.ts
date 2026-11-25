@@ -10,7 +10,7 @@ import { installPublicOnlyFetch } from './publicFetch';
 import { installSafeConsole } from './safeConsole';
 
 // The hosted Journal MCP's main thread (#1505), started by mcp/hosted/main.ts.
-// Started by mcp/deploy/start behind a reverse proxy. Listens on 127.0.0.1 only.
+// Runs behind a reverse proxy. Listens on 127.0.0.1 only.
 const origin = (process.env.MCP_PUBLIC_ORIGIN || process.env.JOURNAL_MCP_ORIGIN || 'https://mcp.cloudx.run').replace(/\/+$/, '');
 const port = Number(process.env.PORT || 8781);
 const dbPath = process.env.JOURNAL_MCP_DB || 'data/grants.sqlite';
