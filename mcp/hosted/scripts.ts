@@ -19,7 +19,8 @@ const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
 export function workerGuest(workerUrl: URL, { cpuMs, wallMs } = HOSTED_SCRIPT_LIMITS): ScriptGuest {
     return (code, host, options) =>
         new Promise<void>((resolve) => {
-            const worker = new Worker(workerUrl, { workerData: { code, options: { ...options, cpuMs: Math.min(options.cpuMs, cpuMs) } } });
+            // An empty environment: the server's secrets (the egress relay's among them) never reach the sandbox.
+            const worker = new Worker(workerUrl, { env: {}, workerData: { code, options: { ...options, cpuMs: Math.min(options.cpuMs, cpuMs) } } });
             const pending = new Set<Promise<void>>();
             let finished = false;
             const finish = (failure?: string) => {

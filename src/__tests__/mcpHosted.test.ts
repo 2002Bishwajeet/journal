@@ -43,6 +43,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 // The mocked outside world. The hosted app wraps fetch when it is first built, so this goes in before any test runs.
 let homebaseStatus = 200;
+/** The egress relay refusing Homebase calls: viaEgressRelay fails them as network errors. */
+let relayRefuses = false;
 const fakeFetchImpl = async (input: RequestInfo | URL) => {
     const url = new URL(input instanceof Request ? input.url : String(input));
     if (url.href === CIMD_ID) {
@@ -55,6 +57,7 @@ const fakeFetchImpl = async (input: RequestInfo | URL) => {
             response_types: ['code'],
         });
     }
+    if (url.host === IDENTITY && relayRefuses) throw new TypeError('fetch failed', { cause: new Error('The egress relay refused the request (401)') });
     if (url.host === IDENTITY) return new Response('{}', { status: homebaseStatus });
     if (url.href === 'https://images.example/cover.png') return new Response(COVER_PNG);
     if (url.href === 'https://images.example/moved.png') return new Response(null, { status: 302, headers: { location: 'http://127.0.0.1/x.png' } });
@@ -110,11 +113,11 @@ beforeAll(async () => {
     bundle = pathToFileURL(path.join(outDir, 'http.mjs'));
 }, 60_000);
 
-function setup(rateLimit?: number) {
+function setup(rateLimit?: number, fetchLimit?: number) {
     const dir = mkdtempSync(path.join(tmpdir(), 'journal-hosted-'));
     const kv = sqliteKv(path.join(dir, 'grants.sqlite'));
     const uploads = uploadsDb(path.join(dir, 'uploads.sqlite'));
-    const app = createHostedApp({ origin: ORIGIN, kv, uploads, homebase, rateLimit, scriptWorker: bundle });
+    const app = createHostedApp({ origin: ORIGIN, kv, uploads, homebase, rateLimit, fetchLimit, scriptWorker: bundle });
     const appFetch = (input: RequestInfo | URL, init?: RequestInit) => app.fetch(new Request(input, init));
     return { kv, uploads, app, appFetch };
 }
@@ -122,6 +125,7 @@ type Setup = ReturnType<typeof setup>;
 
 afterEach(() => {
     homebaseStatus = 200;
+    relayRefuses = false;
     tokenValid = true;
     driveOverride = {};
     vi.useRealTimers();
@@ -422,6 +426,34 @@ describe('hosted MCP: the OAuth flow', () => {
         expect((await post(first, IDENTITY, jar.header)).status).toBe(400);
     });
 
+    it('remembers an address that is not an identity for 10 minutes, without looking it up again', async () => {
+        vi.useFakeTimers({ toFake: ['Date'], now: Date.now() });
+        const s = setup();
+        const { challenge } = await pkce();
+        const jar = cookieJar();
+        const page = await s.appFetch(authorizeUrl({ client_id: CIMD_ID, redirect_uri: 'http://127.0.0.1:5000/callback', code_challenge: challenge }));
+        jar.take(page);
+        let handle = /name="handle" value="([^"]+)"/.exec(await page.text())![1];
+        const tryWrong = async () => {
+            const wrong = await s.appFetch(`${ISSUER}/authorize`, {
+                ...form({ handle, identity: 'not-an-identity.example', action: 'approve' }),
+                headers: { 'content-type': 'application/x-www-form-urlencoded', cookie: jar.header },
+            });
+            expect(wrong.status).toBe(400);
+            jar.take(wrong);
+            handle = /name="handle" value="([^"]+)"/.exec(await wrong.text())![1];
+        };
+        checkedIdentities.length = 0;
+        await tryWrong();
+        await tryWrong();
+        vi.setSystemTime(Date.now() + 9 * 60_000);
+        await tryWrong();
+        expect(checkedIdentities).toEqual(['not-an-identity.example']);
+        vi.setSystemTime(Date.now() + 2 * 60_000);
+        await tryWrong();
+        expect(checkedIdentities).toEqual(['not-an-identity.example', 'not-an-identity.example']);
+    });
+
     it('bounds the identity lookup: a timeout, no redirects, at most 4 KB read', async () => {
         const seen: RequestInit[] = [];
         let body = JSON.stringify({ odinId: IDENTITY });
@@ -612,6 +644,31 @@ describe('hosted MCP: revocation', () => {
         expect((await s.appFetch(`${ISSUER}/revoke`, { method: 'POST' })).status).toBe(401);
         expect((await s.appFetch(`${ISSUER}/revoke`, { method: 'POST', headers: { authorization: `Bearer ${tokens.access_token}` } })).status).toBe(200);
         expect((await listNotes(s, tokens.access_token)).status).toBe(401);
+    });
+
+    it('limits outbound requests per user, so one user cannot spend the egress relay', async () => {
+        const s = setup(undefined, 1);
+        const { tokens } = await connectCimd(s);
+        expect((await listNotes(s, tokens.access_token)).status).toBe(200);
+        const limited = await listNotes(s, tokens.access_token);
+        expect(limited.status).toBe(429);
+        expect(limited.headers.get('retry-after')).toBe('60');
+    });
+
+    it("takes the egress relay's own refusal for a network error, never Homebase turning the token away", async () => {
+        vi.useFakeTimers({ toFake: ['Date'], now: Date.now() });
+        const s = setup();
+        const { tokens } = await connectCimd(s);
+        relayRefuses = true;
+        tokenValid = false;
+        for (const wait of [0, 61_000]) {
+            vi.setSystemTime(Date.now() + wait);
+            const text = JSON.stringify(await (await listNotes(s, tokens.access_token)).json());
+            expect(text).not.toContain(RETRY_MESSAGE);
+            expect(text).not.toContain(RECONNECT_MESSAGE);
+        }
+        relayRefuses = false;
+        expect(JSON.stringify(await (await listNotes(s, tokens.access_token)).json())).toContain('Note One');
     });
 
     it('limits MCP requests per user, across their clients', async () => {

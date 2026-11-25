@@ -4,7 +4,7 @@ import { fetch } from 'undici';
 import { MAX_IMAGE_BYTES, assertImageByteSize, prepareImageBytes, type PreparedImage } from '@/lib/images/imageBytes';
 import { loadImage } from '../imageSource';
 import { html, messagePage, uploadPage, uploadPageCsp } from './pages';
-import { publicOnlyAgent } from './publicFetch';
+import { outboundAgent } from './publicFetch';
 
 // Images on the hosted server (#1506), which can't read the user's files. create_image_upload hands the agent a
 // single-use upload URL; the agent's own runtime POSTs the image there (or a person opens it and picks one), so
@@ -57,12 +57,13 @@ export function purgeUploads(db: DatabaseSync): void {
 }
 
 /**
- * A web image's bytes: public addresses only (publicOnlyAgent checks each address it connects to, after
- * resolving, so DNS rebinding can't reach the server), no redirects, a timeout and the 5 MB cap while reading.
+ * A web image's bytes, through the egress relay when one is set, else public addresses only (publicOnlyAgent
+ * checks each address it connects to, after resolving, so DNS rebinding can't reach the server). No redirects,
+ * a timeout and the 5 MB cap while reading.
  */
 export async function fetchImage(url: string): Promise<Uint8Array> {
     // undici's own fetch, so `dispatcher` takes this package's Agent whichever undici Node bundles (Node 26: 8.12).
-    const response = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), dispatcher: publicOnlyAgent }).catch((cause: unknown) => {
+    const response = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), dispatcher: outboundAgent }).catch((cause: unknown) => {
         throw new Error(`Could not fetch ${url}: Journal fetches images only from public https addresses, within ${FETCH_TIMEOUT_MS / 1000} s.`, { cause });
     });
     if (response.status !== 200) {
