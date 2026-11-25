@@ -98,7 +98,7 @@
     "lowlight": "^3.3.0",
     "mathjs": "^15.2.0",
     "mermaid": "12.2.0",
-    "papaparse": "^5.7.0",
+    "papaparse": "^5.7.1",
     "pglite-cipher": "^0.1.1",
     "pglite-v4": "npm:@electric-sql/pglite@^0.4.6",
     "radix-ui": "^1.8.1",
