@@ -36,6 +36,12 @@ export function usePeerNoteContent({
     const canPeer = usePeerAccess();
     const active = isEnabled && canPeer === true && !!docId && !!authorOdinId && !!syncService;
     const requestKey = `${docId ?? ''}|${authorOdinId ?? ''}|${attempt}`;
+    // While peer access loads, the editor shows the copy on this device. Kept as this request's
+    // result, so the editor stays up when access arrives and the author is asked, instead of
+    // being swapped for a spinner and remounted (losing an open sheet or the caret).
+    if (isEnabled && canPeer !== true && resolved?.key !== requestKey) {
+        setResolved({ key: requestKey, status: 'local' });
+    }
 
     useEffect(() => {
         if (!active || !docId || !authorOdinId || !syncService) return;
