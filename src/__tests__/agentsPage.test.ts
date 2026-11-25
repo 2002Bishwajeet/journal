@@ -239,6 +239,19 @@ describe('connecting online (#1512)', () => {
         expect(desktop).toContain('approve Journal MCP');
     });
 
+    it('installs in Cursor and VS Code in one click, next to the manual steps', () => {
+        const cursor = new globalThis.URL($<HTMLAnchorElement>('#online-cursor a[href^="cursor:"]').href);
+        expect(`${cursor.protocol}//${cursor.host}${cursor.pathname}`).toBe('cursor://anysphere.cursor-deeplink/mcp/install');
+        expect(cursor.searchParams.get('name')).toBe('journal');
+        expect(JSON.parse(atob(cursor.searchParams.get('config')!))).toEqual({ url: URL });
+        expect($('#online-cursor [data-copy="online-cursor-config"]')).toBeTruthy();
+
+        const vscode = $<HTMLAnchorElement>('#setup .setup-copy a[href^="vscode:"]').getAttribute('href')!;
+        expect(vscode.startsWith('vscode:mcp/install?')).toBe(true);
+        expect(JSON.parse(decodeURIComponent(vscode.slice('vscode:mcp/install?'.length)))).toEqual({ name: 'journal', type: 'http', url: URL });
+        expect($('#setup .setup-copy').textContent).toContain(URL);
+    });
+
     it('names only the one hosted address', () => {
         expect([...new Set(html.match(/https?:\/\/mcp\.cloudx\.run[^\s"<]*/g))]).toEqual([URL]);
     });

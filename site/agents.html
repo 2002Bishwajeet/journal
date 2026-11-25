@@ -86,6 +86,7 @@
               <h3 class="h3" id="install-title">Which Claude do you use?</h3>
               <p>Pick your app, then follow its numbered steps in order. Each Copy button copies only what is in its own box. You sign in once per computer: every app on it shares the same login, kept in your system keychain.</p>
               <p>Each app connects one of two ways. Local runs the server on your computer. Online connects to the hosted server at <code>https://mcp.cloudx.run/journal</code>, so there is nothing to install: you sign in with Homebase in your browser. Any other app that supports remote MCP servers can use that address too. Pick one way per app, not both, or the agent gets every tool twice.</p>
+              <p><a class="btn btn-secondary" href="vscode:mcp/install?%7B%22name%22%3A%22journal%22%2C%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fmcp.cloudx.run%2Fjournal%22%7D">Install in VS Code</a></p>
               <p class="small">Online is in beta. It is free while the beta lasts, with fair-use limits that protect the service, and plans may come later. Its tokens are stored hashed and encrypted, and note content isn't logged; choose Local to keep everything on your own computer. To disconnect either way, remove Journal MCP under Apps in your Homebase owner console.</p>
               <table class="apps">
                 <caption>Which Claude apps work</caption>
@@ -284,6 +285,10 @@
                   </ol>
                   </div>
                   <div role="tabpanel" id="online-cursor" aria-labelledby="mode-cursor-online" hidden>
+                  <div class="mcpb">
+                    <a class="btn btn-primary" href="cursor://anysphere.cursor-deeplink/mcp/install?name=journal&amp;config=eyJ1cmwiOiJodHRwczovL21jcC5jbG91ZHgucnVuL2pvdXJuYWwifQ==">Add to Cursor</a>
+                    <p class="code-note">Cursor opens and asks to install journal. Click Install, then follow step 2. To add it by hand instead, start at step 1.</p>
+                  </div>
                   <ol class="cmds">
                     <li class="snippet">
                       <p class="code-note">Paste this inside <code>"mcpServers": { … }</code> in <code>~/.cursor/mcp.json</code> for every project, or <code>.cursor/mcp.json</code> for one, with a comma between it and any server already there. Then restart Cursor.</p>
