@@ -213,6 +213,9 @@ const runScriptCall = (s: Setup, accessToken: string, code: string) =>
     mcp(s, accessToken, { jsonrpc: '2.0', id: 8, method: 'tools/call', params: { name: 'run_script', arguments: { code } } });
 const registerDcr = (s: Setup, body: unknown, ip = '203.0.113.1') =>
     s.appFetch(`${ISSUER}/oauth/register`, { method: 'POST', headers: { 'content-type': 'application/json', 'x-real-ip': ip }, body: JSON.stringify(body) });
+const DCR_CLIENT = { redirect_uris: ['https://app.example/cb'], token_endpoint_auth_method: 'none' };
+const consentFrom = (s: Setup, ip: string) =>
+    s.appFetch(authorizeUrl({ client_id: CIMD_ID, redirect_uri: 'http://127.0.0.1:5000/callback', code_challenge: 'x'.repeat(43) }), { headers: { 'x-real-ip': ip } });
 
 describe('hosted MCP: discovery', () => {
     it('challenges an unauthenticated call and publishes path-prefixed resource and authorization server metadata', async () => {
@@ -453,7 +456,7 @@ describe('hosted MCP: the OAuth flow', () => {
         expect(rows.length).toBe(10);
         for (const { expiration } of rows) expect(expiration - Date.now() / 1000).toBeCloseTo(7 * 24 * 60 * 60, -2);
 
-        const consent = (ip: string) => s.appFetch(authorizeUrl({ client_id: CIMD_ID, redirect_uri: 'http://127.0.0.1:5000/callback', code_challenge: 'x'.repeat(43) }), { headers: { 'x-real-ip': ip } });
+        const consent = (ip: string) => consentFrom(s, ip);
         for (let i = 0; i < 30; i++) expect((await consent('203.0.113.9')).status).toBe(200);
         expect((await consent('203.0.113.9')).status).toBe(429);
         expect((await s.appFetch(`${ISSUER}/authorize`, { ...form({ handle: 'h', action: 'approve' }), headers: { 'x-real-ip': '203.0.113.9' } })).status).toBe(429);
@@ -463,10 +466,12 @@ describe('hosted MCP: the OAuth flow', () => {
 
     it('keys IPv6 clients by their /64, and limits token requests per IP', async () => {
         const s = setup();
-        const client = { redirect_uris: ['https://app.example/cb'], token_endpoint_auth_method: 'none' };
-        for (let i = 0; i < 10; i++) expect((await registerDcr(s, client, `2001:db8:1:2::${i + 1}`)).status).toBe(201);
-        expect((await registerDcr(s, client, '2001:db8:1:2:ffff:1:2:3')).status).toBe(429);
-        expect((await registerDcr(s, client, '2001:db8:1:3::1')).status).toBe(201);
+        for (let i = 0; i < 10; i++) expect((await registerDcr(s, DCR_CLIENT, `2001:db8:1:2::${i + 1}`)).status).toBe(201);
+        expect((await registerDcr(s, DCR_CLIENT, '2001:db8:1:2:ffff:1:2:3')).status).toBe(429);
+        expect((await registerDcr(s, DCR_CLIENT, '2001:db8:1:3::1')).status).toBe(201);
+        // An IPv4-mapped address is its IPv4 address.
+        for (let i = 0; i < 10; i++) expect((await registerDcr(s, DCR_CLIENT, '203.0.113.77')).status).toBe(201);
+        expect((await registerDcr(s, DCR_CLIENT, '::ffff:203.0.113.77')).status).toBe(429);
 
         const token = (ip: string) => s.appFetch(`${ISSUER}/oauth/token`, { ...form({ grant_type: 'authorization_code', code: 'x', client_id: CIMD_ID }), headers: { 'content-type': 'application/x-www-form-urlencoded', 'x-real-ip': ip } });
         for (let i = 0; i < 60; i++) expect((await token('203.0.113.5')).status).toBe(400);
@@ -476,11 +481,10 @@ describe('hosted MCP: the OAuth flow', () => {
 
     it('limits registrations and consent pages from all IPs together', async () => {
         const s = setup();
-        const client = { redirect_uris: ['https://app.example/cb'], token_endpoint_auth_method: 'none' };
-        for (let i = 0; i < 60; i++) expect((await registerDcr(s, client, `198.51.100.${i}`)).status).toBe(201);
-        expect((await registerDcr(s, client, '198.51.100.200')).status).toBe(429);
+        for (let i = 0; i < 60; i++) expect((await registerDcr(s, DCR_CLIENT, `198.51.100.${i}`)).status).toBe(201);
+        expect((await registerDcr(s, DCR_CLIENT, '198.51.100.200')).status).toBe(429);
 
-        const consent = (ip: string) => s.appFetch(authorizeUrl({ client_id: CIMD_ID, redirect_uri: 'http://127.0.0.1:5000/callback', code_challenge: 'x'.repeat(43) }), { headers: { 'x-real-ip': ip } });
+        const consent = (ip: string) => consentFrom(s, ip);
         for (let i = 0; i < 60; i++) expect((await consent(`192.0.2.${i}`)).status).toBe(200);
         expect((await consent('192.0.2.200')).status).toBe(429);
     });
@@ -491,9 +495,8 @@ describe('hosted MCP: the OAuth flow', () => {
         s.kv.db.exec('BEGIN');
         for (let i = 0; i < 4999; i++) insert.run(`client:filler-${i}`, '{}');
         s.kv.db.exec('COMMIT');
-        const client = { redirect_uris: ['https://app.example/cb'], token_endpoint_auth_method: 'none' };
-        expect((await registerDcr(s, client)).status).toBe(201);
-        const full = await registerDcr(s, client, '198.51.100.9');
+        expect((await registerDcr(s, DCR_CLIENT)).status).toBe(201);
+        const full = await registerDcr(s, DCR_CLIENT, '198.51.100.9');
         expect(full.status).toBe(503);
         expect(await full.json()).toMatchObject({ error: 'temporarily_unavailable' });
     });

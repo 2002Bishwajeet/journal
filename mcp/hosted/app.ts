@@ -126,9 +126,11 @@ const tooMany = () => new Response('Too many requests', { status: 429, headers: 
 function clientIp(request: Request): string {
     const ip = request.headers.get('x-real-ip') || 'unknown';
     if (!net.isIPv6(ip)) return ip;
-    const groups = (part = '') => (part ? part.split(':') : []);
-    const [head, tail] = ip.split('::').map((part) => groups(part));
-    const all = tail ? [...head, ...Array<string>(8 - head.length - tail.length).fill('0'), ...tail] : head;
+    if (/^::ffff:\d+\./i.test(ip)) return ip.slice(7);
+    const [head, tail] = ip.split('::');
+    const h = head ? head.split(':') : [];
+    const t = tail ? tail.split(':') : [];
+    const all = tail === undefined ? h : [...h, ...Array<string>(8 - h.length - t.length).fill('0'), ...t];
     return `${all.slice(0, 4).map((g) => parseInt(g, 16).toString(16)).join(':')}::/64`;
 }
 
@@ -385,8 +387,7 @@ export function createHostedApp({ origin, kv, uploads, homebase = realHomebase, 
             if (pathname === TOKEN_PATH && !allowToken(clientIp(request))) return tooMany();
             if (pathname === REGISTER_PATH) {
                 if (!allowRegister(clientIp(request)) || !allowRegisterAll('')) return tooMany();
-                const { clients } = kv.db.prepare("SELECT COUNT(*) AS clients FROM kv WHERE key >= 'client:' AND key < 'client;'").get() as { clients: number };
-                if (clients >= MAX_CLIENTS) {
+                if (kv.count('client:') >= MAX_CLIENTS) {
                     return Response.json({ error: 'temporarily_unavailable', error_description: 'Journal is not taking new client registrations right now. Try again later.' }, { status: 503 });
                 }
                 // Checked here, before the library parses it: what it stores is what the client sent.
