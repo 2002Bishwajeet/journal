@@ -52,16 +52,16 @@ describe('identityFrom', () => {
 
 describe('the install card', () => {
     it('opens on Claude Desktop', () => {
-        const tabs = $$<HTMLButtonElement>('.install [role="tab"]');
-        expect(tabs.map((t) => t.textContent)).toEqual(['Claude Desktop', 'Claude Code', 'Cursor', 'Codex CLI']);
+        const tabs = $$<HTMLButtonElement>('.install .code-head [role="tab"]');
+        expect(tabs.map((t) => t.textContent)).toEqual(['Claude Desktop', 'Claude Code', 'Cursor', 'Codex CLI', 'Hermes Agent']);
         expect(tabs[0].getAttribute('aria-selected')).toBe('true');
         expect($<HTMLElement>('#panel-desktop').hidden).toBe(false);
         expect($('.install [role="tablist"]').getAttribute('aria-labelledby')).toBe('install-title');
-        expect($('#install-title').textContent).toBe('Which Claude do you use?');
+        expect($('#install-title').textContent).toBe('Which app do you use?');
     });
 
     it('has one numbered row and one Copy button per command, in every tab', () => {
-        for (const panel of $$('.install [role="tabpanel"]')) {
+        for (const panel of $$('.install .tab-panel')) {
             const rows = [...panel.querySelectorAll('ol.cmds > li.snippet')];
             expect(rows.length).toBeGreaterThan(1);
             for (const row of rows) {
@@ -69,7 +69,7 @@ describe('the install card', () => {
                 expect(row.querySelectorAll('pre code')).toHaveLength(1);
             }
         }
-        expect($$('#panel-claude-code [data-copy]')).toHaveLength(3);
+        expect($$('#local-claude-code [data-copy]')).toHaveLength(3);
     });
 
     it('copies exactly the one command of its row', async () => {
@@ -96,8 +96,8 @@ describe('the install card', () => {
     it('writes the address into every command and the revoke text as you type', async () => {
         startInstallCard(document);
         const identities = $$('.identity');
-        // Every login command (four tabs), the Claude Desktop extension's address step, the terminal output (two) and the revoke text.
-        expect(identities.length).toBe(8);
+        // Every login command (five tabs), the Claude Desktop extension's address step, the terminal output (two) and the revoke text.
+        expect(identities.length).toBe(9);
         expect($$('.identity-hint').every((hint) => !(hint as HTMLElement).hidden)).toBe(true);
 
         expect(identities.some((el) => el.hasAttribute('data-filled'))).toBe(false);
@@ -109,6 +109,7 @@ describe('the install card', () => {
         expect($$('.identity-hint').every((hint) => (hint as HTMLElement).hidden)).toBe(true);
         expect(await copy($('[data-copy="install-desktop-login"]'))).toBe('npx -y journal-mcp@latest login alex.dotyou.cloud');
         expect(await copy($('[data-copy="install-code-login"]'))).toBe('/journal:login alex.dotyou.cloud');
+        expect(await copy($('[data-copy="install-hermes-login"]'))).toBe('npx -y journal-mcp@latest login alex.dotyou.cloud');
         expect($('.fixes').textContent).toContain('login alex.dotyou.cloud');
 
         type('');
@@ -144,7 +145,7 @@ describe('the install card', () => {
     });
 
     it('shows each login with the hint under it', () => {
-        for (const id of ['install-desktop-login', 'install-code-login', 'install-cursor-login', 'install-codex-login']) {
+        for (const id of ['install-desktop-login', 'install-code-login', 'install-cursor-login', 'install-codex-login', 'install-hermes-login']) {
             const row = $(`#${id}`).closest('li')!;
             expect(row.querySelector('.identity-hint')!.textContent).toBe('Replace with your Homebase address, e.g. alex.dotyou.cloud');
         }
@@ -174,7 +175,7 @@ describe('the Claude Desktop extension (#1457)', () => {
     ];
 
     it('leads the Claude Desktop tab with the download and three steps, and folds the terminal route away', () => {
-        const panel = $('#panel-desktop');
+        const panel = $('#local-desktop');
         const link = panel.querySelector<HTMLAnchorElement>('a[data-mcpb]')!;
         expect(link.textContent).toBe('Download for Claude Desktop');
         expect(link.href).toContain('github.com/2002Bishwajeet/journal/releases');
@@ -211,6 +212,70 @@ describe('the Claude Desktop extension (#1457)', () => {
     });
 });
 
+describe('connecting online (#1512)', () => {
+    const URL = 'https://mcp.cloudx.run/journal';
+
+    it('gives every client a Local tab, shown first, and an Online one', () => {
+        for (const key of ['desktop', 'claude-code', 'cursor', 'codex', 'hermes']) {
+            const tabs = $$<HTMLButtonElement>(`#panel-${key} [role="tablist"] [role="tab"]`);
+            expect(tabs.map((t) => t.textContent!.replace(/\s+/g, ' '))).toEqual(['Local', 'Online Beta']);
+            expect(tabs.map((t) => t.getAttribute('aria-selected'))).toEqual(['true', 'false']);
+            expect(tabs.map((t) => t.getAttribute('aria-controls'))).toEqual([`local-${key}`, `online-${key}`]);
+            expect($<HTMLElement>(`#local-${key}`).hidden).toBe(false);
+            expect($<HTMLElement>(`#online-${key}`).hidden).toBe(true);
+        }
+    });
+
+    it('copies each client its online setup', async () => {
+        startInstallCard(document);
+        expect(await copy($('[data-copy="online-desktop-url"]'))).toBe(URL);
+        expect(await copy($('[data-copy="online-code-add"]'))).toBe(`claude mcp add --transport http journal ${URL}`);
+        expect(await copy($('[data-copy="online-code-plugin"]'))).toBe('/plugin install journal-online@journal');
+        expect(JSON.parse(`{${await copy($('[data-copy="online-cursor-config"]'))}}`)).toEqual({ journal: { url: URL } });
+        expect(await copy($('[data-copy="online-codex-add"]'))).toBe(`codex mcp add journal --url ${URL}`);
+        expect(await copy($('[data-copy="online-codex-login"]'))).toBe('codex mcp login journal');
+        expect(await copy($('[data-copy="online-hermes-config"]'))).toBe(`mcp_servers:\n  journal:\n    url: "${URL}"\n    auth: oauth`);
+        expect(await copy($('[data-copy="online-hermes-login"]'))).toBe('hermes mcp login journal');
+        const desktop = $('#online-desktop').textContent!.replace(/\s+/g, ' ');
+        expect(desktop).toContain('Settings → Connectors');
+        expect(desktop).toContain('Add custom connector');
+        expect(desktop).toContain('approve Journal MCP');
+    });
+
+    it('installs in Cursor in one click', () => {
+        const [cursor, query] = $<HTMLAnchorElement>('#online-cursor a[href^="cursor:"]').getAttribute('href')!.split('?');
+        const params = new URLSearchParams(query);
+        expect(cursor).toBe('cursor://anysphere.cursor-deeplink/mcp/install');
+        expect(params.get('name')).toBe('journal');
+        expect(JSON.parse(atob(params.get('config')!))).toEqual({ url: URL });
+    });
+
+    it('names only the one hosted address', () => {
+        expect([...new Set(html.match(/https?:\/\/mcp\.cloudx\.run[^\s"<]*/g))]).toEqual([URL]);
+    });
+
+    it('says it is a beta, to pick one way, how to disconnect and what is kept', () => {
+        const text = $('#setup .setup-copy').textContent!.replace(/\s+/g, ' ');
+        expect(text).toContain('Pick one way per app, not both');
+        expect(text).toContain('free while the beta lasts, with fair-use limits');
+        expect(text).toContain('plans may come later');
+        expect(text).toContain('Its tokens are stored hashed and encrypted, and note content isn\'t logged; choose Local to keep everything on your own computer.');
+        expect(text).toContain('To disconnect either way, remove Journal MCP under Apps in your Homebase owner console.');
+        expect(html).toMatch(/<meta name="description" content="[^"]*online with nothing to install/);
+    });
+
+    it('lists the journal-online plugin with the hosted server, and keeps the local plugin as it was', () => {
+        const market = JSON.parse(read('.claude-plugin/marketplace.json'));
+        expect(market.plugins.map((p: { name: string; source: string }) => [p.name, p.source])).toEqual([
+            ['journal', './plugins/journal'],
+            ['journal-online', './plugins/journal-online'],
+        ]);
+        expect(JSON.parse(read('plugins/journal-online/.mcp.json'))).toEqual({ mcpServers: { journal: { type: 'http', url: URL } } });
+        expect(JSON.parse(read('plugins/journal-online/.claude-plugin/plugin.json')).name).toBe('journal-online');
+        expect(JSON.parse(read('plugins/journal/.mcp.json'))).toEqual({ mcpServers: { journal: { command: 'npx', args: ['-y', 'journal-mcp@latest'] } } });
+    });
+});
+
 describe('the page copy', () => {
     it('never shows the old sample identity', () => {
         expect(html).not.toContain('you.dotyou.cloud');
@@ -224,8 +289,8 @@ describe('the page copy', () => {
         expect(rows).toEqual([
             ['Claude Desktop (Mac, Windows)', 'Yes'],
             ['Claude Code', 'Yes'],
-            ['claude.ai on the web', 'Not yet'],
-            ['Claude on iPhone and Android', 'Not yet'],
+            ['claude.ai on the web', 'Yes, online'],
+            ['Claude on iPhone and Android', 'Yes, online'],
         ]);
         const can = $('.can').textContent!.replace(/\s+/g, ' ');
         expect(can).toContain('only in the folders you grant');

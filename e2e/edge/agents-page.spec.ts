@@ -12,16 +12,16 @@ const VIEWPORTS = [
 
 test('the agents page install card, at 1280 and 390, light and dark', async ({ page }) => {
   await page.goto('/landing/agents');
-  await expect(page.getByRole('heading', { name: 'Which Claude do you use?' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Which app do you use?' })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Claude Desktop' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByRole('link', { name: 'Download for Claude Desktop' })).toBeVisible();
-  await expect(page.locator('#panel-desktop > ol.cmds > li')).toHaveCount(3);
+  await expect(page.locator('#local-desktop > ol.cmds > li')).toHaveCount(3);
   await expect(page.locator('#install-desktop-login')).toBeHidden();
 
   const address = page.getByLabel('Your Homebase address');
   await address.fill('alex.dotyou.cloud');
   await expect(page.locator('#install-desktop-login')).toHaveText('npx -y journal-mcp@latest login alex.dotyou.cloud');
-  await expect(page.locator('.identity')).toHaveText(Array(8).fill('alex.dotyou.cloud'));
+  await expect(page.locator('.identity')).toHaveText(Array(9).fill('alex.dotyou.cloud'));
   await address.fill('');
   await expect(page.locator('#install-desktop-login')).toHaveText('npx -y journal-mcp@latest login type.your.identity.here');
 
@@ -51,6 +51,39 @@ test('the agents page install card, at 1280 and 390, light and dark', async ({ p
       await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
       await page.screenshot({ path: test.info().outputPath(`agents-${colorScheme}-${viewport.name}.png`), fullPage: true, animations: 'disabled' });
       await page.locator('#setup .setup-step').first().screenshot({ path: test.info().outputPath(`agents-install-${colorScheme}-${viewport.name}.png`), animations: 'disabled' });
+    }
+  }
+});
+
+// #1512: each client's tab switches between Local (first) and Online, the hosted server with nothing to install.
+test('the online setup in each client tab, at 1280 and 390, light and dark', async ({ page }) => {
+  await page.goto('/landing/agents');
+  const install = page.locator('#setup .setup-step').first();
+
+  await page.locator('#panel-desktop').getByRole('tab', { name: 'Online Beta' }).click();
+  await expect(page.locator('#online-desktop-url')).toHaveText('https://mcp.cloudx.run/journal');
+  await expect(page.getByRole('link', { name: 'Download for Claude Desktop' })).toBeHidden();
+
+  await page.getByRole('tab', { name: 'Claude Code', exact: true }).click();
+  await page.locator('#panel-claude-code').getByRole('tab', { name: 'Online Beta' }).click();
+  await expect(page.locator('#online-code-add')).toHaveText('claude mcp add --transport http journal https://mcp.cloudx.run/journal');
+  await expect(page.locator('#install-code-login')).toBeHidden();
+  await page.locator('#panel-claude-code').getByRole('tab', { name: 'Local', exact: true }).click();
+  await expect(page.locator('#install-code-login')).toBeVisible();
+
+  const clients = [['Claude Desktop', 'desktop'], ['Claude Code', 'claude-code'], ['Cursor', 'cursor'], ['Codex CLI', 'codex'], ['Hermes Agent', 'hermes']] as const;
+  for (const viewport of VIEWPORTS) {
+    await page.setViewportSize(viewport);
+    for (const colorScheme of ['light', 'dark'] as const) {
+      await page.emulateMedia({ colorScheme });
+      for (const [tab, key] of clients) {
+        await page.getByRole('tab', { name: tab, exact: true }).click();
+        await page.locator(`#panel-${key}`).getByRole('tab', { name: 'Online Beta' }).click();
+        await expect(page.locator(`#online-${key}`)).toBeVisible();
+        await install.scrollIntoViewIfNeeded();
+        await expect(install).toHaveClass(/\bin\b/);
+        await install.screenshot({ path: test.info().outputPath(`agents-online-${key}-${colorScheme}-${viewport.name}.png`), animations: 'disabled' });
+      }
     }
   }
 });

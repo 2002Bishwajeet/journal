@@ -11,6 +11,11 @@
       "name": "journal",
       "source": "./plugins/journal",
       "description": "Read, search and edit your Journal notes from Claude Code"
+    },
+    {
+      "name": "journal-online",
+      "source": "./plugins/journal-online",
+      "description": "Your Journal notes in Claude Code through the hosted server, no install (Beta)"
     }
   ]
 }

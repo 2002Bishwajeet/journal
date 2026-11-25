@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "journal": {
+      "type": "http",
+      "url": "https://mcp.cloudx.run/journal"
+    }
+  }
+}
