@@ -18,7 +18,7 @@ import { runScript } from '../runScript';
 import { buildAuthUrl, checkIdentity, finalizeYouAuth } from '../youauth';
 import { UPLOAD_PATH, hostedImages } from './images';
 import type { SqliteKv } from './kv';
-import { PAGE_CSP, consentPage, messagePage } from './pages';
+import { consentPage, html, messagePage } from './pages';
 import { HOSTED_SCRIPT_LIMITS, scriptSlots, workerGuest } from './scripts';
 
 /** What the hosted server needs from Homebase: replaced by fakes in tests. */
@@ -99,12 +99,6 @@ export const RETRY_MESSAGE =
 export const RECONNECT_MESSAGE =
     'Journal lost access to your notes: the Journal MCP app was removed or its access revoked on your Homebase identity. Reconnect this Journal connector (sign in again) to keep using it.';
 
-const html = (body: string, status: number, headers = new Headers()) => {
-    headers.set('Content-Type', 'text/html; charset=utf-8');
-    headers.set('Cache-Control', 'no-store');
-    headers.append('Content-Security-Policy', PAGE_CSP);
-    return new Response(body, { status, headers });
-};
 const redirect = (location: string, headers = new Headers()) => {
     headers.set('Location', location);
     return new Response(null, { status: 302, headers });

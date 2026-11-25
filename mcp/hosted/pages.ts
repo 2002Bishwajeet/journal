@@ -20,6 +20,14 @@ button.primary{background:#1c1b1a;color:#faf9f7;border-color:#1c1b1a}@media (pre
 // No script or subresource; the form may post here, then be sent on to the user's Homebase identity.
 export const PAGE_CSP = "default-src 'none'; style-src 'unsafe-inline'; form-action 'self' https:; base-uri 'none'";
 
+/** An HTML response, never cached, under `csp`. */
+export const html = (body: string, status: number, headers = new Headers(), csp = PAGE_CSP) => {
+    headers.set('Content-Type', 'text/html; charset=utf-8');
+    headers.set('Cache-Control', 'no-store');
+    headers.append('Content-Security-Policy', csp);
+    return new Response(body, { status, headers });
+};
+
 /** The upload page's: its own script, and fetch back to this server. */
 export const uploadPageCsp = (nonce: string) =>
     `default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'`;

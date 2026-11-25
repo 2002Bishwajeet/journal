@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { MAX_IMAGE_BYTES, assertImageByteSize, prepareImageBytes, type PreparedImage } from '@/lib/images/imageBytes';
 import { loadImage } from '../imageSource';
 import type { SqliteKv } from './kv';
-import { PAGE_CSP, messagePage, uploadPage, uploadPageCsp } from './pages';
+import { html, messagePage, uploadPage, uploadPageCsp } from './pages';
 import { publicOnlyAgent } from './publicFetch';
 
 // Images on the hosted server (#1506), which can't read the user's files. create_image_upload hands the agent a
@@ -12,10 +12,10 @@ import { publicOnlyAgent } from './publicFetch';
 export const UPLOAD_PATH = '/journal/upload/';
 const SOURCE = 'upload://';
 /** How long an upload URL takes its one POST, and how long an uploaded image waits to be placed, in seconds. */
-export const UPLOAD_URL_TTL = 15 * 60;
-export const UPLOADED_TTL = 60 * 60;
+const UPLOAD_URL_TTL = 15 * 60;
+const UPLOADED_TTL = 60 * 60;
 /** For tiny generated images: anything larger costs the model too many tokens, so it goes through an upload. */
-export const MAX_DATA_URI_BYTES = 256 * 1024;
+const MAX_DATA_URI_BYTES = 256 * 1024;
 const FETCH_TIMEOUT_MS = 10_000;
 
 export const PATHS_REFUSED =
@@ -39,10 +39,6 @@ interface Uploaded {
     /** The image, checked and stripped of metadata, as base64. */
     image: string;
 }
-
-const message = (e: unknown) => (e instanceof Error ? e.message : 'Something went wrong.');
-const page = (body: string, status: number, csp = PAGE_CSP) =>
-    new Response(body, { status, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Content-Security-Policy': csp } });
 
 /**
  * A web image's bytes: public addresses only (publicOnlyAgent checks each address it connects to, after
@@ -71,13 +67,14 @@ export async function fetchImage(url: string): Promise<Uint8Array> {
         }
         chunks.push(value);
     }
-    return new Uint8Array(Buffer.concat(chunks));
+    return Buffer.concat(chunks);
 }
 
 /** The hosted server's images, kept in `kv`; `grant` is always the grant id of the MCP request at hand. */
 export function hostedImages(kv: SqliteKv, origin: string) {
-    const idOf = (pathname: string) => {
-        const id = pathname.startsWith(UPLOAD_PATH) ? pathname.slice(UPLOAD_PATH.length) : '';
+    /** The upload id after `prefix` (UPLOAD_PATH or SOURCE), if well formed. */
+    const idOf = (text: string, prefix = UPLOAD_PATH) => {
+        const id = text.startsWith(prefix) ? text.slice(prefix.length) : '';
         return ID.test(id) ? id : null;
     };
     const pendingOf = async (id: string | null) => (id ? ((await kv.get(pendingKey(id), 'json')) as Pending | null) : null);
@@ -106,11 +103,11 @@ export function hostedImages(kv: SqliteKv, origin: string) {
             const pending = await pendingOf(id);
             const wantsPage = request.headers.get('accept')?.includes('text/html');
             const fail = (status: number, text: string) =>
-                wantsPage ? page(messagePage('The image was not uploaded', text), status) : Response.json({ error: text }, { status });
+                wantsPage ? html(messagePage('The image was not uploaded', text), status) : Response.json({ error: text }, { status });
             if (!id || !pending) return fail(404, LINK_EXPIRED);
             if (request.method === 'GET') {
                 const nonce = randomBytes(16).toString('base64');
-                return page(uploadPage(pending.filename, nonce), 200, uploadPageCsp(nonce));
+                return html(uploadPage(pending.filename, nonce), 200, undefined, uploadPageCsp(nonce));
             }
             if (request.method !== 'POST') return new Response(null, { status: 405, headers: { Allow: 'GET, POST' } });
 
@@ -122,13 +119,13 @@ export function hostedImages(kv: SqliteKv, origin: string) {
                 image = prepareImageBytes(new Uint8Array(await file.arrayBuffer()));
             } catch (e) {
                 // The link stays usable: the person can pick another image.
-                return fail(400, message(e));
+                return fail(400, (e as Error).message);
             }
             // Single use: of two uploads racing, one takes the link.
             if (!(await kv.take(pendingKey(id)))) return fail(404, LINK_EXPIRED);
             const uploaded: Uploaded = { grant: pending.grant, image: Buffer.from(image.bytes).toString('base64') };
             await kv.put(uploadedKey(id), JSON.stringify(uploaded), { expirationTtl: UPLOADED_TTL });
-            if (wantsPage) return page(messagePage('Image uploaded', 'Go back to your chat and tell your agent the image is there.'), 200);
+            if (wantsPage) return html(messagePage('Image uploaded', 'Go back to your chat and tell your agent the image is there.'), 200);
             return Response.json({ source: `${SOURCE}${id}`, contentType: image.contentType, width: image.width, height: image.height });
         },
 
@@ -138,7 +135,7 @@ export function hostedImages(kv: SqliteKv, origin: string) {
          */
         async load(grant: string, src: string): Promise<PreparedImage> {
             if (src.startsWith(SOURCE)) {
-                const id = idOf(UPLOAD_PATH + src.slice(SOURCE.length));
+                const id = idOf(src, SOURCE);
                 const uploaded = id ? ((await kv.get(uploadedKey(id), 'json')) as Uploaded | null) : null;
                 if (id && uploaded?.grant === grant && (await kv.take(uploadedKey(id)))) {
                     return prepareImageBytes(new Uint8Array(Buffer.from(uploaded.image, 'base64')));
