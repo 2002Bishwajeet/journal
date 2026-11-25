@@ -14,7 +14,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { UnauthorizedError, type OAuthClientProvider } from '@modelcontextprotocol/sdk/client/auth.js';
 import type { OAuthClientInformationMixed, OAuthTokens } from '@modelcontextprotocol/sdk/shared/auth.js';
 import { createHostedApp, RECONNECT_MESSAGE, RETRY_MESSAGE, type HomebaseDeps } from '../../mcp/hosted/app';
-import { PATHS_REFUSED, fetchImage } from '../../mcp/hosted/images';
+import { PATHS_REFUSED, fetchImage, purgeUploads, uploadsDb } from '../../mcp/hosted/images';
 import { sqliteKv } from '../../mcp/hosted/kv';
 import { MAX_BODY_BYTES, SMALL_BODY_BYTES, nodeListener } from '../../mcp/hosted/node';
 import { isBlockedAddress, publicOnlyAgent } from '../../mcp/hosted/publicFetch';
@@ -108,10 +108,12 @@ beforeAll(async () => {
 }, 60_000);
 
 function setup(rateLimit?: number) {
-    const kv = sqliteKv(path.join(mkdtempSync(path.join(tmpdir(), 'journal-hosted-')), 'grants.sqlite'));
-    const app = createHostedApp({ origin: ORIGIN, kv, homebase, rateLimit, scriptWorker: bundle });
+    const dir = mkdtempSync(path.join(tmpdir(), 'journal-hosted-'));
+    const kv = sqliteKv(path.join(dir, 'grants.sqlite'));
+    const uploads = uploadsDb(path.join(dir, 'uploads.sqlite'));
+    const app = createHostedApp({ origin: ORIGIN, kv, uploads, homebase, rateLimit, scriptWorker: bundle });
     const appFetch = (input: RequestInfo | URL, init?: RequestInit) => app.fetch(new Request(input, init));
-    return { kv, app, appFetch };
+    return { kv, uploads, app, appFetch };
 }
 type Setup = ReturnType<typeof setup>;
 
@@ -885,8 +887,8 @@ describe('hosted MCP: images (#1506)', () => {
         const late = await callTool(s, fresh.access_token, 'create_note', { title: 'x', folderId: 'F1', markdown: `![x](${upload.source})` });
         expect(late.text).toContain('Upload not found');
         expect(drive.uploaded).toHaveLength(0);
-        s.kv.purgeExpired();
-        expect(s.kv.db.prepare("SELECT count(*) AS n FROM kv WHERE key LIKE 'hosted:%'").get()).toEqual({ n: 0 });
+        purgeUploads(s.uploads);
+        expect({ ...s.uploads.prepare('SELECT count(*) AS n FROM uploads').get() }).toEqual({ n: 0 });
     });
 
     it('refuses an oversize, non-image or malformed upload and keeps the link for another try', async () => {
@@ -913,6 +915,70 @@ describe('hosted MCP: images (#1506)', () => {
         expect((await postImage(s, upload.upload_url, COVER_PNG)).status).toBe(200);
     });
 
+    it('ends an upload URL after 5 refused POSTs', async () => {
+        const s = setup();
+        const { tokens } = await connectCimd(s);
+        const upload = await createUpload(s, tokens.access_token);
+        for (let i = 0; i < 5; i++) expect((await postImage(s, upload.upload_url, new TextEncoder().encode('x'))).status).toBe(400);
+        expect((await postImage(s, upload.upload_url, COVER_PNG)).status).toBe(404);
+    });
+
+    it('caps what one user holds (5 waiting upload URLs, 25 MB not yet placed), in a file apart from the grants', async () => {
+        const s = setup();
+        const { tokens } = await connectCimd(s);
+        const drive = writableDrive();
+        const links = [];
+        for (let i = 0; i < 5; i++) links.push(await createUpload(s, tokens.access_token));
+        expect((await callTool(s, tokens.access_token, 'create_image_upload', { filename: 'six.png' })).text).toContain('At most 5 upload URLs');
+
+        // A valid 4.9 MB PNG: the fixture with a large IDAT before its IEND.
+        const iend = COVER_PNG.length - 12;
+        const filler = new Uint8Array(12 + 4.9 * 1024 * 1024);
+        new DataView(filler.buffer).setUint32(0, filler.length - 12);
+        filler.set(Buffer.from('IDAT'), 4);
+        const big = new Uint8Array([...COVER_PNG.subarray(0, iend), ...filler, ...COVER_PNG.subarray(iend)]);
+        for (const link of links) expect((await postImage(s, link.upload_url, big)).status).toBe(200);
+        const sixth = await createUpload(s, tokens.access_token);
+        const refused = await postImage(s, sixth.upload_url, big);
+        expect(refused.status).toBe(429);
+        expect((await refused.json()).error).toContain('Too many uploaded images are waiting to be placed');
+        // Placing one frees its room, and the link still works.
+        expect((await callTool(s, tokens.access_token, 'create_note', { title: 'x', folderId: 'F1', markdown: `![x](${links[0].source})` })).isError).toBe(false);
+        expect(drive.uploaded).toHaveLength(1);
+        expect((await postImage(s, sixth.upload_url, big)).status).toBe(200);
+
+        // Raw BLOBs in uploads.sqlite, overwritten when deleted; nothing of them in grants.sqlite.
+        expect({ ...s.uploads.prepare('SELECT DISTINCT typeof(image) AS type FROM uploads').get() }).toEqual({ type: 'blob' });
+        expect({ ...s.uploads.prepare('PRAGMA secure_delete').get() }).toEqual({ secure_delete: 1 });
+        expect({ ...s.kv.db.prepare("SELECT count(*) AS n FROM kv WHERE key LIKE 'hosted:upload%'").get() }).toEqual({ n: 0 });
+    });
+
+    it('puts an upload back when the call placing it fails, so the agent can retry with the same source', async () => {
+        const s = setup();
+        const { tokens } = await connectCimd(s);
+        const drive = writableDrive();
+        const upload = await createUpload(s, tokens.access_token);
+        await postImage(s, upload.upload_url, COVER_PNG);
+        const uploadNoteImage = driveOverride.uploadNoteImage;
+        driveOverride.uploadNoteImage = async () => {
+            throw new Error('Homebase is down');
+        };
+        const markdown = `![x](${upload.source})`;
+        expect((await callTool(s, tokens.access_token, 'create_note', { title: 'x', folderId: 'F1', markdown })).isError).toBe(true);
+        driveOverride.uploadNoteImage = uploadNoteImage;
+        expect((await callTool(s, tokens.access_token, 'create_note', { title: 'x', folderId: 'F1', markdown })).isError).toBe(false);
+        expect(drive.uploaded).toHaveLength(1);
+        expect((await callTool(s, tokens.access_token, 'create_note', { title: 'x', folderId: 'F1', markdown })).text).toContain('Upload not found');
+    });
+
+    it('rate-limits upload pages and uploads per client IP', async () => {
+        const s = setup();
+        const from = (ip: string) => s.appFetch(`${ORIGIN}/journal/upload/nope`, { headers: { 'x-real-ip': ip } });
+        for (let i = 0; i < 30; i++) expect((await from('203.0.113.9')).status).toBe(404);
+        expect((await from('203.0.113.9')).status).toBe(429);
+        expect((await from('203.0.113.10')).status).toBe(404);
+    });
+
     it('shows a page to upload on, with a nonce script and the file name escaped', async () => {
         const s = setup();
         const { tokens } = await connectCimd(s);
@@ -920,6 +986,7 @@ describe('hosted MCP: images (#1506)', () => {
         const response = await s.appFetch(upload.upload_url, { headers: { accept: 'text/html' } });
         expect(response.status).toBe(200);
         expect(response.headers.get('cache-control')).toBe('no-store');
+        expect(response.headers.get('referrer-policy')).toBe('no-referrer');
         const csp = response.headers.get('content-security-policy')!;
         const nonce = /'nonce-([^']+)'/.exec(csp)![1];
         expect(csp).toContain("default-src 'none'");
@@ -929,6 +996,8 @@ describe('hosted MCP: images (#1506)', () => {
         // The script is JavaScript as written: parsing it (not running it) throws on a broken escape.
         const script = /<script nonce="[^"]+">([\s\S]*)<\/script>/.exec(page)![1];
         expect(() => new Function(script)).not.toThrow();
+        // A canvas that can't encode is an error, not a "null" upload.
+        expect(script).toContain('if(!blob)throw');
         expect(page).toContain('&lt;b&gt;cat&lt;/b&gt;.png');
         expect(page).toContain('type="file" accept="image/png,image/jpeg,image/webp"');
         expect(page).toContain('enctype="multipart/form-data"');
@@ -1021,6 +1090,40 @@ describe('hosted MCP: images (#1506)', () => {
         expect(await send('/journal/upload/live', 5 * 1024 * 1024)).toBe(200);
         expect(await send('/journal/upload/live', MAX_BODY_BYTES + 1)).toBe(413);
         expect(await send('/journal/upload/used', SMALL_BODY_BYTES + 1)).toBe(413);
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+    });
+
+    it('takes one body at a time per upload URL through the node bridge: a second, while the first is open, gets 429', async () => {
+        let release!: () => void;
+        const held = new Promise<void>((resolve) => (release = resolve));
+        const server = createServer(
+            nodeListener(
+                async () => {
+                    await held;
+                    return new Response('ok');
+                },
+                ORIGIN,
+                [],
+                async () => true
+            )
+        );
+        await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+        const { port } = server.address() as AddressInfo;
+        const send = (path: string) =>
+            new Promise<number | undefined>((resolve, reject) => {
+                const req = httpRequest({ host: '127.0.0.1', port, path, method: 'POST' }, (res) => {
+                    res.resume();
+                    resolve(res.statusCode);
+                });
+                req.on('error', reject);
+                req.end('x');
+            });
+        const first = send('/journal/upload/a');
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        expect(await send('/journal/upload/a')).toBe(429);
+        release();
+        expect(await first).toBe(200);
+        expect(await send('/journal/upload/a')).toBe(200);
         await new Promise<void>((resolve) => server.close(() => resolve()));
     });
 

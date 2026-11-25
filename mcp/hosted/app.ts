@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import type { DatabaseSync } from 'node:sqlite';
 import {
     OAuthAuthorizationServer,
     OAuthResourceServer,
@@ -41,6 +42,8 @@ export interface HostedOptions {
     /** The public origin, e.g. https://mcp.cloudx.run. Every URL is built from it, never from Host. */
     origin: string;
     kv: SqliteKv;
+    /** The image uploads (uploadsDb), apart from the grants in `kv`. */
+    uploads: DatabaseSync;
     homebase?: HomebaseDeps;
     /** MCP requests per user per minute. */
     rateLimit?: number;
@@ -59,6 +62,8 @@ const DAY = 24 * 60 * 60;
 /** Per client IP per minute: dynamic client registrations, and consent pages and forms. */
 const REGISTER_LIMIT = 10;
 const AUTHORIZE_LIMIT = 30;
+/** Per client IP per minute: upload pages and uploads. */
+const UPLOAD_LIMIT = 30;
 /** Larger than any real client's registration. */
 const MAX_REGISTRATION_BYTES = 8 * 1024;
 /** How long a token Homebase turned away must keep failing before its grant is revoked. */
@@ -138,7 +143,7 @@ function rateLimiter(limit: number) {
  * encrypted under a per-grant key that only the grant's own tokens unwrap. The client never sees the Homebase
  * token, and Homebase never sees the client's.
  */
-export function createHostedApp({ origin, kv, homebase = realHomebase, rateLimit = 120, scriptWorker }: HostedOptions) {
+export function createHostedApp({ origin, kv, uploads, homebase = realHomebase, rateLimit = 120, scriptWorker }: HostedOptions) {
     const issuer = `${origin}${BASE}`;
     const resource = `${origin}${MCP_PATH}`;
     const env = { OAUTH_KV: kv };
@@ -180,9 +185,10 @@ export function createHostedApp({ origin, kv, homebase = realHomebase, rateLimit
     const allowMcp = rateLimiter(rateLimit);
     const allowRegister = rateLimiter(REGISTER_LIMIT);
     const allowAuthorize = rateLimiter(AUTHORIZE_LIMIT);
+    const allowUpload = rateLimiter(UPLOAD_LIMIT);
     const admitScript = scriptSlots();
     const scriptGuest = workerGuest(scriptWorker);
-    const images = hostedImages(kv, origin);
+    const images = hostedImages(uploads, origin);
 
     async function serveMcp(request: Request, context: OAuthResourceContext<McpCredentials>): Promise<Response> {
         if (request.method !== 'POST') return new Response(null, { status: 405, headers: { Allow: 'POST' } });
@@ -198,12 +204,14 @@ export function createHostedApp({ origin, kv, homebase = realHomebase, rateLimit
         // Uploaded images are bound to the grant, looked up only for a call that uploads or places one.
         let grantId: Promise<string> | undefined;
         const grantIdOf = () => (grantId ??= oauth.unwrapToken(context.auth.token).then((token) => token!.grantId));
+        /** Uploads this request took, put back if no call in it succeeded: the agent can retry with the same source. */
+        const taken: (() => void)[] = [];
 
         const response = await grantContext.run(grant, async () => {
             // Stateless, as mcp/http.ts: a fresh server and transport per POST.
             const server = createJournalMcpServer(() => homebase.driveDeps(creds), undefined, {
-                loadImage: async (src) => images.load(await grantIdOf(), src),
-                createImageUpload: async (filename) => images.create(await grantIdOf(), filename),
+                loadImage: async (src) => images.load(await grantIdOf(), src, taken),
+                createImageUpload: async (filename) => images.create(user, await grantIdOf(), filename),
                 runScript: (deps, code, dryRun) => admitScript(user, () => runScript(deps, code, dryRun, scriptGuest)),
                 scriptCpuMs: HOSTED_SCRIPT_LIMITS.cpuMs,
             });
@@ -215,6 +223,10 @@ export function createHostedApp({ origin, kv, homebase = realHomebase, rateLimit
                 await server.close();
             }
         });
+        if (taken.length) {
+            const answers = [await response.clone().json().catch(() => null)].flat() as { result?: { isError?: boolean } }[];
+            if (!answers.some((a) => a?.result && !a.result.isError)) for (const putBack of taken) putBack();
+        }
 
         // A 401/403 can also be one call the app may not make, or a Homebase hiccup: only an app token that
         // verifytoken calls dead, and still dead a minute later, ends the grant.
@@ -337,7 +349,7 @@ export function createHostedApp({ origin, kv, homebase = realHomebase, rateLimit
         opensLargeBody: images.isLive,
         async fetch(request: Request): Promise<Response> {
             const { pathname } = new URL(request.url);
-            if (pathname.startsWith(UPLOAD_PATH)) return images.serve(request);
+            if (pathname.startsWith(UPLOAD_PATH)) return allowUpload(clientIp(request)) ? images.serve(request) : tooMany();
             if (pathname === AUTHORIZE_PATH) return authorize(request);
             if (pathname === CALLBACK_PATH) return callback(request);
             if (pathname === REVOKE_PATH) return revoke(request);

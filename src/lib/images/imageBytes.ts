@@ -5,6 +5,9 @@
  */
 
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+/** Larger than any photo: past these a small file can still decode to gigabytes of pixels. */
+const MAX_SIDE = 16384;
+const MAX_PIXELS = 100_000_000;
 
 export type ImageType = 'image/png' | 'image/jpeg' | 'image/webp';
 
@@ -16,8 +19,10 @@ export interface PreparedImage {
 }
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-const PNG_METADATA_CHUNKS = new Set(['eXIf', 'tEXt', 'iTXt', 'zTXt']);
-const WEBP_METADATA_CHUNKS = new Set(['EXIF', 'XMP ']);
+// What is kept: the chunks and segments that draw the image. Everything else (EXIF, XMP, text, comments,
+// IPTC, private chunks, trailing bytes) is metadata or a hiding place for it.
+const PNG_KEPT = new Set(['IHDR', 'PLTE', 'IDAT', 'IEND', 'tRNS', 'gAMA', 'cHRM', 'sRGB', 'iCCP', 'sBIT', 'pHYs', 'bKGD']);
+const WEBP_KEPT = new Set(['VP8 ', 'VP8L', 'VP8X', 'ALPH', 'ICCP', 'ANIM', 'ANMF']);
 // VP8X flag bits that announce an EXIF or XMP chunk.
 const VP8X_EXIF_XMP_FLAGS = 0x08 | 0x04;
 
@@ -39,7 +44,7 @@ export function sniffImageType(bytes: Uint8Array): ImageType | null {
     return null;
 }
 
-/** PNG chunks as [start, end) byte ranges (length + type + data + CRC), after the signature. */
+/** PNG chunks as [start, end) byte ranges (length + type + data + CRC), after the signature, up to IEND. */
 function pngChunks(bytes: Uint8Array): { type: string; start: number; end: number }[] {
     const chunks = [];
     let i = PNG_SIGNATURE.length;
@@ -47,46 +52,67 @@ function pngChunks(bytes: Uint8Array): { type: string; start: number; end: numbe
         if (i + 12 > bytes.length) throw invalid('image/png');
         const end = i + 12 + u32be(bytes, i);
         if (end > bytes.length) throw invalid('image/png');
-        chunks.push({ type: ascii(bytes, i + 4, 4), start: i, end });
+        const type = ascii(bytes, i + 4, 4);
+        chunks.push({ type, start: i, end });
+        if (type === 'IEND') break;
         i = end;
     }
     return chunks;
 }
 
-/** JPEG marker segments before the scan data as [start, end) ranges, and where the scan starts. */
-function jpegSegments(bytes: Uint8Array): { segments: { marker: number; start: number; end: number }[]; scanStart: number } {
+const isSof = (marker: number) => marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker);
+
+/**
+ * JPEG segments after SOI as [start, end) ranges, up to EOI. A scan (SOS) runs on through its
+ * entropy-coded data, to the next marker that isn't a stuffed 0xFF00 or an RSTn.
+ */
+function jpegSegments(bytes: Uint8Array): { marker: number; start: number; end: number }[] {
     const segments = [];
     let i = 2; // after SOI
-    while (i + 4 <= bytes.length) {
+    while (i + 1 < bytes.length) {
         if (bytes[i] !== 0xff) throw invalid('image/jpeg');
         const marker = bytes[i + 1];
         if (marker === 0xff) {
             i++; // fill byte
             continue;
         }
+        if (marker === 0xd9) {
+            segments.push({ marker, start: i, end: i + 2 });
+            break;
+        }
         if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
             i += 2; // TEM and RSTn have no length
             continue;
         }
-        const end = i + 2 + u16be(bytes, i + 2);
+        if (i + 4 > bytes.length) throw invalid('image/jpeg');
+        let end = i + 2 + u16be(bytes, i + 2);
         if (end > bytes.length) throw invalid('image/jpeg');
-        // SOS: everything from here on is entropy-coded data, copied as is.
-        if (marker === 0xda) return { segments, scanStart: i };
+        if (marker === 0xda) {
+            while (end < bytes.length && !(bytes[end] === 0xff && bytes[end + 1] !== 0 && !(bytes[end + 1] >= 0xd0 && bytes[end + 1] <= 0xd7))) end++;
+        }
         segments.push({ marker, start: i, end });
         i = end;
     }
-    throw invalid('image/jpeg');
+    if (!segments.some((s) => s.marker === 0xda)) throw invalid('image/jpeg');
+    return segments;
 }
 
-/** WebP chunks after the 12-byte RIFF header as [start, end) ranges, padding included. */
+/** Kept: APP0 (JFIF), APP2 only as an ICC profile, APP14 (Adobe), DQT, DHT, DAC, SOFn, DRI, SOS with its scan, EOI. */
+function keptJpegSegment(bytes: Uint8Array, { marker, start }: { marker: number; start: number }): boolean {
+    if (marker === 0xe2) return ascii(bytes, start + 4, 12) === 'ICC_PROFILE\0';
+    return [0xe0, 0xee, 0xdb, 0xc4, 0xcc, 0xdd, 0xda, 0xd9].includes(marker) || isSof(marker);
+}
+
+/** WebP chunks after the 12-byte RIFF header as [start, end) ranges, padding included, within the RIFF size. */
 function webpChunks(bytes: Uint8Array): { type: string; start: number; end: number }[] {
     const chunks = [];
+    const length = Math.min(bytes.length, 8 + u32le(bytes, 4));
     let i = 12;
-    while (i < bytes.length) {
-        if (i + 8 > bytes.length) throw invalid('image/webp');
+    while (i < length) {
+        if (i + 8 > length) throw invalid('image/webp');
         const size = u32le(bytes, i + 4);
         const end = i + 8 + size + (size % 2);
-        if (end > bytes.length) throw invalid('image/webp');
+        if (end > length) throw invalid('image/webp');
         chunks.push({ type: ascii(bytes, i, 4), start: i, end });
         i = end;
     }
@@ -104,22 +130,21 @@ function concat(parts: Uint8Array[]): Uint8Array {
 }
 
 /**
- * The image without its metadata: JPEG APP1 segments (EXIF, XMP), PNG eXIf/tEXt/iTXt/zTXt
- * chunks, WebP EXIF/XMP chunks. The pixels are untouched. Note that EXIF orientation goes
- * with the EXIF, so a rotated phone JPEG shows as stored.
+ * The image with only what draws it: the PNG_KEPT chunks, the keptJpegSegment segments, the WEBP_KEPT
+ * chunks, and nothing after the end of the image. The pixels are untouched. Note that EXIF orientation
+ * goes with the EXIF, so a rotated phone JPEG shows as stored.
  */
 export function stripImageMetadata(bytes: Uint8Array, type: ImageType): Uint8Array {
     if (type === 'image/png') {
-        const kept = pngChunks(bytes).filter((c) => !PNG_METADATA_CHUNKS.has(c.type));
+        const kept = pngChunks(bytes).filter((c) => PNG_KEPT.has(c.type));
         return concat([bytes.subarray(0, PNG_SIGNATURE.length), ...kept.map((c) => bytes.subarray(c.start, c.end))]);
     }
     if (type === 'image/jpeg') {
-        const { segments, scanStart } = jpegSegments(bytes);
-        const kept = segments.filter((s) => s.marker !== 0xe1);
-        return concat([bytes.subarray(0, 2), ...kept.map((s) => bytes.subarray(s.start, s.end)), bytes.subarray(scanStart)]);
+        const kept = jpegSegments(bytes).filter((s) => keptJpegSegment(bytes, s));
+        return concat([bytes.subarray(0, 2), ...kept.map((s) => bytes.subarray(s.start, s.end))]);
     }
     const kept = webpChunks(bytes)
-        .filter((c) => !WEBP_METADATA_CHUNKS.has(c.type))
+        .filter((c) => WEBP_KEPT.has(c.type))
         .map((c) => {
             const chunk = bytes.slice(c.start, c.end);
             if (c.type === 'VP8X') chunk[8] &= ~VP8X_EXIF_XMP_FLAGS;
@@ -140,9 +165,7 @@ export function readImageSize(bytes: Uint8Array, type: ImageType): { width: numb
     }
     if (type === 'image/jpeg') {
         // SOF0–SOF15, except DHT (C4), JPG (C8) and DAC (CC).
-        const sof = jpegSegments(bytes).segments.find(
-            (s) => s.marker >= 0xc0 && s.marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(s.marker)
-        );
+        const sof = jpegSegments(bytes).find((s) => isSof(s.marker));
         return sof && sof.end - sof.start >= 9
             ? { width: u16be(bytes, sof.start + 7), height: u16be(bytes, sof.start + 5) }
             : null;
@@ -171,7 +194,7 @@ export function assertImageByteSize(byteLength: number): void {
 
 /**
  * Checks an image for upload and strips its metadata. Throws a message an agent can act
- * on for anything that isn't a PNG, JPEG or WebP of at most 5 MB.
+ * on for anything that isn't a PNG, JPEG or WebP of at most 5 MB, 16384 px a side and 100 MP.
  */
 export function prepareImageBytes(bytes: Uint8Array): PreparedImage {
     assertImageByteSize(bytes.length);
@@ -180,5 +203,8 @@ export function prepareImageBytes(bytes: Uint8Array): PreparedImage {
     const stripped = stripImageMetadata(bytes, contentType);
     const size = readImageSize(stripped, contentType);
     if (!size || size.width === 0 || size.height === 0) throw invalid(contentType);
+    if (Math.max(size.width, size.height) > MAX_SIDE || size.width * size.height > MAX_PIXELS) {
+        throw new Error(`Image is too large (${size.width} × ${size.height} px); the limit is ${MAX_SIDE} px a side and 100 megapixels`);
+    }
     return { bytes: stripped, contentType, ...size };
 }

@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
+import { DatabaseSync } from 'node:sqlite';
 import { MAX_IMAGE_BYTES, assertImageByteSize, prepareImageBytes, type PreparedImage } from '@/lib/images/imageBytes';
 import { loadImage } from '../imageSource';
-import type { SqliteKv } from './kv';
 import { html, messagePage, uploadPage, uploadPageCsp } from './pages';
 import { publicOnlyAgent } from './publicFetch';
 
@@ -17,6 +17,12 @@ const UPLOADED_TTL = 60 * 60;
 /** For tiny generated images: anything larger costs the model too many tokens, so it goes through an upload. */
 const MAX_DATA_URI_BYTES = 256 * 1024;
 const FETCH_TIMEOUT_MS = 10_000;
+/** Per user: upload URLs not yet used, and bytes uploaded and not yet placed. Then the whole server's bytes held. */
+const MAX_LINKS_PER_USER = 5;
+const MAX_HELD_PER_USER = 25 * 1024 * 1024;
+const MAX_HELD = 500 * 1024 * 1024;
+/** Refused POSTs an upload URL takes before it is gone. */
+const MAX_FAILED_POSTS = 5;
 
 export const PATHS_REFUSED =
     'The hosted Journal server cannot read files on your computer. Upload the image with create_image_upload and pass its upload:// source, or pass an https: image URL.';
@@ -25,19 +31,28 @@ const NOT_FOUND =
 const NOT_UPLOADED = 'Nothing has been uploaded to this upload yet: POST the image to its upload_url first, or give the user the link to open.';
 const LINK_EXPIRED = 'This upload link has expired or was already used. Ask your agent for a new one.';
 const NOT_MULTIPART = 'Send the image as multipart form data in the "file" field: curl -F file=@photo.jpg <upload_url>';
+const TOO_MANY_LINKS = `At most ${MAX_LINKS_PER_USER} upload URLs can wait for an image at once: use one, or let it expire (15 minutes).`;
+const TOO_MUCH_HELD = 'Too many uploaded images are waiting to be placed: place them in a note first, or let them expire (an hour after upload).';
+const SERVER_FULL = 'Journal is holding too many uploads right now. Try again later.';
 
 const ID = /^[\w-]{43}$/;
-const pendingKey = (id: string) => `hosted:upload:${id}`;
-const uploadedKey = (id: string) => `hosted:uploaded:${id}`;
+const now = () => Math.floor(Date.now() / 1000);
 
-interface Pending {
-    grant: string;
-    filename: string;
+/**
+ * The uploads, in their own SQLite file apart from the OAuth grants: a row per upload URL, its image a BLOB,
+ * null until it is posted. secure_delete overwrites a placed or expired image's bytes in the file.
+ */
+export function uploadsDb(file: string): DatabaseSync {
+    const db = new DatabaseSync(file);
+    db.exec('PRAGMA secure_delete = ON');
+    db.exec(
+        'CREATE TABLE IF NOT EXISTS uploads (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, grant_id TEXT NOT NULL, filename TEXT NOT NULL, expiration INTEGER NOT NULL, failures INTEGER NOT NULL DEFAULT 0, image BLOB)'
+    );
+    return db;
 }
-interface Uploaded {
-    grant: string;
-    /** The image, checked and stripped of metadata, as base64. */
-    image: string;
+
+export function purgeUploads(db: DatabaseSync): void {
+    db.prepare('DELETE FROM uploads WHERE expiration <= ?').run(now());
 }
 
 /**
@@ -70,20 +85,33 @@ export async function fetchImage(url: string): Promise<Uint8Array> {
     return Buffer.concat(chunks);
 }
 
-/** The hosted server's images, kept in `kv`; `grant` is always the grant id of the MCP request at hand. */
-export function hostedImages(kv: SqliteKv, origin: string) {
+/** The hosted server's images, kept in `db` (uploadsDb); `grant` is always the grant id of the MCP request at hand. */
+export function hostedImages(db: DatabaseSync, origin: string) {
     /** The upload id after `prefix` (UPLOAD_PATH or SOURCE), if well formed. */
     const idOf = (text: string, prefix = UPLOAD_PATH) => {
         const id = text.startsWith(prefix) ? text.slice(prefix.length) : '';
         return ID.test(id) ? id : null;
     };
-    const pendingOf = async (id: string | null) => (id ? ((await kv.get(pendingKey(id), 'json')) as Pending | null) : null);
+    /** A live upload URL nothing was posted to yet. */
+    const pendingOf = (id: string | null) =>
+        (id ? db.prepare('SELECT user_id, grant_id, filename FROM uploads WHERE id = ? AND image IS NULL AND expiration > ?').get(id, now()) : undefined) as
+            | { user_id: string; grant_id: string; filename: string }
+            | undefined;
+    /** Bytes of live uploads not yet placed: the user's, and the whole server's. */
+    const held = (user: string) => {
+        const sum = 'SELECT coalesce(sum(length(image)), 0) AS n FROM uploads WHERE image IS NOT NULL AND expiration > ?';
+        const mine = db.prepare(`${sum} AND user_id = ?`).get(now(), user) as { n: number };
+        const all = db.prepare(sum).get(now()) as { n: number };
+        return { mine: mine.n, all: all.n };
+    };
 
     return {
-        /** create_image_upload: a fresh single-use upload URL for this grant. */
-        async create(grant: string, filename: string) {
+        /** create_image_upload: a fresh single-use upload URL for this user's grant. */
+        async create(user: string, grant: string, filename: string) {
+            const { n } = db.prepare('SELECT count(*) AS n FROM uploads WHERE user_id = ? AND image IS NULL AND expiration > ?').get(user, now()) as { n: number };
+            if (n >= MAX_LINKS_PER_USER) throw new Error(TOO_MANY_LINKS);
             const id = randomBytes(32).toString('base64url');
-            await kv.put(pendingKey(id), JSON.stringify({ grant, filename } satisfies Pending), { expirationTtl: UPLOAD_URL_TTL });
+            db.prepare('INSERT INTO uploads (id, user_id, grant_id, filename, expiration) VALUES (?, ?, ?, ?, ?)').run(id, user, grant, filename, now() + UPLOAD_URL_TTL);
             return {
                 upload_url: `${origin}${UPLOAD_PATH}${id}`,
                 upload_headers: {},
@@ -94,13 +122,13 @@ export function hostedImages(kv: SqliteKv, origin: string) {
 
         /** Whether `pathname` is a live upload URL: only then may an unauthenticated body be image-sized (mcp/hosted/node.ts). */
         async isLive(pathname: string): Promise<boolean> {
-            return !!(await pendingOf(idOf(pathname)));
+            return !!pendingOf(idOf(pathname));
         },
 
         /** GET: the page a person uploads on. POST: the upload, as multipart with the image in `file`. */
         async serve(request: Request): Promise<Response> {
             const id = idOf(new URL(request.url).pathname);
-            const pending = await pendingOf(id);
+            const pending = pendingOf(id);
             const wantsPage = request.headers.get('accept')?.includes('text/html');
             const fail = (status: number, text: string) =>
                 wantsPage ? html(messagePage('The image was not uploaded', text), status) : Response.json({ error: text }, { status });
@@ -118,29 +146,43 @@ export function hostedImages(kv: SqliteKv, origin: string) {
                 assertImageByteSize(file.size);
                 image = prepareImageBytes(new Uint8Array(await file.arrayBuffer()));
             } catch (e) {
-                // The link stays usable: the person can pick another image.
+                // The link stays usable for a few more tries: the person can pick another image.
+                db.prepare('UPDATE uploads SET failures = failures + 1 WHERE id = ?').run(id);
+                db.prepare('DELETE FROM uploads WHERE id = ? AND failures >= ?').run(id, MAX_FAILED_POSTS);
                 return fail(400, (e as Error).message);
             }
+            // No await from here on: the quota checks and the write that uses the link up happen together.
+            const { mine, all } = held(pending.user_id);
+            if (mine + image.bytes.length > MAX_HELD_PER_USER) return fail(429, TOO_MUCH_HELD);
+            if (all + image.bytes.length > MAX_HELD) return fail(503, SERVER_FULL);
             // Single use: of two uploads racing, one takes the link.
-            if (!(await kv.take(pendingKey(id)))) return fail(404, LINK_EXPIRED);
-            const uploaded: Uploaded = { grant: pending.grant, image: Buffer.from(image.bytes).toString('base64') };
-            await kv.put(uploadedKey(id), JSON.stringify(uploaded), { expirationTtl: UPLOADED_TTL });
+            const used = db
+                .prepare('UPDATE uploads SET image = ?, expiration = ? WHERE id = ? AND image IS NULL AND expiration > ?')
+                .run(image.bytes, now() + UPLOADED_TTL, id, now());
+            if (!used.changes) return fail(404, LINK_EXPIRED);
             if (wantsPage) return html(messagePage('Image uploaded', 'Go back to your chat and tell your agent the image is there.'), 200);
             return Response.json({ source: `${SOURCE}${id}`, contentType: image.contentType, width: image.width, height: image.height });
         },
 
         /**
          * The hosted image loader: an upload:// source this grant uploaded (placed once), an https: URL, or a small
-         * data: URI. Never a path: that would be a file on this box, not the user's.
+         * data: URI. Never a path: that would be a file on this box, not the user's. A taken upload leaves a
+         * `putBack` in `taken`, for the caller to run if the call placing it fails.
          */
-        async load(grant: string, src: string): Promise<PreparedImage> {
+        async load(grant: string, src: string, taken: (() => void)[] = []): Promise<PreparedImage> {
             if (src.startsWith(SOURCE)) {
                 const id = idOf(src, SOURCE);
-                const uploaded = id ? ((await kv.get(uploadedKey(id), 'json')) as Uploaded | null) : null;
-                if (id && uploaded?.grant === grant && (await kv.take(uploadedKey(id)))) {
-                    return prepareImageBytes(new Uint8Array(Buffer.from(uploaded.image, 'base64')));
+                const row = db
+                    .prepare('DELETE FROM uploads WHERE id = ? AND grant_id = ? AND image IS NOT NULL AND expiration > ? RETURNING *')
+                    .get(id, grant, now()) as { user_id: string; filename: string; expiration: number; image: Uint8Array } | undefined;
+                if (row) {
+                    taken.push(() =>
+                        db.prepare('INSERT OR IGNORE INTO uploads (id, user_id, grant_id, filename, expiration, image) VALUES (?, ?, ?, ?, ?, ?)')
+                            .run(id, row.user_id, grant, row.filename, row.expiration, row.image)
+                    );
+                    return prepareImageBytes(row.image);
                 }
-                throw new Error((await pendingOf(id))?.grant === grant ? NOT_UPLOADED : NOT_FOUND);
+                throw new Error(pendingOf(id)?.grant_id === grant ? NOT_UPLOADED : NOT_FOUND);
             }
             if (src.startsWith('data:')) {
                 // Base64: 4 characters for every 3 bytes.

@@ -113,6 +113,63 @@ describe('stripImageMetadata', () => {
         expect(readImageSize(stripped, 'image/webp')).toEqual({ width: 40, height: 24 });
     });
 
+    it('keeps only the JPEG segments that draw the image, and nothing after EOI', () => {
+        const original = fixture('cover-exif.jpg');
+        const segment = (marker: number, body: string) => {
+            const data = Buffer.from(body, 'latin1');
+            return [0xff, marker, (data.length + 2) >> 8, (data.length + 2) & 0xff, ...data];
+        };
+        const icc = segment(0xe2, 'ICC_PROFILE\0\x01\x01profile');
+        const crafted = new Uint8Array([
+            ...original.subarray(0, 2),
+            ...segment(0xed, 'Photoshop 3.0\0SECRET-IPTC'),
+            ...segment(0xfe, 'SECRET-COMMENT'),
+            ...segment(0xe2, 'MPF\0SECRET-MPF'),
+            ...segment(0xeb, 'SECRET-APP11'),
+            ...icc,
+            ...original.subarray(2),
+            ...Buffer.from('SECRET-TRAILER', 'latin1'),
+        ]);
+
+        const stripped = stripImageMetadata(crafted, 'image/jpeg');
+        expect(text(stripped)).not.toContain('SECRET');
+        expect(text(stripped)).toContain(text(new Uint8Array(icc)));
+        expect([...stripped.subarray(-2)]).toEqual([0xff, 0xd9]);
+        expect(stripped).toEqual(new Uint8Array([0xff, 0xd8, ...icc, ...stripImageMetadata(original, 'image/jpeg').subarray(2)]));
+        expect(readImageSize(stripped, 'image/jpeg')).toEqual({ width: 40, height: 24 });
+    });
+
+    it('keeps only the PNG chunks that draw the image, and nothing after IEND', () => {
+        const original = fixture('cover-meta.png');
+        const chunk = (type: string, body: string) => {
+            const data = Buffer.from(body, 'latin1');
+            return [0, 0, data.length >> 8, data.length & 0xff, ...Buffer.from(type, 'latin1'), ...data, 0, 0, 0, 0];
+        };
+        const iend = text(original).lastIndexOf('IEND') - 4;
+        const crafted = new Uint8Array([
+            ...original.subarray(0, iend),
+            ...chunk('tIME', 'SECRET-TIME'),
+            ...chunk('prVt', 'SECRET-PRIVATE'),
+            ...original.subarray(iend),
+            ...Buffer.from('SECRET-TRAILER', 'latin1'),
+        ]);
+
+        const stripped = stripImageMetadata(crafted, 'image/png');
+        expect(text(stripped)).not.toContain('SECRET');
+        expect(pngChunkTypes(stripped).at(-1)).toBe('IEND');
+        expect(stripped).toEqual(stripImageMetadata(original, 'image/png'));
+    });
+
+    it('keeps only the WebP chunks that draw the image, and nothing past the RIFF size', () => {
+        const original = fixture('cover-exif.webp');
+        // An unknown chunk inside the RIFF, then bytes past its size.
+        const crafted = new Uint8Array([...original, ...Buffer.from('SECR\x06\0\0\0SECRET', 'latin1'), ...Buffer.from('SECRET-TRAILER', 'latin1')]);
+        new DataView(crafted.buffer).setUint32(4, original.length + 14 - 8, true);
+        const stripped = stripImageMetadata(crafted, 'image/webp');
+        expect(text(stripped)).not.toContain('SECRET');
+        expect(webpChunkTypes(stripped)).toEqual(['VP8X', 'VP8 ']);
+    });
+
     it('leaves an image without metadata as it was', () => {
         const plain = fixture('cover-plain.webp');
         expect(stripImageMetadata(plain, 'image/webp')).toEqual(plain);
@@ -135,5 +192,17 @@ describe('prepareImageBytes', () => {
         expect(() => prepareImageBytes(huge)).toThrow('Image is too large (5.0 MB); the limit is 5 MB');
         expect(() => prepareImageBytes(fixture('cover-meta.png').subarray(0, 30))).toThrow('Not a valid PNG image');
         expect(() => prepareImageBytes(fixture('cover-exif.jpg').subarray(0, 40))).toThrow('Not a valid JPEG image');
+    });
+
+    it('rejects a header past 16384 px a side or 100 megapixels: a small file that decodes huge', () => {
+        const sized = (width: number, height: number) => {
+            const png = fixture('cover-meta.png');
+            new DataView(png.buffer).setUint32(16, width);
+            new DataView(png.buffer).setUint32(20, height);
+            return png;
+        };
+        expect(() => prepareImageBytes(sized(16385, 10))).toThrow('Image is too large (16385 × 10 px)');
+        expect(() => prepareImageBytes(sized(12000, 9000))).toThrow('the limit is 16384 px a side and 100 megapixels');
+        expect(prepareImageBytes(sized(16384, 6000))).toMatchObject({ width: 16384, height: 6000 });
     });
 });

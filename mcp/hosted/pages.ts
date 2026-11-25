@@ -24,6 +24,7 @@ export const PAGE_CSP = "default-src 'none'; style-src 'unsafe-inline'; form-act
 export const html = (body: string, status: number, headers = new Headers(), csp = PAGE_CSP) => {
     headers.set('Content-Type', 'text/html; charset=utf-8');
     headers.set('Cache-Control', 'no-store');
+    headers.set('Referrer-Policy', 'no-referrer');
     headers.append('Content-Security-Policy', csp);
     return new Response(body, { status, headers });
 };
@@ -44,7 +45,9 @@ if(file.size<=${MAX_IMAGE_BYTES}&&['image/png','image/jpeg','image/webp'].includ
 const bitmap=await createImageBitmap(file),scale=Math.min(1,2560/Math.max(bitmap.width,bitmap.height)),canvas=document.createElement('canvas');
 canvas.width=Math.round(bitmap.width*scale);canvas.height=Math.round(bitmap.height*scale);
 canvas.getContext('2d').drawImage(bitmap,0,0,canvas.width,canvas.height);
-return new File([await new Promise((done)=>canvas.toBlob(done,'image/jpeg',0.9))],'image.jpg',{type:'image/jpeg'});
+const blob=await new Promise((done)=>canvas.toBlob(done,'image/jpeg',0.9));
+if(!blob)throw new Error('toBlob');
+return new File([blob],'image.jpg',{type:'image/jpeg'});
 }
 async function send(file){
 if(!file)return;

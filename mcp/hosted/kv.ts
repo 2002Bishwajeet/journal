@@ -37,11 +37,6 @@ export function sqliteKv(file: string) {
         async delete(key: string): Promise<void> {
             db.prepare('DELETE FROM kv WHERE key = ?').run(key);
         },
-        /** Deletes a live key and returns its value, at most once however many callers race for it (single-use tokens). */
-        async take(key: string): Promise<string | null> {
-            const row = db.prepare(`DELETE FROM kv WHERE key = ? AND ${LIVE} RETURNING value`).get(key, now()) as { value: string } | undefined;
-            return row?.value ?? null;
-        },
         async list({ prefix = '', limit = 1000, cursor }: ListOptions = {}) {
             // A range on the primary key, so SQLite seeks to the prefix instead of scanning every row:
             // the keys starting with it sort from it up to (not including) it with its last character bumped.

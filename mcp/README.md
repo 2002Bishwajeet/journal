@@ -148,8 +148,9 @@ above is unchanged, and it's still the way to go if you'd rather not use a hoste
   POSTs the image there (`curl -F file=@photo.jpg <upload_url>`), and the bytes never pass
   through the model; an agent that can't gives you the link, which opens a page where you
   pick, take, drop or paste the photo. The image is checked and stripped of metadata on
-  arrival, kept for an hour for the same grant only, and uploaded to Homebase once a note's
-  markdown (`![alt](upload://…)`) or `set_note_cover` places it. `set_note_cover` also takes an
+  arrival, kept for an hour for the same grant only (in `uploads.sqlite` next to the grants,
+  at most 5 waiting upload URLs and 25 MB unplaced per user), and uploaded to Homebase once a
+  note's markdown (`![alt](upload://…)`) or `set_note_cover` places it. `set_note_cover` also takes an
   `https:` URL (fetched from public addresses only, no redirects, 10 s, 5 MB), and a `data:`
   URI works up to 256 KB. File paths are refused.
 - **Limits:** 120 MCP requests a minute per grant, and an 8 MB request body (an upload URL's
@@ -170,7 +171,7 @@ documented there. It needs Node 22.19 or newer for `node:sqlite` and undici.
    ```
    ~/services/mcp/journal/start          # mcp/deploy/start (executable)
    ~/services/mcp/journal/dist/http.mjs  # the bundle
-   ~/services/mcp/journal/data/          # grants.sqlite (created 0700 on first start)
+   ~/services/mcp/journal/data/          # grants.sqlite, uploads.sqlite (created 0700 on first start)
    ~/.config/mcp-gateway/journal.env     # from mcp/deploy/journal.env.example, mode 0600
    ```
 
