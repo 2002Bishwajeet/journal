@@ -4,21 +4,63 @@ import { MAX_IMAGE_BYTES } from '@/lib/images/imageBytes';
 // The hosted server's only HTML: the consent page, the image upload page (#1506) and their message pages.
 // No images, and script only on the upload page, under a per-response nonce: every string a client or
 // agent sent (its name, its redirect URI, a file name) is escaped, and nothing it sent is loaded.
+// They look like Journal (#1516): the brand tokens (brand/tokens.css), the site's buttons and fields
+// (site/src/styles.css), the wordmark inline, and Inter and Playfair Display from this server (fonts.ts).
 
 const escape = (text: string) =>
     text.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
-const STYLE = `body{font:16px/1.5 system-ui,sans-serif;max-width:28rem;margin:3rem auto;padding:0 1.25rem;color:#1c1b1a;background:#faf9f7}
-@media (prefers-color-scheme:dark){body{color:#ecebe8;background:#1c1b1a}input{background:#2a2927;color:inherit}}
-h1{font-size:1.35rem;line-height:1.3}p.note{font-size:.9rem;opacity:.8}.warn{border-left:3px solid #c77d00;padding-left:.75rem}
-label{display:block;font-weight:600;margin-top:1.25rem}input{width:100%;box-sizing:border-box;font:inherit;padding:.6rem .7rem;margin-top:.35rem;border:1px solid #8886;border-radius:.5rem}
-.actions{display:flex;gap:.75rem;margin-top:1.5rem}button{font:inherit;padding:.6rem 1.1rem;border-radius:.5rem;border:1px solid #8886;cursor:pointer;background:transparent;color:inherit}
-button.primary{background:#1c1b1a;color:#faf9f7;border-color:#1c1b1a}@media (prefers-color-scheme:dark){button.primary{background:#ecebe8;color:#1c1b1a}}
-.drop{display:flex;flex-direction:column;align-items:center;gap:.75rem;padding:2rem 1rem;border:2px dashed #8888;border-radius:.75rem;text-align:center;cursor:pointer}
-.drop input{width:auto;border:0;padding:0;background:transparent}`;
+/** The fonts' exact paths, which fonts.ts serves without a token: Latin subsets of the variable fonts. */
+export const FONT_PATHS = {
+    inter: '/journal/assets/inter-latin-wght.woff2',
+    playfair: '/journal/assets/playfair-display-latin-wght.woff2',
+};
 
-// No script or subresource; the form may post here, then be sent on to the user's Homebase identity.
-export const PAGE_CSP = "default-src 'none'; style-src 'unsafe-inline'; form-action 'self' https:; base-uri 'none'";
+/** brand/logo/wordmark-light.svg (wordmark-dark.svg has the same shapes), in the text colour. */
+const WORDMARK = `<svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 206 64" width="97" height="30" fill="currentColor" role="img" aria-label="Journal"><path fill-rule="evenodd" d="M3.64 61.60C3.54 61.48 3.61 61.19 3.88 60.59C3.97 60.39 4.17 59.94 4.34 59.58C4.74 58.69 6.28 55.62 6.70 54.86C6.89 54.52 7.12 54.11 7.20 53.95C7.78 52.88 8.05 52.40 8.63 51.43C8.78 51.17 9.16 50.53 9.47 50.01L10.03 49.05L9.89 48.46C9.31 45.98 9.20 42.42 9.62 39.84C10.05 37.15 10.70 35.15 11.96 32.62C12.64 31.26 13.58 29.69 13.71 29.69C13.73 29.69 13.76 30.33 13.77 31.11C13.78 32.68 13.92 33.92 14.20 34.89C14.57 36.19 14.64 36.39 14.96 37.11C15.14 37.52 15.37 38.04 15.46 38.26C15.64 38.72 15.78 38.80 15.71 38.42C15.38 36.48 15.28 33.70 15.50 32.03C15.56 31.55 15.64 30.93 15.67 30.66C15.83 29.30 16.37 27.41 16.94 26.19C17.03 26.00 17.10 25.83 17.10 25.81C17.10 25.68 18.06 24.12 18.50 23.52C19.72 21.87 22.20 19.31 24.45 17.36C24.87 17.01 25.22 16.70 25.23 16.68C25.46 16.44 26.93 15.30 26.97 15.34C26.98 15.35 26.96 15.44 26.93 15.55C26.62 16.45 26.43 19.57 26.60 20.88C26.69 21.62 27.09 23.43 27.25 23.82L27.36 24.12L27.40 22.89C27.44 21.51 27.67 19.94 28.07 18.36C28.78 15.51 30.31 13.02 32.41 11.33C34.05 10.00 37.68 7.90 40.23 6.80C40.59 6.65 40.96 6.48 41.06 6.43C41.16 6.38 41.24 6.36 41.23 6.39C41.21 6.42 40.98 6.88 40.70 7.43C40.10 8.59 39.74 9.57 39.48 10.70C39.09 12.43 39.07 13.28 39.44 12.17C40.33 9.57 42.49 6.86 44.86 5.34C45.39 5.00 46.42 4.48 46.96 4.27C47.16 4.20 47.51 4.06 47.74 3.97C49.45 3.32 52.94 2.64 55.61 2.44C56.57 2.36 60.49 2.35 60.49 2.41C60.49 2.44 60.37 2.60 60.21 2.79C59.82 3.26 59.65 3.49 59.19 4.22C58.41 5.47 57.98 6.41 56.32 10.47C56.07 11.08 55.82 11.66 55.77 11.77C55.73 11.88 55.55 12.29 55.38 12.68C54.97 13.64 54.18 15.22 53.78 15.89C53.00 17.18 51.86 18.50 50.76 19.38C49.48 20.42 47.56 21.64 46.27 22.25C44.56 23.05 42.07 23.96 40.39 24.40C39.91 24.52 39.48 24.63 39.45 24.65C39.27 24.73 42.83 24.62 43.48 24.52C45.42 24.23 47.91 23.40 49.71 22.43L50.16 22.20L50.06 22.39C49.88 22.74 49.17 23.85 48.63 24.62C48.10 25.37 47.47 26.29 47.02 26.96C46.89 27.16 46.60 27.57 46.37 27.87C46.14 28.18 45.73 28.73 45.47 29.10C43.44 31.92 42.16 33.47 40.20 35.53C38.22 37.61 36.60 38.77 33.66 40.20C32.62 40.71 32.17 40.89 30.60 41.44C28.99 42.00 26.11 42.67 24.24 42.93C23.82 42.98 23.91 43.05 24.62 43.21C26.52 43.65 28.86 43.65 31.36 43.19C32.38 43.01 32.79 42.90 33.30 42.71L33.66 42.57L33.07 43.12C30.74 45.34 27.70 47.40 24.75 48.75C21.82 50.09 18.04 50.99 14.71 51.14C13.79 51.18 13.66 51.15 13.88 50.97C13.93 50.93 14.16 50.58 14.40 50.20C14.64 49.81 15.17 48.99 15.58 48.36C16.00 47.73 16.47 46.99 16.64 46.70C17.04 46.03 18.85 43.31 19.23 42.80C19.39 42.58 19.69 42.16 19.90 41.85C20.61 40.83 20.69 40.72 21.37 39.77C21.74 39.25 22.17 38.65 22.32 38.44C22.90 37.60 24.53 35.45 25.62 34.08C28.00 31.09 28.84 30.05 30.21 28.42C30.75 27.78 31.28 27.14 31.40 27.00C31.52 26.85 31.70 26.66 31.79 26.56C31.89 26.47 32.15 26.19 32.37 25.95C32.58 25.70 33.01 25.21 33.32 24.86C33.62 24.52 33.96 24.15 34.06 24.05C34.17 23.95 34.47 23.62 34.73 23.31C34.99 23.01 35.58 22.38 36.03 21.92C36.48 21.45 37.11 20.79 37.43 20.45C38.49 19.34 42.49 15.47 43.45 14.63C43.60 14.49 43.78 14.33 43.84 14.27C43.89 14.22 44.16 13.99 44.42 13.75C44.69 13.52 45.06 13.20 45.24 13.03C45.42 12.87 45.67 12.65 45.80 12.55C45.92 12.44 46.44 12.00 46.94 11.57C47.43 11.15 48.04 10.64 48.28 10.44C48.71 10.09 48.88 9.86 48.54 10.09C47.08 11.06 43.80 13.49 42.55 14.54C42.31 14.73 42.02 14.97 41.91 15.06C41.70 15.23 40.01 16.66 39.44 17.14C38.73 17.75 37.99 18.42 37.17 19.18C36.71 19.62 36.14 20.14 35.90 20.35C34.96 21.20 32.00 24.18 30.47 25.82C29.03 27.37 28.88 27.54 28.46 28.03C28.25 28.28 27.91 28.66 27.71 28.88C27.51 29.09 27.14 29.51 26.89 29.81C26.64 30.11 26.23 30.59 25.98 30.88C25.73 31.18 25.33 31.65 25.10 31.93C24.00 33.29 23.43 33.98 23.27 34.19C23.18 34.31 22.97 34.57 22.82 34.76C22.53 35.11 22.36 35.33 21.04 37.06C20.65 37.57 20.30 38.01 20.28 38.05C20.16 38.20 18.99 39.81 18.57 40.40C18.11 41.05 17.91 41.34 16.88 42.86C16.56 43.33 16.25 43.78 16.18 43.87C15.94 44.18 14.22 46.83 13.85 47.45C13.65 47.79 13.35 48.27 13.19 48.52C12.88 49.00 12.04 50.40 11.76 50.90C11.66 51.06 11.53 51.29 11.46 51.42C11.39 51.54 11.20 51.86 11.04 52.13C10.27 53.43 9.45 54.97 8.29 57.30C7.03 59.82 7.13 59.66 6.63 60.08C5.15 61.31 3.92 61.94 3.64 61.60Z"/><g><path d="M-22 1270V1250.2Q19.4 1247.6 48.5 1227.6Q77.6 1207.6 92.7 1159.9Q107.8 1112.2 107.8 1028.8V480Q107.8 443 102.2 425.5Q96.6 408 79.9 401.5Q63.2 395 30.8 394V374Q54.2 375 92.6 376Q131 377 173.2 377Q215.4 377 255.5 376Q295.6 375 321.8 374V394Q289.4 395 272.7 401.5Q256 408 250.4 425.5Q244.8 443 244.8 480V846Q244.8 887 244.4 934.8Q244 982.6 240.5 1027.6Q237 1072.6 227.8 1107Q208.8 1176.6 146.1 1223.3Q83.4 1270 -22 1270ZM631.6 551.4Q701.2 551.4 754.8 578.8Q808.4 606.2 839.5 666.2Q870.6 726.2 870.6 824.2Q870.6 922.2 839.5 981.9Q808.4 1041.6 754.8 1068.8Q701.2 1096 631.6 1096Q563 1096 508.9 1068.8Q454.8 1041.6 423.7 981.9Q392.6 922.2 392.6 824.2Q392.6 726.2 423.7 666.2Q454.8 606.2 508.9 578.8Q563 551.4 631.6 551.4ZM631.6 571.4Q585.4 571.4 555.5 630.8Q525.6 690.2 525.6 824.2Q525.6 958.2 555.5 1017.1Q585.4 1076 631.6 1076Q677.8 1076 707.7 1017.1Q737.6 958.2 737.6 824.2Q737.6 690.2 707.7 630.8Q677.8 571.4 631.6 571.4ZM1420 554.4V973.6Q1420 1018.6 1434.9 1040.1Q1449.8 1061.6 1488 1061.6V1082.6Q1457 1079.6 1426 1079.6Q1388.6 1079.6 1355.5 1082.6Q1322.4 1085.6 1294 1093.6V994Q1269.4 1049 1225.9 1072.5Q1182.4 1096 1132 1096Q1092.6 1096 1066.4 1085.4Q1040.2 1074.8 1024.4 1057.2Q1007 1038 1000 1006.8Q993 975.6 993 927V674.4Q993 629.4 978.6 607.9Q964.2 586.4 925 586.4V565.4Q957 568.4 987 568.4Q1024.4 568.4 1057.7 564.9Q1091 561.4 1119 554.4V961.8Q1119 988.8 1123.4 1010Q1127.8 1031.2 1141.8 1043.6Q1155.8 1056 1184.2 1056Q1215.2 1056 1239.9 1038Q1264.6 1020 1279.3 988.8Q1294 957.6 1294 918.6V674.4Q1294 629.4 1279.6 607.9Q1265.2 586.4 1226 586.4V565.4Q1258 568.4 1288 568.4Q1325.4 568.4 1358.7 564.9Q1392 561.4 1420 554.4ZM1866.4 551.4Q1897 551.4 1917.3 564.2Q1937.6 577 1947.7 596.9Q1957.8 616.8 1957.8 639.2Q1957.8 672.2 1938.3 694.2Q1918.8 716.2 1886.8 716.2Q1856.6 716.2 1838 700.1Q1819.4 684 1819.4 656.2Q1819.4 631.2 1831.5 614.3Q1843.6 597.4 1860.2 586.6Q1848.8 580.6 1834.8 583.4Q1811.4 585.4 1791.4 600.1Q1771.4 614.8 1757.4 636.8Q1743.4 658.8 1735.6 683.9Q1727.8 709 1727.8 731.8V979Q1727.8 1027.6 1752.9 1044.3Q1778 1061 1825.8 1061V1082Q1802.8 1081 1759.4 1079.5Q1716 1078 1668.6 1078Q1630.2 1078 1591.7 1079.5Q1553.2 1081 1533.8 1082V1061Q1570.8 1061 1586.3 1046Q1601.8 1031 1601.8 989V674.4Q1601.8 629.4 1587.4 607.9Q1573 586.4 1533.8 586.4V565.4Q1565.8 568.4 1595.8 568.4Q1633.2 568.4 1666.5 564.9Q1699.8 561.4 1727.8 554.4V658.2Q1739.6 630.4 1759.5 606.1Q1779.4 581.8 1806.6 566.6Q1833.8 551.4 1866.4 551.4ZM2352.4 551.4Q2393.6 551.4 2419.5 562Q2445.4 572.6 2461.2 590.2Q2478.6 609.4 2486.2 639.4Q2493.8 669.4 2493.8 720.4V989Q2493.8 1031 2509.3 1046Q2524.8 1061 2561.8 1061V1082Q2543.6 1081 2506.4 1079.5Q2469.2 1078 2433.8 1078Q2397.2 1078 2362.3 1079.5Q2327.4 1081 2309.8 1082V1061Q2341.8 1061 2354.8 1046Q2367.8 1031 2367.8 989V685.6Q2367.8 658.6 2362.8 637.4Q2357.8 616.2 2343.1 603.8Q2328.4 591.4 2299.6 591.4Q2267.2 591.4 2241.7 609.4Q2216.2 627.4 2201.5 658.9Q2186.8 690.4 2186.8 729.4V989Q2186.8 1031 2200 1046Q2213.2 1061 2244.8 1061V1082Q2227.6 1081 2193.9 1079.5Q2160.2 1078 2124.8 1078Q2088.2 1078 2050 1079.5Q2011.8 1081 1992.8 1082V1061Q2029.8 1061 2045.3 1046Q2060.8 1031 2060.8 989V674.4Q2060.8 629.4 2046.4 607.9Q2032 586.4 1992.8 586.4V565.4Q2024.8 568.4 2054.8 568.4Q2092.2 568.4 2125.5 564.9Q2158.8 561.4 2186.8 554.4V654Q2212 597.2 2256.1 574.3Q2300.2 551.4 2352.4 551.4ZM2740 1089Q2696.6 1089 2666.6 1072.5Q2636.6 1056 2621.9 1027.6Q2607.2 999.2 2607.2 964.2Q2607.2 921 2627.1 893.6Q2647 866.2 2678.4 849.4Q2709.8 832.6 2744.7 821.3Q2779.6 810 2811 799.5Q2842.4 789 2862.3 774.8Q2882.2 760.6 2882.2 737.6V664.8Q2882.2 633.2 2872.5 612.4Q2862.8 591.6 2844.2 581.5Q2825.6 571.4 2798 571.4Q2776.6 571.4 2753.7 577.4Q2730.8 583.4 2716.2 599.8Q2741.6 607.4 2756.4 626.4Q2771.2 645.4 2771.2 671.6Q2771.2 702.6 2750.4 720.5Q2729.6 738.4 2699.4 738.4Q2666 738.4 2649.1 717.3Q2632.2 696.2 2632.2 667.6Q2632.2 639.6 2646.2 621.4Q2660.2 603.2 2684.6 587.6Q2710.4 571.2 2749.1 561.3Q2787.8 551.4 2833.8 551.4Q2878 551.4 2912.2 560.9Q2946.4 570.4 2969.8 593.6Q2993.8 616.8 3001 650.7Q3008.2 684.6 3008.2 734.2V1008.2Q3008.2 1033.2 3014.1 1043.4Q3020 1053.6 3033.2 1053.6Q3043 1053.6 3052 1048.6Q3061 1043.6 3072.2 1035L3082.8 1052Q3061.4 1069.2 3037 1079.1Q3012.6 1089 2979 1089Q2944.4 1089 2923.6 1078.8Q2902.8 1068.6 2893.3 1049.9Q2883.8 1031.2 2883.4 1005.2Q2858.8 1045.4 2823.7 1067.2Q2788.6 1089 2740 1089ZM2799.6 1033Q2823.8 1033 2844.3 1020.2Q2864.8 1007.4 2882.2 980.6V778.6Q2872.2 794 2853.8 805.9Q2835.4 817.8 2814.4 829.9Q2793.4 842 2774.5 857.3Q2755.6 872.6 2743.4 895.4Q2731.2 918.2 2731.2 952.6Q2731.2 991.8 2749.9 1012.4Q2768.6 1033 2799.6 1033ZM3300.4 298.8V989Q3300.4 1031 3315.9 1046Q3331.4 1061 3368.4 1061V1082Q3350.3 1081 3313.5 1079.5Q3276.8 1078 3239 1078Q3201.9 1078 3163.6 1079.5Q3125.4 1081 3106.4 1082V1061Q3143.4 1061 3158.9 1046Q3174.4 1031 3174.4 989.1V418.7Q3174.4 373.8 3160.1 352.3Q3145.8 330.8 3106.4 330.8V309.8Q3138.4 312.8 3168.4 312.8Q3205.8 312.8 3239.1 309.3Q3272.4 305.8 3300.4 298.8Z" transform="translate(68 3.5) scale(0.04)"/></g></svg>`;
+
+const STYLE = `@font-face{font-family:'Inter Variable';font-style:normal;font-weight:100 900;font-display:swap;src:url(${FONT_PATHS.inter}) format('woff2')}
+@font-face{font-family:'Playfair Display Variable';font-style:normal;font-weight:400 900;font-display:swap;src:url(${FONT_PATHS.playfair}) format('woff2')}
+:root{--bg:#FDFCF8;--ink:#2C2B29;--panel:#F2F0E9;--muted:#67665E;--btn:#2C2B29;--btn-ink:#FDFCF8;--edge:color-mix(in srgb,var(--ink) 24%,transparent);--error:#A0442F;--accent:#DACAB0;--radius:.5rem;--ease-out:cubic-bezier(.23,1,.32,1);color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#1C1B1A;--ink:#E6E4DD;--panel:#242321;--muted:#A9A69E;--btn:#E6E4DD;--btn-ink:#1C1B1A;--error:#E3A08F;color-scheme:dark}}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+body{margin:0;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;padding:24px 16px 48px;background:var(--bg);color:var(--ink);font:17px/1.6 'Inter Variable','Inter',system-ui,sans-serif;font-feature-settings:'cv11','ss01'}
+main{width:100%;max-width:30rem}
+.logo{display:block;margin-bottom:24px}
+.card{display:grid;gap:16px;padding:24px;border-radius:16px;background:var(--panel)}
+h1{margin:0;font-family:'Playfair Display Variable','Playfair Display',Georgia,serif;font-size:28px;font-weight:450;line-height:1.15;letter-spacing:-.012em;text-wrap:balance;overflow-wrap:anywhere}
+p{margin:0;text-wrap:pretty}
+strong{font-weight:650;overflow-wrap:anywhere}
+.note{font-size:15px;line-height:1.55;color:var(--muted)}
+.callout{padding:14px 16px;border-left:3px solid var(--accent);border-radius:12px;background:var(--bg);font-size:15px;line-height:1.55}
+form{display:grid;gap:8px}
+label{font-weight:650}
+input[type=text]{width:100%;min-height:52px;padding:0 16px;border:1.5px solid var(--edge);border-radius:var(--radius);background:var(--bg);color:var(--ink);font:inherit}
+input::placeholder{color:var(--muted)}
+input[aria-invalid=true]{border:2px solid var(--error)}
+.problem,#status[data-state=error]{color:var(--error);font-weight:560}
+.problem{font-size:15px;line-height:1.5}
+.actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px}
+.btn{flex:1 1 9rem;display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 22px;border:1.5px solid transparent;border-radius:var(--radius);font:inherit;font-weight:580;line-height:1;cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:manipulation;transition:transform 140ms var(--ease-out),background-color 160ms ease}
+.btn:active{transform:scale(.97)}
+.primary{background:var(--btn);color:var(--btn-ink)}
+.secondary{background:transparent;color:var(--ink);border-color:var(--edge)}
+:focus-visible,.drop:focus-within{outline:2px solid var(--ink);outline-offset:2px}
+.drop{display:grid;justify-items:center;gap:12px;padding:32px 16px;border:1.5px dashed var(--edge);border-radius:12px;background:var(--bg);text-align:center;cursor:pointer;transition:opacity 160ms ease}
+.drop .btn{flex:none}
+.drop-hint{font-size:15px;color:var(--muted)}
+.sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0}
+form[aria-busy=true] .drop{opacity:.6;cursor:progress}
+#status:empty{display:none}
+#status[data-state=busy]{color:var(--muted)}
+#status[data-state=done]{padding:14px 16px;border-radius:12px;background:var(--bg);font-weight:560}
+@media (hover:hover) and (pointer:fine){.primary:hover,.drop:hover .primary{background:color-mix(in srgb,var(--btn) 86%,var(--bg))}.secondary:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}}
+@media (min-width:600px){body{justify-content:center;padding:48px 32px}.card{gap:20px;padding:40px}h1{font-size:34px}}
+@media (prefers-reduced-motion:reduce){.btn,.drop{transition:none}.btn:active{transform:none}}`;
+
+// No script; the form may post here, then be sent on to the user's Homebase identity. Fonts from this server only.
+export const PAGE_CSP = "default-src 'none'; style-src 'unsafe-inline'; font-src 'self'; form-action 'self' https:; base-uri 'none'; frame-ancestors 'none'";
 
 /** An HTML response, never cached, under `csp`. */
 export const html = (body: string, status: number, headers = new Headers(), csp = PAGE_CSP) => {
@@ -31,15 +73,21 @@ export const html = (body: string, status: number, headers = new Headers(), csp 
 
 /** The upload page's: its own script, and fetch back to this server. */
 export const uploadPageCsp = (nonce: string) =>
-    `default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${nonce}'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'`;
+    `default-src 'none'; style-src 'unsafe-inline'; font-src 'self'; script-src 'nonce-${nonce}'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'`;
+
+const PRELOAD = Object.values(FONT_PATHS)
+    .map((href) => `<link rel="preload" href="${href}" as="font" type="font/woff2" crossorigin>`)
+    .join('');
 
 function layout(title: string, body: string): string {
-    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>${escape(title)}</title><style>${STYLE}</style></head><body>${body}</body></html>`;
+    return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="referrer" content="no-referrer"><title>${escape(title)}</title>${PRELOAD}<style>${STYLE}</style></head><body><main>${WORDMARK}<div class="card">${body}</div></main></body></html>`;
 }
 
 // Uploads the picked, dropped or pasted image as soon as there is one. One over the limit, or a type the
 // server refuses that the browser can decode (HEIC on Safari), is sent as a JPEG at most 2560 px wide.
-const UPLOAD_SCRIPT = `const input=document.getElementById('file'),out=document.getElementById('status');
+// Another image is ignored while one uploads, and once one is in.
+const UPLOAD_SCRIPT = `const input=document.getElementById('file'),form=input.form,out=document.getElementById('status');
+function show(state,text){out.dataset.state=state;out.textContent=text;form.setAttribute('aria-busy',state==='busy');input.disabled=state==='busy';}
 async function fit(file){
 if(file.size<=${MAX_IMAGE_BYTES}&&['image/png','image/jpeg','image/webp'].includes(file.type))return file;
 const bitmap=await createImageBitmap(file),scale=Math.min(1,2560/Math.max(bitmap.width,bitmap.height)),canvas=document.createElement('canvas');
@@ -50,18 +98,18 @@ if(!blob)throw new Error('toBlob');
 return new File([blob],'image.jpg',{type:'image/jpeg'});
 }
 async function send(file){
-if(!file)return;
-out.textContent='Uploading…';
+if(!file||out.dataset.state==='busy'||out.dataset.state==='done')return;
+show('busy','Uploading…');
 try{
 const data=new FormData();data.append('file',await fit(file));
 const response=await fetch(location.href,{method:'POST',body:data});
 const result=await response.json();
-if(response.ok){input.form.remove();out.textContent='Uploaded. Go back to your chat and tell your agent the image is there.';}
-else out.textContent=result.error;
-}catch{out.textContent='That image could not be read. Try a PNG, JPEG or WebP image.';}
+if(response.ok){form.remove();show('done','Uploaded. Go back to your chat and tell your agent the image is there.');}
+else show('error',result.error);
+}catch{show('error','That image could not be read. Try a PNG, JPEG or WebP image.');}
 }
 input.addEventListener('change',()=>send(input.files[0]));
-input.form.addEventListener('submit',(e)=>{e.preventDefault();send(input.files[0]);});
+form.addEventListener('submit',(e)=>{e.preventDefault();send(input.files[0]);});
 addEventListener('paste',(e)=>send(e.clipboardData&&e.clipboardData.files[0]));
 addEventListener('dragover',(e)=>e.preventDefault());
 addEventListener('drop',(e)=>{e.preventDefault();send(e.dataTransfer&&e.dataTransfer.files[0]);});`;
@@ -73,8 +121,8 @@ export function uploadPage(filename: string, nonce: string): string {
         `<h1>Add an image to Journal</h1>
 <p>Your agent asked for <strong>${escape(filename)}</strong>. Choose, take, drop or paste a photo (PNG, JPEG or WebP). It goes straight to your agent's Journal connection, which can then add it to a note.</p>
 <form method="post" enctype="multipart/form-data">
-<label class="drop">Choose or take a photo, or drop or paste one here<input id="file" name="file" type="file" accept="image/png,image/jpeg,image/webp" required></label>
-<noscript><div class="actions"><button class="primary" type="submit">Upload</button></div></noscript>
+<label class="drop"><input id="file" class="sr-only" name="file" type="file" accept="image/png,image/jpeg,image/webp" required><span class="btn primary">Choose or take a photo</span> <span class="drop-hint">or drop or paste one here</span></label>
+<noscript><div class="actions"><button class="btn primary" type="submit">Upload</button></div></noscript>
 </form>
 <p id="status" role="status"></p>
 <p class="note">This link works once, within 15 minutes of your agent asking.</p>
@@ -89,17 +137,18 @@ export function consentPage(consent: ConsentDescription, handle: string, action:
         ? `<p>${name} is the app at <strong>${escape(consent.clientDomain)}</strong>.</p>`
         : `<p class="note">The app gave this name itself; Journal can't check it.</p>`;
     const loopback = consent.redirectIsLoopback
-        ? `<p class="warn">This app runs on your own computer. Only go on if you just connected Journal from an app you trust there.</p>`
+        ? `<p class="callout">This app runs on your own computer. Only go on if you just connected Journal from an app you trust there.</p>`
         : '';
+    const invalid = problem ? ' aria-invalid="true" aria-describedby="identity-problem"' : '';
     return layout(
         `Connect ${consent.clientName} to Journal`,
         `<h1>Connect ${name} to Journal?</h1>${origin}
-<p>It will be able to read and edit the Journal notes you give AI agents in Journal → Settings → Agent access. After you approve it on your Homebase identity, you go back to <strong>${escape(consent.redirectHost)}</strong>.</p>${loopback}${problem ? `<p class="warn">${escape(problem)}</p>` : ''}
+<p>It will be able to read and edit the Journal notes you give AI agents in Journal → Settings → Agent access. After you approve it on your Homebase identity, you go back to <strong>${escape(consent.redirectHost)}</strong>.</p>${loopback}
 <form method="post" action="${escape(action)}">
 <input type="hidden" name="handle" value="${escape(handle)}">
 <label for="identity">Your Homebase identity</label>
-<input id="identity" name="identity" type="text" inputmode="url" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="you.dotyou.cloud" required>
-<div class="actions"><button class="primary" type="submit" name="action" value="approve">Continue</button><button type="submit" name="action" value="deny" formnovalidate>Cancel</button></div>
+<input id="identity" name="identity" type="text" inputmode="url" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="you.dotyou.cloud" required autofocus${invalid}>${problem ? `<p id="identity-problem" class="problem">${escape(problem)}</p>` : ''}
+<div class="actions"><button class="btn primary" type="submit" name="action" value="approve">Continue</button><button class="btn secondary" type="submit" name="action" value="deny" formnovalidate>Cancel</button></div>
 </form>`
     );
 }
