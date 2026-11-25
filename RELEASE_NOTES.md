@@ -16,6 +16,16 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.73.29 (2026-11-25)
+
+### Changed
+
+- In the Share dialog, the main button says Save when you have changes that are not saved. If you close the dialog with unsaved changes, it asks if you want to discard them.
+
+### Fixed
+
+- A note that someone shared with you does not close and open again a few seconds after you open it, so a dialog that you opened in it stays open.
+
 ## 2.73.28 (2026-11-24)
 
 ### Changed

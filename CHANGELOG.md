@@ -1,3 +1,9 @@
+## [2.73.29](https://github.com/2002Bishwajeet/journal/compare/v2.73.28...v2.73.29) (2026-11-25)
+
+
+### Bug Fixes
+
+* **sharing:** keep a shared note's editor up when peer access loads after it opens ([#1503](https://github.com/2002Bishwajeet/journal/issues/1503)) ([b6e2040](https://github.com/2002Bishwajeet/journal/commit/b6e2040268798704626c9ab257e8cab93db10230)), closes [#1494](https://github.com/2002Bishwajeet/journal/issues/1494)
 ## [2.73.28](https://github.com/2002Bishwajeet/journal/compare/v2.73.27...v2.73.28) (2026-11-24)
 ## [2.73.27](https://github.com/2002Bishwajeet/journal/compare/v2.73.26...v2.73.27) (2026-11-24)
 ## [2.73.26](https://github.com/2002Bishwajeet/journal/compare/v2.73.25...v2.73.26) (2026-11-24)
