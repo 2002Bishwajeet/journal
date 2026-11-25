@@ -33,9 +33,9 @@ export async function addToShare(page: Page, query: string, role?: 'Viewer' | 'E
     await expect(shareRole(page, query)).toBeVisible();
 }
 
-/** Done saves the changes. An owner-console drive turns the dialog into a "Note shared" notice: close it. */
+/** Save saves the changes. An owner-console drive turns the dialog into a "Note shared" notice: close it. */
 export async function saveShare(page: Page): Promise<void> {
-    await shareDialog(page).getByRole('button', { name: 'Done' }).click();
+    await shareDialog(page).getByRole('button', { name: 'Save' }).click();
     await expect(shareDialog(page)).toBeHidden({ timeout: 30_000 });
     const readOnly = page.getByRole('dialog', { name: 'Note shared' });
     if (await readOnly.isVisible()) await readOnly.getByRole('button', { name: 'Done' }).click();

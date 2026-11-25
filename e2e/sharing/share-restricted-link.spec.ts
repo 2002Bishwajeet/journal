@@ -168,7 +168,13 @@ test('the Share dialog copies a restricted note\'s link, and a viewer who has th
   const link = new URL(await app.evaluate(() => navigator.clipboard.readText()));
   expect(link.origin).toBe(new URL(app.url()).origin);
   expect(link.pathname).toMatch(new RegExp(`^/share/[^/]+/${docId}$`));
+  // The dialog has an unsaved change: the button says Save, and Escape asks before discarding.
+  await expect(dialog.getByRole('button', { name: 'Save', exact: true })).toBeVisible();
   await app.keyboard.press('Escape');
+  const discard = app.getByRole('dialog', { name: 'Discard changes?' });
+  await expect(discard).toBeVisible();
+  await discard.getByRole('button', { name: 'Discard' }).click();
+  await expect(dialog).toBeHidden();
 
   // The note is not public (403), and this Journal has it: the link opens it here.
   await guestReadsAnswer(app, 403);
