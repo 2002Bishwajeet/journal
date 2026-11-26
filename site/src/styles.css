@@ -435,9 +435,8 @@ code { font-family: var(--font-mono); font-size: var(--fs-small); white-space: n
 @media (hover: hover) and (pointer: fine) { .tab:hover { color: var(--code-ink); } }
 /* On a phone the four tabs wrap into two rows rather than scrolling out of sight. */
 @media (max-width: 599px) { .tabs { flex-wrap: wrap; } .tab { padding: 0 12px; } }
-/* Local or Online inside each client's tab (#1512): the same tabs, set as a two-way switch on the panel. */
+/* Online or Local inside each client's tab (#1512): the same tabs, set as a two-way switch on the panel. */
 .modes { width: fit-content; margin: 0 8px 8px; padding: 4px; border-radius: calc(var(--radius) + 4px); background: rgb(255 255 255 / 0.04); }
-.tab .beta { margin-left: 4px; color: var(--accent); }
 /* One numbered row per command: its number, what to do and its own Copy button, the command under them.
    A long command scrolls sideways inside its row rather than wrapping mid-line (see the phone rule below).
    The markup reads instruction, command, Copy; the grid puts Copy top right on wider screens. */

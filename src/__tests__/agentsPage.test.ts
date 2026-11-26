@@ -141,7 +141,7 @@ describe('the install card', () => {
             expect(order.indexOf('PRE')).toBeLessThan(order.indexOf('BUTTON'));
         }
         expect($('#identity-input').getAttribute('aria-describedby')).toBe('identity-help');
-        expect($('#identity-help').textContent).toBe('Type it once and every command below fills it in. Nothing is saved.');
+        expect($('#identity-help').textContent).toBe('Fills in every command below. Not saved.');
     });
 
     it('shows each login with the hint under it', () => {
@@ -215,14 +215,15 @@ describe('the Claude Desktop extension (#1457)', () => {
 describe('connecting online (#1512)', () => {
     const URL = 'https://mcp.cloudx.run/journal';
 
-    it('gives every client a Local tab, shown first, and an Online one', () => {
+    it('gives every client an Online tab, shown first, and a Local one', () => {
         for (const key of ['desktop', 'claude-code', 'cursor', 'codex', 'hermes']) {
             const tabs = $$<HTMLButtonElement>(`#panel-${key} [role="tablist"] [role="tab"]`);
-            expect(tabs.map((t) => t.textContent!.replace(/\s+/g, ' '))).toEqual(['Local', 'Online Beta']);
+            expect(tabs.map((t) => t.textContent)).toEqual(['Online', 'Local']);
             expect(tabs.map((t) => t.getAttribute('aria-selected'))).toEqual(['true', 'false']);
-            expect(tabs.map((t) => t.getAttribute('aria-controls'))).toEqual([`local-${key}`, `online-${key}`]);
-            expect($<HTMLElement>(`#local-${key}`).hidden).toBe(false);
-            expect($<HTMLElement>(`#online-${key}`).hidden).toBe(true);
+            expect(tabs.map((t) => t.getAttribute('tabindex'))).toEqual([null, '-1']);
+            expect(tabs.map((t) => t.getAttribute('aria-controls'))).toEqual([`online-${key}`, `local-${key}`]);
+            expect($<HTMLElement>(`#online-${key}`).hidden).toBe(false);
+            expect($<HTMLElement>(`#local-${key}`).hidden).toBe(true);
         }
     });
 
@@ -254,13 +255,10 @@ describe('connecting online (#1512)', () => {
         expect([...new Set(html.match(/https?:\/\/mcp\.cloudx\.run[^\s"<]*/g))]).toEqual([URL]);
     });
 
-    it('says it is a beta, to pick one way, how to disconnect and what is kept', () => {
+    it('says to pick one way and how to disconnect', () => {
         const text = $('#setup .setup-copy').textContent!.replace(/\s+/g, ' ');
-        expect(text).toContain('Pick one way per app, not both');
-        expect(text).toContain('free while the beta lasts, with fair-use limits');
-        expect(text).toContain('plans may come later');
-        expect(text).toContain('Its tokens are stored hashed and encrypted, and note content isn\'t logged; choose Local to keep everything on your own computer.');
-        expect(text).toContain('To disconnect either way, remove Journal MCP under Apps in your Homebase owner console.');
+        expect(text).toContain('Use one per app, not both.');
+        expect(text).toContain('To disconnect, remove Journal MCP under Apps in your Homebase owner console.');
         expect(html).toMatch(/<meta name="description" content="[^"]*online with nothing to install/);
     });
 
@@ -281,9 +279,9 @@ describe('the page copy', () => {
         expect(html).not.toContain('you.dotyou.cloud');
     });
 
-    it('says plainly where it runs, which Claude apps work, and what Claude can and cannot do', () => {
+    it('says what Claude may touch, which Claude apps work, and what Claude can and cannot do', () => {
         const text = document.body.textContent!.replace(/\s+/g, ' ');
-        expect(text).toContain("It runs on your computer and talks to your notes directly. Your notes don't pass through any Journal server.");
+        expect(text).toContain('Let Claude read and write your notes, only in the folders you grant.');
         expect(text).not.toContain('Set up the server');
         const rows = $$('.apps tbody tr').map((tr) => [...tr.children].map((c) => c.textContent));
         expect(rows).toEqual([

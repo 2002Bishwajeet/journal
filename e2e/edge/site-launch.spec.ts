@@ -174,6 +174,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await page.emulateMedia({ colorScheme });
       await page.setViewportSize(viewport);
       await page.goto('/landing/agents');
+      await page.locator('#panel-desktop').getByRole('tab', { name: 'Local', exact: true }).click();
       const steps = page.locator('#local-desktop .mcpb-step');
       await expect(steps).toHaveCount(3);
       await expect(steps.first()).toHaveCSS('counter-increment', /^cmd/);

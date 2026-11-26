@@ -2,7 +2,7 @@ import { test, expect } from '../fixtures';
 
 // #1454: the agents page's install card, as a non-technical Claude user meets it. Claude Desktop opens
 // first, the address field fills every command, a command stays on one line on a phone, and the page
-// is saved at 1280 and 390, light and dark, for the PR. #1457: the Claude Desktop tab leads with the
+// is saved at 1280 and 390, light and dark, for the PR. #1457: Claude Desktop's Local tab leads with the
 // extension's download and three steps; its terminal route folds away under them.
 
 const VIEWPORTS = [
@@ -14,6 +14,8 @@ test('the agents page install card, at 1280 and 390, light and dark', async ({ p
   await page.goto('/landing/agents');
   await expect(page.getByRole('heading', { name: 'Which app do you use?' })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Claude Desktop' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#panel-desktop').getByRole('tab', { name: 'Online', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await page.locator('#panel-desktop').getByRole('tab', { name: 'Local', exact: true }).click();
   await expect(page.getByRole('link', { name: 'Download for Claude Desktop' })).toBeVisible();
   await expect(page.locator('#local-desktop > ol.cmds > li')).toHaveCount(3);
   await expect(page.locator('#install-desktop-login')).toBeHidden();
@@ -55,17 +57,15 @@ test('the agents page install card, at 1280 and 390, light and dark', async ({ p
   }
 });
 
-// #1512: each client's tab switches between Local (first) and Online, the hosted server with nothing to install.
+// #1512: each client's tab switches between Online (first, the hosted server with nothing to install) and Local.
 test('the online setup in each client tab, at 1280 and 390, light and dark', async ({ page }) => {
   await page.goto('/landing/agents');
   const install = page.locator('#setup .setup-step').first();
 
-  await page.locator('#panel-desktop').getByRole('tab', { name: 'Online Beta' }).click();
   await expect(page.locator('#online-desktop-url')).toHaveText('https://mcp.cloudx.run/journal');
   await expect(page.getByRole('link', { name: 'Download for Claude Desktop' })).toBeHidden();
 
   await page.getByRole('tab', { name: 'Claude Code', exact: true }).click();
-  await page.locator('#panel-claude-code').getByRole('tab', { name: 'Online Beta' }).click();
   await expect(page.locator('#online-code-add')).toHaveText('claude mcp add --transport http journal https://mcp.cloudx.run/journal');
   await expect(page.locator('#install-code-login')).toBeHidden();
   await page.locator('#panel-claude-code').getByRole('tab', { name: 'Local', exact: true }).click();
@@ -78,7 +78,7 @@ test('the online setup in each client tab, at 1280 and 390, light and dark', asy
       await page.emulateMedia({ colorScheme });
       for (const [tab, key] of clients) {
         await page.getByRole('tab', { name: tab, exact: true }).click();
-        await page.locator(`#panel-${key}`).getByRole('tab', { name: 'Online Beta' }).click();
+        await page.locator(`#panel-${key}`).getByRole('tab', { name: 'Online', exact: true }).click();
         await expect(page.locator(`#online-${key}`)).toBeVisible();
         await install.scrollIntoViewIfNeeded();
         await expect(install).toHaveClass(/\bin\b/);
