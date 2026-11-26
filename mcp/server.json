@@ -2,13 +2,13 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.2002Bishwajeet/journal",
   "title": "Journal",
-  "description": "Read, search and edit your Journal notes. Sign in with your Homebase identity. Beta.",
+  "description": "Read, search and edit your Journal notes. Sign in with your Homebase identity.",
   "repository": {
     "url": "https://github.com/2002Bishwajeet/journal",
     "source": "github",
     "subfolder": "mcp"
   },
-  "version": "0.1.0",
+  "version": "0.1.1",
   "remotes": [
     {
       "type": "streamable-http",
