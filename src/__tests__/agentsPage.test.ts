@@ -9,6 +9,7 @@ import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from '../../site/vite.config';
 import { IDENTITY_PLACEHOLDER, identityFrom, latestMcpbUrl, startInstallCard } from '../../site/src/agents';
+import { TOOLS } from '@/lib/agent/tools/registry';
 
 // A path, not new URL(`…${file}`, import.meta.url): Vite turns that into a glob of the whole repo under happy-dom.
 const read = (file: string) => readFileSync(resolve(import.meta.dirname, '../..', file), 'utf8');
@@ -309,5 +310,12 @@ describe('the page copy', () => {
         expect(documented.sort()).toEqual([...tools].sort());
         expect($$('.tool-index a').map((a) => a.getAttribute('href')!.replace('#tool-', '')).sort()).toEqual([...tools].sort());
         expect(html).not.toMatch(/fourteen/i);
+    });
+
+    it('lists every input each shared tool takes', () => {
+        for (const tool of TOOLS) {
+            const documented = $$(`#tool-${tool.name} .params dt > code`).map((c) => c.textContent);
+            expect(documented.sort(), tool.name).toEqual(Object.keys(tool.input.shape).sort());
+        }
     });
 });

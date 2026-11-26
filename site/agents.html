@@ -555,6 +555,7 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
               <dl class="params">
                 <div><dt><code>folderId</code> <span>string, optional</span></dt><dd>Only notes in this folder, by its id from <code>list_folders</code>.</dd></div>
                 <div><dt><code>limit</code> <span>integer, optional</span></dt><dd>1 to 200. Default 50.</dd></div>
+                <div><dt><code>fields</code> <span>string[], optional</span></dt><dd>Any of <code>id</code>, <code>title</code>, <code>folderId</code>, <code>modified</code>, <code>tags</code>. Default all but <code>tags</code>.</dd></div>
               </dl>
               <h5 class="spec-head">Returns</h5>
               <p>A list of <code>{ id, title, folderId, modified, tags, access }</code>. No note bodies.</p>
@@ -573,8 +574,12 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
             <div class="tool-spec">
               <h5 class="spec-head">Inputs</h5>
               <dl class="params">
-                <div><dt><code>query</code> <span>string, required</span></dt><dd>The text to look for.</dd></div>
-                <div><dt><code>limit</code> <span>integer, optional</span></dt><dd>At least 1. Default 20.</dd></div>
+                <div><dt><code>query</code> <span>string, required</span></dt><dd>The text to look for. Can be empty with a filter.</dd></div>
+                <div><dt><code>limit</code> <span>integer, optional</span></dt><dd>1 to 100. Default 20.</dd></div>
+                <div><dt><code>folderId</code> <span>string, optional</span></dt><dd>Only notes in this folder, by its id from <code>list_folders</code>.</dd></div>
+                <div><dt><code>tag</code> <span>string, optional</span></dt><dd>Only notes with this exact tag.</dd></div>
+                <div><dt><code>modifiedAfter</code> <span>string, optional</span></dt><dd>An ISO date. Notes changed on or after it.</dd></div>
+                <div><dt><code>modifiedBefore</code> <span>string, optional</span></dt><dd>An ISO date. Notes changed before it.</dd></div>
               </dl>
               <h5 class="spec-head">Returns</h5>
               <p>The matching notes, in the same shape as <code>list_notes</code>.</p>
@@ -594,7 +599,10 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
               <h5 class="spec-head">Inputs</h5>
               <dl class="params">
                 <div><dt><code>id</code> <span>string, required</span></dt><dd>The note's id.</dd></div>
-                <div><dt><code>format</code> <span>"markdown" or "blocks", optional</span></dt><dd>Default <code>markdown</code>.</dd></div>
+                <div><dt><code>format</code> <span>"markdown", "outline" or "blocks", optional</span></dt><dd>Default <code>markdown</code>. <code>outline</code> lists top-level blocks with a preview.</dd></div>
+                <div><dt><code>blockIds</code> <span>string[], optional</span></dt><dd>With <code>blocks</code>: only these blocks.</dd></div>
+                <div><dt><code>section</code> <span>string, optional</span></dt><dd>With <code>blocks</code>: a heading's text. Only that heading's section.</dd></div>
+                <div><dt><code>includeRows</code> <span>boolean, optional</span></dt><dd>With <code>blocks</code>: a table's cells as rows.</dd></div>
               </dl>
               <h5 class="spec-head">Returns</h5>
               <p><code>{ id, title, folderId, modified, tags, access }</code> with <code>markdown</code>, or with <code>blocks</code>: a list of <code>{ id, type, markdown, attrs }</code>, plus <code>rows</code> of cell markdown for a table. Block ids stay the same while the block exists.</p>
@@ -612,7 +620,9 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
             </div>
             <div class="tool-spec">
               <h5 class="spec-head">Inputs</h5>
-              <p class="none">None.</p>
+              <dl class="params">
+                <div><dt><code>section</code> <span>string, optional</span></dt><dd>One section. Without it, an index of the sections.</dd></div>
+              </dl>
               <h5 class="spec-head">Returns</h5>
               <p>The guide as markdown text, the same as <a href="https://github.com/2002Bishwajeet/journal/blob/main/mcp/AUTHORING.md">AUTHORING.md</a>.</p>
             </div>
@@ -702,9 +712,10 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
                 <div><dt><code>markdown</code> <span>string, optional</span></dt><dd>The new body.</dd></div>
                 <div><dt><code>title</code> <span>string, optional</span></dt><dd>The new title.</dd></div>
                 <div><dt><code>tags</code> <span>string[], optional</span></dt><dd>Replaces all of the note's tags.</dd></div>
+                <div><dt><code>folderId</code> <span>string, optional</span></dt><dd>Moves the note to this folder.</dd></div>
                 <div><dt><code>expectedModified</code> <span>string, optional</span></dt><dd>Refuse the edit if the note changed since this time.</dd></div>
               </dl>
-              <p class="small">Give at least one of <code>markdown</code>, <code>title</code> or <code>tags</code>.</p>
+              <p class="small">Give at least one of <code>markdown</code>, <code>title</code>, <code>tags</code> or <code>folderId</code>.</p>
               <h5 class="spec-head">Returns</h5>
               <p><code>{ id }</code>.</p>
             </div>
