@@ -1,4 +1,4 @@
 ### Changed
 
 - The Agents page opens on Online, the hosted server, by default. The page text is shorter.
-- On the Agents page, the tool cards show every search filter.
+- The tool cards on the Agents page list every input, including every search filter.

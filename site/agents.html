@@ -574,9 +574,9 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
             <div class="tool-spec">
               <h5 class="spec-head">Inputs</h5>
               <dl class="params">
-                <div><dt><code>query</code> <span>string, required</span></dt><dd>The text to look for. May be <code>""</code> with a filter.</dd></div>
+                <div><dt><code>query</code> <span>string, required</span></dt><dd>The text to look for. Can be empty with a filter.</dd></div>
                 <div><dt><code>limit</code> <span>integer, optional</span></dt><dd>1 to 100. Default 20.</dd></div>
-                <div><dt><code>folderId</code> <span>string, optional</span></dt><dd>Only notes in this folder.</dd></div>
+                <div><dt><code>folderId</code> <span>string, optional</span></dt><dd>Only notes in this folder, by its id from <code>list_folders</code>.</dd></div>
                 <div><dt><code>tag</code> <span>string, optional</span></dt><dd>Only notes with this exact tag.</dd></div>
                 <div><dt><code>modifiedAfter</code> <span>string, optional</span></dt><dd>An ISO date. Notes changed on or after it.</dd></div>
                 <div><dt><code>modifiedBefore</code> <span>string, optional</span></dt><dd>An ISO date. Notes changed before it.</dd></div>
@@ -599,9 +599,9 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
               <h5 class="spec-head">Inputs</h5>
               <dl class="params">
                 <div><dt><code>id</code> <span>string, required</span></dt><dd>The note's id.</dd></div>
-                <div><dt><code>format</code> <span>"markdown", "outline" or "blocks", optional</span></dt><dd>Default <code>markdown</code>. <code>outline</code> lists top-level blocks with a short preview.</dd></div>
+                <div><dt><code>format</code> <span>"markdown", "outline" or "blocks", optional</span></dt><dd>Default <code>markdown</code>. <code>outline</code> lists top-level blocks with a preview.</dd></div>
                 <div><dt><code>blockIds</code> <span>string[], optional</span></dt><dd>With <code>blocks</code>: only these blocks.</dd></div>
-                <div><dt><code>section</code> <span>string, optional</span></dt><dd>With <code>blocks</code>: a heading's text. That heading and its section only.</dd></div>
+                <div><dt><code>section</code> <span>string, optional</span></dt><dd>With <code>blocks</code>: a heading's text. Only that heading's section.</dd></div>
                 <div><dt><code>includeRows</code> <span>boolean, optional</span></dt><dd>With <code>blocks</code>: a table's cells as rows.</dd></div>
               </dl>
               <h5 class="spec-head">Returns</h5>
