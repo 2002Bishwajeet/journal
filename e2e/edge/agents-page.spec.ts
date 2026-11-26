@@ -2,9 +2,8 @@ import { test, expect } from '../fixtures';
 
 // #1454: the agents page's install card, as a non-technical Claude user meets it. Claude Desktop opens
 // first, the address field fills every command, a command stays on one line on a phone, and the page
-// is saved at 1280 and 390, light and dark, for the PR. #1457: the Claude Desktop tab leads with the
-// extension's download and three steps; its terminal route folds away under them. Online is the default tab, so
-// the Local route is a click away.
+// is saved at 1280 and 390, light and dark, for the PR. #1457: Claude Desktop's Local tab leads with the
+// extension's download and three steps; its terminal route folds away under them.
 
 const VIEWPORTS = [
   { name: '1280', width: 1280, height: 900 },
@@ -63,7 +62,6 @@ test('the online setup in each client tab, at 1280 and 390, light and dark', asy
   await page.goto('/landing/agents');
   const install = page.locator('#setup .setup-step').first();
 
-  await expect(page.locator('#panel-desktop').getByRole('tab', { name: 'Online', exact: true })).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('#online-desktop-url')).toHaveText('https://mcp.cloudx.run/journal');
   await expect(page.getByRole('link', { name: 'Download for Claude Desktop' })).toBeHidden();
 

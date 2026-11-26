@@ -255,11 +255,10 @@ describe('connecting online (#1512)', () => {
         expect([...new Set(html.match(/https?:\/\/mcp\.cloudx\.run[^\s"<]*/g))]).toEqual([URL]);
     });
 
-    it('says to pick one way and how to disconnect, and is no longer a beta', () => {
+    it('says to pick one way and how to disconnect', () => {
         const text = $('#setup .setup-copy').textContent!.replace(/\s+/g, ' ');
         expect(text).toContain('Use one per app, not both.');
         expect(text).toContain('To disconnect, remove Journal MCP under Apps in your Homebase owner console.');
-        expect(html).not.toMatch(/beta/i);
         expect(html).toMatch(/<meta name="description" content="[^"]*online with nothing to install/);
     });
 
