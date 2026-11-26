@@ -27,9 +27,9 @@
             <div class="needs" data-reveal style="--i:3">
               <h2 class="h3">What you need</h2>
               <dl>
-                <dt>A Homebase identity</dt><dd>Such as <code>alex.dotyou.cloud</code>, signed in to <a href="/welcome">Journal</a> at least once. <a href="https://homebase.id/sign-up">Join the wait list</a> if you have none.</dd>
-                <dt>Node.js 20 or newer</dt><dd>Only for Local setups, except the Claude Desktop extension. Free from <a href="https://nodejs.org">nodejs.org</a>; check with <code>node --version</code>.</dd>
-                <dt>A Claude app</dt><dd>Claude Desktop or Claude Code. Cursor, Codex CLI and any other client that can start a local command work too.</dd>
+                <dt>A Homebase identity</dt><dd>Such as <code>alex.dotyou.cloud</code>, opened in <a href="/welcome">Journal</a> once. No identity? <a href="https://homebase.id/sign-up">Join the wait list</a>.</dd>
+                <dt>Node.js 20 or newer</dt><dd>Only for Local, except the Claude Desktop extension. From <a href="https://nodejs.org">nodejs.org</a>; check with <code>node --version</code>.</dd>
+                <dt>A Claude app</dt><dd>Claude Desktop, claude.ai or Claude Code. Cursor, Codex CLI, Hermes Agent and other MCP clients work too.</dd>
               </dl>
             </div>
           </div>
@@ -39,12 +39,12 @@
               <div class="session-body">
                 <p class="session-ask">Build a chart of my reading log as a live block.</p>
                 <ol class="session-calls" aria-label="The tools it calls">
-                  <li><code>get_authoring_guide</code><span>Reads how a note can hold live blocks</span></li>
-                  <li><code>search_notes</code><span>Finds the reading log among the notes you granted</span></li>
-                  <li><code>get_note</code><span>Reads the books and the months they were finished</span></li>
-                  <li><code>create_note</code><span>Writes the new note into a folder it may write in</span></li>
+                  <li><code>get_authoring_guide</code><span>Learns how live blocks work</span></li>
+                  <li><code>search_notes</code><span>Finds the reading log</span></li>
+                  <li><code>get_note</code><span>Reads the books and dates</span></li>
+                  <li><code>create_note</code><span>Writes the chart note</span></li>
                 </ol>
-                <p class="session-done">A new note, with a chart that runs where you read it.</p>
+                <p class="session-done">A new note with a working chart.</p>
               </div>
             </figure>
           </div>
@@ -57,14 +57,14 @@
               <h3 class="can-head">It can</h3>
               <ul>
                 <li>Read and search notes, only in the folders you grant.</li>
-                <li>Write new notes and edit them, only in the folders you set to Read + write.</li>
+                <li>Write and edit in folders set to Read + write.</li>
               </ul>
             </div>
             <div>
               <h3 class="can-head">It can't</h3>
               <ul>
                 <li>See folders set to None, or notes marked ‘exclude from AI’.</li>
-                <li>Delete a note for good. It can only move one to Trash, where you can restore it.</li>
+                <li>Delete a note for good. It moves notes to Trash.</li>
               </ul>
             </div>
           </div>
@@ -424,10 +424,9 @@ args = ["-y", "journal-mcp@latest"]</code></pre>
           <li class="setup-step" data-reveal>
             <div class="setup-copy">
               <h3 class="h3">Approve Journal MCP on your identity</h3>
-              <p>Signing in opens your Homebase owner console. Approve the app called Journal MCP: it asks for Read + write on your notes drive and nothing else. The terminal then says you're logged in.</p>
-              <p>Reload the server so it picks up the login: run <code>/mcp</code> in Claude Code and reconnect <code>journal</code>, quit and reopen Claude Desktop, restart Cursor or Codex, or run <code>/reload-mcp</code> in Hermes.</p>
-              <p>With the Claude Desktop extension, the approval page opens by itself after you install it, and there is nothing to reload.</p>
-              <p class="small">On a computer with no browser, such as over SSH, add <code>--no-browser</code> to the login command. It prints a link to open on any device; approve there, and paste the code Journal shows at the <code>Paste code:</code> prompt.</p>
+              <p>Approve Journal MCP in your Homebase owner console. It asks for Read + write on your notes drive only. Online, you do this when you click Connect.</p>
+              <p>For Local, reload the server after approving: <code>/mcp</code> and reconnect <code>journal</code> in Claude Code, reopen Claude Desktop, restart Cursor or Codex, <code>/reload-mcp</code> in Hermes. The Claude Desktop extension needs no reload.</p>
+              <p class="small">No browser, such as over SSH? Add <code>--no-browser</code> to the login command, approve on any device from the link it prints, and paste the code at <code>Paste code:</code>.</p>
             </div>
             <figure class="code-panel terminal" data-ui aria-labelledby="terminal-cap">
               <figcaption id="terminal-cap" class="code-head"><span>What the terminal shows</span></figcaption>
@@ -441,8 +440,8 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
           <li class="setup-step" data-reveal>
             <div class="setup-copy">
               <h3 class="h3">Grant the folders it may use</h3>
-              <p>In Journal, open Settings → Agent access and set each folder, or a single note, to None, Read, or Read + write. Everything starts at None, so until you grant something the agent sees no notes at all.</p>
-              <p>Mark a note ‘exclude from AI’ and it stays yours alone, whatever its folder allows. The server checks your grants on every tool call, on your own computer.</p>
+              <p>In Journal, open Settings → Agent access and set each folder or note to None, Read, or Read + write. Everything starts at None.</p>
+              <p>A note marked ‘exclude from AI’ stays hidden whatever its folder allows. Grants are checked on every tool call.</p>
             </div>
             <figure class="crop crop-grants" data-ui>
               <picture class="only-light">
@@ -459,8 +458,8 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
           <li class="setup-step" data-reveal>
             <div class="setup-copy">
               <h3 class="h3">Check that it works</h3>
-              <p>Ask your agent to list your Journal folders. It calls <code>list_folders</code> and names each folder you granted, with <code>read</code> or <code>write</code> beside it. Folders left at None don't appear.</p>
-              <p>An empty list means the server is connected and nothing is granted yet. An error means the server isn't running: see the fixes below.</p>
+              <p>Ask your agent to list your Journal folders. It calls <code>list_folders</code> and names each granted folder with <code>read</code> or <code>write</code>.</p>
+              <p>An empty list means nothing is granted yet. An error means the server isn't running: see <a href="#fixes">the fixes</a>.</p>
             </div>
             <figure class="session check" data-ui aria-labelledby="check-cap">
               <figcaption id="check-cap" class="code-head"><span>The first request</span></figcaption>
@@ -472,7 +471,7 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
   { "id": "7c42…", "name": "Reading", "access": "write" },
   { "id": "a9d3…", "name": "Work", "access": "write" }
 ]</code></pre>
-                <p class="session-done">You granted three folders. Main is read-only; I can write in Reading and Work.</p>
+                <p class="session-done">Main is read-only. I can write in Reading and Work.</p>
               </div>
             </figure>
           </li>
@@ -481,15 +480,14 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
         <div class="fixes" data-reveal>
           <h3 class="h3" id="fixes">If something goes wrong</h3>
           <dl>
-            <div><dt><code>Not logged in. Run: journal-mcp login &lt;identity&gt;</code></dt><dd>The server started but found no login on this computer. Run the sign-in step again, then reload the server.</dd></div>
-            <div><dt><code>Not a valid Homebase identity</code></dt><dd>Check the spelling. Give the identity alone, such as <code>alex.dotyou.cloud</code>, and make sure it opens in a browser.</dd></div>
-            <div><dt><code>Login timed out after 5 minutes</code></dt><dd>The approval wasn't finished in time. Run the login again and approve Journal MCP in the console it opens.</dd></div>
-            <div><dt>No browser opens</dt><dd>Over SSH or in a container, add <code>--no-browser</code> and paste the code, as in step two.</dd></div>
-            <div><dt><code>Journal MCP needs Node 20 or newer</code></dt><dd>Install Node.js 20 or later, remove the old one, and restart your client.</dd></div>
-            <div><dt>The client can't start <code>npx</code></dt><dd>Desktop apps don't always see your shell's path. Put the full path from <code>which npx</code> in <code>"command"</code>.</dd></div>
-            <div><dt>The agent sees no notes</dt><dd>Nothing is granted yet. Set the folders it needs in Settings → Agent access; the change applies on the next tool call.</dd></div>
-            <div><dt><code>Note is read-only for agents</code></dt><dd>The note's folder is set to Read. Change it to Read + write to let the agent edit.</dd></div>
-            <div><dt>Revoke access</dt><dd>Remove Journal MCP under Apps in your owner console. To forget the login on one computer, run the login command with <code>logout</code> in place of <code>login <span class="identity">type.your.identity.here</span></code>.</dd></div>
+            <div><dt><code>Not logged in. Run: journal-mcp login &lt;identity&gt;</code></dt><dd>No login on this computer. Sign in again, then reload the server.</dd></div>
+            <div><dt><code>Not a valid Homebase identity</code></dt><dd>Give the identity alone, such as <code>alex.dotyou.cloud</code>.</dd></div>
+            <div><dt><code>Login timed out after 5 minutes</code></dt><dd>Run the login again and approve within 5 minutes.</dd></div>
+            <div><dt><code>Journal MCP needs Node 20 or newer</code></dt><dd>Install Node.js 20 or later and restart your client.</dd></div>
+            <div><dt>The client can't start <code>npx</code></dt><dd>Put the full path from <code>which npx</code> in <code>"command"</code>.</dd></div>
+            <div><dt>The agent sees no notes</dt><dd>Grant folders in Settings → Agent access.</dd></div>
+            <div><dt><code>Note is read-only for agents</code></dt><dd>Its folder is set to Read. Change it to Read + write.</dd></div>
+            <div><dt>Revoke access</dt><dd>Remove Journal MCP under Apps in your Homebase owner console. To sign out one computer, run the login command with <code>logout</code> in place of <code>login <span class="identity">type.your.identity.here</span></code>.</dd></div>
           </dl>
         </div>
       </div>
@@ -499,8 +497,8 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
     <section class="section" id="tools" aria-labelledby="tools-title">
       <div class="wrap">
         <div class="section-head head-split">
-          <h2 class="h2" id="tools-title" data-reveal>Every tool, grouped by job</h2>
-          <p class="lede" data-reveal style="--i:1">What each tool does, what it takes and returns, and when an agent should reach for it. Your agent reads the same descriptions when it connects.</p>
+          <h2 class="h2" id="tools-title" data-reveal>Every tool</h2>
+          <p class="lede" data-reveal style="--i:1">What each tool takes and returns. Your agent reads the same descriptions.</p>
         </div>
 
         <nav class="tool-index" aria-label="Tools by job" data-reveal>
@@ -514,12 +512,12 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
         <div class="rules" data-reveal>
           <h3 class="h3">Rules every tool follows</h3>
           <dl>
-            <div><dt>Access</dt><dd>A note or folder at None doesn't exist for the agent: it is never listed, and asking for it returns <code>Note not found</code>. At Read, write tools fail with <code>Note is read-only for agents</code>. A note marked ‘exclude from AI’ is never readable or writable.</dd></div>
-            <div><dt>Merged edits</dt><dd>Every write is applied to the note's current state and merged, so what you type in Journal at the same time is kept. To have an edit refused if the note changed since you read it, pass <code>get_note</code>'s <code>modified</code> as <code>expectedModified</code>.</dd></div>
-            <div><dt>Signed edits</dt><dd>Notes an agent changes are labelled with it, such as <code>agent:claude-code</code>.</dd></div>
-            <div><dt>Images</dt><dd>In markdown, <code>![alt](/absolute/path.png)</code> or a base64 <code>data:</code> URI is uploaded into the note. PNG, JPEG or WebP, up to 5 MB each, with EXIF and GPS removed. If one image is invalid, nothing is written. <code>https://</code> image links stay links.</dd></div>
+            <div><dt>Access</dt><dd>At None, a note or folder is never listed and returns <code>Note not found</code>. At Read, writes fail with <code>Note is read-only for agents</code>. Notes marked ‘exclude from AI’ are never read or written.</dd></div>
+            <div><dt>Merged edits</dt><dd>Writes merge into the note's current state, so your own typing is kept. Pass <code>get_note</code>'s <code>modified</code> as <code>expectedModified</code> to refuse an edit if the note changed.</dd></div>
+            <div><dt>Signed edits</dt><dd>Agent edits are labelled, such as <code>agent:claude-code</code>.</dd></div>
+            <div><dt>Images</dt><dd><code>![alt](/absolute/path.png)</code> or a base64 <code>data:</code> URI is uploaded. PNG, JPEG or WebP, up to 5 MB, EXIF and GPS removed. One invalid image and nothing is written. <code>https://</code> images stay links.</dd></div>
             <div><dt>Note links</dt><dd><code>[label](journal:note/&lt;id&gt;)</code>, or <code>[[Note title]]</code> for the one note you can see with that title.</dd></div>
-            <div><dt>Layout warnings</dt><dd>When an <code>html</code> or <code>react</code> block sets a width over 390px or uses <code>100vh</code>, the write still succeeds and the result carries a note saying how to fix it.</dd></div>
+            <div><dt>Layout warnings</dt><dd>An <code>html</code> or <code>react</code> block that sets a width over 390px or uses <code>100vh</code> is still written, with a note on how to fix it.</dd></div>
           </dl>
         </div>
 
@@ -529,9 +527,9 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
           <article class="tool" id="tool-list_folders" aria-labelledby="t-list_folders" data-reveal>
             <div class="tool-main">
               <h4 class="tool-name" id="t-list_folders"><code>list_folders</code></h4>
-              <p>Lists the folders you have granted, each with the agent's access to it.</p>
+              <p>Lists granted folders and the agent's access to each.</p>
               <dl class="tool-facts">
-                <dt>Use it when</dt><dd>Starting a session, or before <code>create_note</code>, to find a folder's <code>id</code> and whether it is writable.</dd>
+                <dt>Use it when</dt><dd>Starting a session, or finding a writable folder's <code>id</code> for <code>create_note</code>.</dd>
                 <dt>Try asking</dt><dd class="ask">Which of my Journal folders can you see?</dd>
               </dl>
             </div>
@@ -546,9 +544,9 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
           <article class="tool" id="tool-list_notes" aria-labelledby="t-list_notes" data-reveal>
             <div class="tool-main">
               <h4 class="tool-name" id="t-list_notes"><code>list_notes</code></h4>
-              <p>Lists granted notes, newest first, optionally from one folder.</p>
+              <p>Lists granted notes, newest first.</p>
               <dl class="tool-facts">
-                <dt>Use it when</dt><dd>Browsing what changed lately, or finding a note's <code>id</code> when you know which folder it's in.</dd>
+                <dt>Use it when</dt><dd>Seeing what changed, or finding a note in a known folder.</dd>
                 <dt>Try asking</dt><dd class="ask">What did I write in my Work folder this week?</dd>
               </dl>
             </div>
@@ -568,7 +566,7 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
               <h4 class="tool-name" id="t-search_notes"><code>search_notes</code></h4>
               <p>Finds granted notes whose title, tags or text contain the query, ignoring case.</p>
               <dl class="tool-facts">
-                <dt>Use it when</dt><dd>Looking for a note by a word in it. It matches the exact text, so search one distinctive word rather than a sentence.</dd>
+                <dt>Use it when</dt><dd>Finding a note by its words. Every word must match; double quotes keep a phrase together.</dd>
                 <dt>Try asking</dt><dd class="ask">Find my notes that mention Lisbon.</dd>
               </dl>
             </div>
@@ -586,9 +584,9 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
           <article class="tool" id="tool-get_note" aria-labelledby="t-get_note" data-reveal>
             <div class="tool-main">
               <h4 class="tool-name" id="t-get_note"><code>get_note</code></h4>
-              <p>Reads one note, with its body as markdown or as a list of blocks.</p>
+              <p>Reads one note as markdown or blocks.</p>
               <dl class="tool-facts">
-                <dt>Use it when</dt><dd>Before any edit. Ask for <code>blocks</code> before <code>edit_block</code>, and keep <code>modified</code> to pass as <code>expectedModified</code>.</dd>
+                <dt>Use it when</dt><dd>Before any edit. Use <code>blocks</code> before <code>edit_block</code>; keep <code>modified</code> for <code>expectedModified</code>.</dd>
                 <dt>Try asking</dt><dd class="ask">Summarise my Trip plan note.</dd>
               </dl>
             </div>
@@ -606,9 +604,9 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
           <article class="tool" id="tool-get_authoring_guide" aria-labelledby="t-get_authoring_guide" data-reveal>
             <div class="tool-main">
               <h4 class="tool-name" id="t-get_authoring_guide"><code>get_authoring_guide</code></h4>
-              <p>Returns the full reference for writing notes: every block's markdown with examples, how live blocks run, and the design rules that make them match the note in light and dark.</p>
+              <p>Returns the reference for writing notes: every block's markdown, how live blocks run, and design rules for light and dark.</p>
               <dl class="tool-facts">
-                <dt>Use it when</dt><dd>Before writing anything beyond plain markdown: tables, callouts, toggles, math, galleries, or a <code>mermaid</code>, <code>svg</code>, <code>html</code> or <code>react</code> live block.</dd>
+                <dt>Use it when</dt><dd>Before writing more than plain markdown: tables, callouts, toggles, math, galleries, or a <code>mermaid</code>, <code>svg</code>, <code>html</code> or <code>react</code> live block.</dd>
                 <dt>Try asking</dt><dd class="ask">Build a chart of my reading log as a live block.</dd>
               </dl>
             </div>
@@ -623,14 +621,14 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
 
         <div class="tool-group" aria-labelledby="group-write">
           <h3 class="h3 group-title" id="group-write" data-reveal>Write and edit</h3>
-          <p class="group-note" data-reveal>These need Read + write access. Pick the smallest one that does the job: a passage with <code>replace_in_note</code>, a block or table cell with <code>edit_block</code>, the whole note with <code>update_note</code>.</p>
+          <p class="group-note" data-reveal>These need Read + write. Use the smallest: <code>replace_in_note</code> for a passage, <code>edit_block</code> for a block or table cell, <code>update_note</code> for the whole note.</p>
 
           <article class="tool" id="tool-create_note" aria-labelledby="t-create_note" data-reveal>
             <div class="tool-main">
               <h4 class="tool-name" id="t-create_note"><code>create_note</code></h4>
-              <p>Creates a note from markdown in a folder the agent can write in.</p>
+              <p>Creates a note from markdown.</p>
               <dl class="tool-facts">
-                <dt>Use it when</dt><dd>The note doesn't exist yet. To change one that does, use <code>update_note</code> rather than a second note.</dd>
+                <dt>Use it when</dt><dd>The note doesn't exist yet. Otherwise use <code>update_note</code>.</dd>
                 <dt>Try asking</dt><dd class="ask">Create a note called Standup in my Work folder with today's summary.</dd>
               </dl>
             </div>
@@ -650,9 +648,9 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
           <article class="tool" id="tool-append_to_note" aria-labelledby="t-append_to_note" data-reveal>
             <div class="tool-main">
               <h4 class="tool-name" id="t-append_to_note"><code>append_to_note</code></h4>
-              <p>Adds markdown to the end of a note and leaves the rest as it was.</p>
+              <p>Adds markdown to the end of a note.</p>
               <dl class="tool-facts">
-                <dt>Use it when</dt><dd>Adding to a log, a diary or a running list.</dd>
+                <dt>Use it when</dt><dd>Logs, diaries, running lists.</dd>
                 <dt>Try asking</dt><dd class="ask">Append today's standup summary to my Work log.</dd>
               </dl>
             </div>
@@ -670,9 +668,9 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
           <article class="tool" id="tool-replace_in_note" aria-labelledby="t-replace_in_note" data-reveal>
             <div class="tool-main">
               <h4 class="tool-name" id="t-replace_in_note"><code>replace_in_note</code></h4>
-              <p>Replaces one passage of a note's markdown, exactly as <code>get_note</code> returned it.</p>
+              <p>Replaces one passage, matched exactly against <code>get_note</code>'s markdown.</p>
               <dl class="tool-facts">
-                <dt>Use it when</dt><dd>Changing a word, a date or a sentence. If <code>old_text</code> appears zero times or more than once, the tool says so and nothing changes: retry with more of the text around it.</dd>
+                <dt>Use it when</dt><dd>Changing a word, date or sentence. If <code>old_text</code> matches zero or several times, nothing changes: retry with more context.</dd>
                 <dt>Try asking</dt><dd class="ask">In my Trip plan note, change the flight time from 9:40 to 10:15.</dd>
               </dl>
             </div>
@@ -691,9 +689,9 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
           <article class="tool" id="tool-update_note" aria-labelledby="t-update_note" data-reveal>
             <div class="tool-main">
               <h4 class="tool-name" id="t-update_note"><code>update_note</code></h4>
-              <p>Rewrites a note's whole body, its title, its tags, or any of them. Blocks kept exactly as <code>get_note</code> returned them stay untouched, links and images included.</p>
+              <p>Rewrites a note's body, title or tags. Blocks left as <code>get_note</code> returned them stay untouched.</p>
               <dl class="tool-facts">
-                <dt>Use it when</dt><dd>Restructuring a note, renaming it or retagging it.</dd>
+                <dt>Use it when</dt><dd>Restructuring, renaming or retagging.</dd>
                 <dt>Try asking</dt><dd class="ask">Redesign my Trip plan note as a day-by-day itinerary.</dd>
               </dl>
             </div>
@@ -715,9 +713,9 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
           <article class="tool" id="tool-edit_block" aria-labelledby="t-edit_block" data-reveal>
             <div class="tool-main">
               <h4 class="tool-name" id="t-edit_block"><code>edit_block</code></h4>
-              <p>Changes one block of a note by its id: replace it, add a block before or after it, delete it, or change one table cell, row, column or setting. Every other block stays as it is.</p>
+              <p>Changes one block by id: replace it, insert before or after it, delete it, or edit a table cell, row, column or setting.</p>
               <dl class="tool-facts">
-                <dt>Use it when</dt><dd>Editing inside a table, ticking a task, or changing a callout or live block, after <code>get_note</code> with <code>format: "blocks"</code>.</dd>
+                <dt>Use it when</dt><dd>Tables, tasks, callouts and live blocks, after <code>get_note</code> with <code>format: "blocks"</code>.</dd>
                 <dt>Try asking</dt><dd class="ask">In my Trip plan table, set Tuesday's plan to Hike.</dd>
               </dl>
             </div>
@@ -751,9 +749,9 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
           <article class="tool" id="tool-set_note_cover" aria-labelledby="t-set_note_cover" data-reveal>
             <div class="tool-main">
               <h4 class="tool-name" id="t-set_note_cover"><code>set_note_cover</code></h4>
-              <p>Sets a note's cover image, or the cover it shows in dark mode. A public note's link preview uses the cover too.</p>
+              <p>Sets a note's cover, or its dark-mode cover. Public link previews use it too.</p>
               <dl class="tool-facts">
-                <dt>Use it when</dt><dd>A note needs a picture at the top. Use this rather than an image in the body. Crop to about 1.9:1 first, ideally 2400×1260 and at least 1200×630: the image is uploaded as it is.</dd>
+                <dt>Use it when</dt><dd>A note needs a picture at the top, instead of a body image. Crop to about 1.9:1 first (ideally 2400×1260, at least 1200×630); it is uploaded as is.</dd>
                 <dt>Try asking</dt><dd class="ask">Use ~/Pictures/lisbon.jpg as the cover of my Trip plan note.</dd>
               </dl>
             </div>
@@ -773,9 +771,9 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
           <article class="tool" id="tool-clear_note_cover" aria-labelledby="t-clear_note_cover" data-reveal>
             <div class="tool-main">
               <h4 class="tool-name" id="t-clear_note_cover"><code>clear_note_cover</code></h4>
-              <p>Removes a note's cover and its dark-mode cover, or only the dark one.</p>
+              <p>Removes a note's covers, or only the dark one.</p>
               <dl class="tool-facts">
-                <dt>Use it when</dt><dd>A note should go back to having no cover.</dd>
+                <dt>Use it when</dt><dd>A note should have no cover.</dd>
                 <dt>Try asking</dt><dd class="ask">Take the cover off my Trip plan note.</dd>
               </dl>
             </div>
@@ -793,9 +791,9 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
           <article class="tool" id="tool-create_image_upload" aria-labelledby="t-create_image_upload" data-reveal>
             <div class="tool-main">
               <h4 class="tool-name" id="t-create_image_upload"><code>create_image_upload</code></h4>
-              <p>Only on the hosted server (<code>https://mcp.cloudx.run/journal</code>), which can't read your files. The agent gets a one-time upload URL, POSTs the image to it, then places it with the <code>upload://…</code> source it got back. You can open the link yourself and drop in a photo.</p>
+              <p>Only on the hosted server (<code>https://mcp.cloudx.run/journal</code>), which can't read your files. The agent POSTs the image to a one-time upload URL, then places it with the <code>upload://…</code> source. You can open the link and drop in a photo yourself.</p>
               <dl class="tool-facts">
-                <dt>Use it when</dt><dd>An image for a note's body or cover is a file or a photo pasted into the chat. PNG, JPEG or WebP, up to 5 MB; EXIF and GPS are removed.</dd>
+                <dt>Use it when</dt><dd>A body or cover image is a file or a photo pasted into the chat.</dd>
                 <dt>Try asking</dt><dd class="ask">Put this photo at the top of my Trip plan note.</dd>
               </dl>
             </div>
@@ -817,9 +815,9 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
           <article class="tool" id="tool-create_folder" aria-labelledby="t-create_folder" data-reveal>
             <div class="tool-main">
               <h4 class="tool-name" id="t-create_folder"><code>create_folder</code></h4>
-              <p>Creates a folder and gives the agent Read + write on it, so it can put notes there. You can revoke that in Settings like any other grant.</p>
+              <p>Creates a folder with Read + write for the agent. Revoke it in Settings like any grant.</p>
               <dl class="tool-facts">
-                <dt>Use it when</dt><dd>The work needs a place of its own.</dd>
+                <dt>Use it when</dt><dd>The work needs its own place.</dd>
                 <dt>Try asking</dt><dd class="ask">Make a Research folder and save these notes in it.</dd>
               </dl>
             </div>
@@ -836,9 +834,9 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
           <article class="tool" id="tool-delete_note" aria-labelledby="t-delete_note" data-reveal>
             <div class="tool-main">
               <h4 class="tool-name" id="t-delete_note"><code>delete_note</code></h4>
-              <p>Moves a note to Journal's Trash, where you can restore it. It never deletes a note for good.</p>
+              <p>Moves a note to Trash, where you can restore it. Never deletes for good.</p>
               <dl class="tool-facts">
-                <dt>Use it when</dt><dd>A note is a duplicate or no longer wanted.</dd>
+                <dt>Use it when</dt><dd>A note is a duplicate or unwanted.</dd>
                 <dt>Try asking</dt><dd class="ask">Delete the duplicate Trip plan note.</dd>
               </dl>
             </div>
@@ -855,9 +853,9 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
           <article class="tool" id="tool-run_script" aria-labelledby="t-run_script" data-reveal>
             <div class="tool-main">
               <h4 class="tool-name" id="t-run_script"><code>run_script</code></h4>
-              <p>Runs a short JavaScript program against your granted notes in a sandbox, and returns only what it logs. It calls the same tools, with the same grants.</p>
+              <p>Runs short JavaScript in a sandbox against granted notes, with the same tools and grants. Returns only what it logs.</p>
               <dl class="tool-facts">
-                <dt>Use it when</dt><dd>A job picks notes by what they say, such as tagging every note that mentions a place, without reading each note into the chat.</dd>
+                <dt>Use it when</dt><dd>Picking notes by what they say, such as tagging every note that mentions a place, without reading each into the chat.</dd>
                 <dt>Try asking</dt><dd class="ask">Tag every note that mentions Lisbon with lisbon.</dd>
               </dl>
             </div>
@@ -876,14 +874,14 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
 
         <div class="tool-group" aria-labelledby="group-share">
           <h3 class="h3 group-title" id="group-share" data-reveal>Share and publish</h3>
-          <p class="group-note" data-reveal>Making a public note private happens at once. Anything else is a request: the note shows it in Journal, and nothing is shared until you confirm it there. Turn on ‘Let agents ask to share notes’ in Settings → Agent access to allow requests.</p>
+          <p class="group-note" data-reveal>Making a public note private is instant. Anything else is a request you confirm in Journal. Allow requests with ‘Let agents ask to share notes’ in Settings → Agent access.</p>
 
           <article class="tool" id="tool-get_sharing" aria-labelledby="t-get_sharing" data-reveal>
             <div class="tool-main">
               <h4 class="tool-name" id="t-get_sharing"><code>get_sharing</code></h4>
-              <p>Says who can see a note: only you, anyone with the link, or the people and circles it is shared with.</p>
+              <p>Says who can see a note: only you, anyone with the link, or chosen people and circles.</p>
               <dl class="tool-facts">
-                <dt>Use it when</dt><dd>Before sharing a note, or to find a public note's link. Read access is enough.</dd>
+                <dt>Use it when</dt><dd>Before sharing, or to find a public link. Read access is enough.</dd>
                 <dt>Try asking</dt><dd class="ask">Who can see my Trip plan note?</dd>
               </dl>
             </div>
@@ -900,9 +898,9 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
           <article class="tool" id="tool-share_note" aria-labelledby="t-share_note" data-reveal>
             <div class="tool-main">
               <h4 class="tool-name" id="t-share_note"><code>share_note</code></h4>
-              <p>Asks to make a note public, share it with people or circles, or stop sharing it. One tool for every kind of sharing.</p>
+              <p>Asks to make a note public, share it with people or circles, or stop sharing it.</p>
               <dl class="tool-facts">
-                <dt>Use it when</dt><dd>You want a link to send, or a note shared with someone. A note in a shared folder is public through the folder: move it with <code>update_note</code> instead.</dd>
+                <dt>Use it when</dt><dd>You want a link, or a note shared with someone. A note in a shared folder is public through the folder: move it with <code>update_note</code> instead.</dd>
                 <dt>Try asking</dt><dd class="ask">Make my Trip plan note public and give me the link.</dd>
               </dl>
             </div>
@@ -921,9 +919,9 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
           <article class="tool" id="tool-publish_to_feed" aria-labelledby="t-publish_to_feed" data-reveal>
             <div class="tool-main">
               <h4 class="tool-name" id="t-publish_to_feed"><code>publish_to_feed</code></h4>
-              <p>Publishes a note to your Homebase feed as an article anyone can read, as Publish to feed in Journal's Share dialog does. Publishing it again updates the same post.</p>
+              <p>Publishes a note to your Homebase feed as a public article, like Publish to feed in Journal's Share dialog. Publishing again updates the post.</p>
               <dl class="tool-facts">
-                <dt>Use it when</dt><dd>A note is ready to go out to your followers. The note itself doesn't have to be public.</dd>
+                <dt>Use it when</dt><dd>A note is ready for your followers. It needn't be public itself.</dd>
                 <dt>Try asking</dt><dd class="ask">Publish my Trip plan note to my feed.</dd>
               </dl>
             </div>
@@ -931,9 +929,9 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
               <h5 class="spec-head">Inputs</h5>
               <dl class="params">
                 <div><dt><code>id</code> <span>string, required</span></dt><dd>The note's id.</dd></div>
-                <div><dt><code>summary</code> <span>string, optional</span></dt><dd>One to three sentences shown with the post. It is kept on the note; an empty string removes it.</dd></div>
+                <div><dt><code>summary</code> <span>string, optional</span></dt><dd>One to three sentences shown with the post, kept on the note. An empty string removes it.</dd></div>
               </dl>
-              <p class="small">Journal MCP needs your permission to write to your feed. Until you give it, the tool publishes nothing and returns the link that asks you.</p>
+              <p class="small">Needs your permission to write to your feed. Until then it publishes nothing and returns a link to grant it.</p>
               <h5 class="spec-head">Returns</h5>
               <p><code>{ postId, url, status }</code>, where <code>status</code> is <code>published</code> or <code>updated</code>.</p>
             </div>
@@ -947,8 +945,7 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
       <div class="wrap split asks">
         <div class="split-copy">
           <h2 class="h2" id="result-title" data-reveal>Ask for a page, get a page</h2>
-          <p class="lede" data-reveal style="--i:1">An agent can write live blocks straight into a note: a React chart or a Mermaid diagram that runs where you read it.</p>
-          <p data-reveal style="--i:2">It makes small edits too, changing one passage with <code>replace_in_note</code> and leaving the rest of the note as it was.</p>
+          <p class="lede" data-reveal style="--i:1">An agent can write a React chart or a Mermaid diagram into a note, and it runs where you read it.</p>
         </div>
         <ul class="ask-stack" aria-label="Things to ask">
           <li data-reveal>Create a note called Standup in my Work folder with today's summary.</li>
@@ -964,7 +961,7 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
       <div class="wrap">
         <div class="section-head">
           <h2 class="h2" id="publish-title" data-reveal>Then publish what it built</h2>
-          <p class="lede" data-reveal style="--i:1">Live blocks an agent writes keep running when you publish the note as a public page, for anyone with the link.</p>
+          <p class="lede" data-reveal style="--i:1">Live blocks keep running on the note's public page.</p>
         </div>
         <figure class="frame frame-page" data-ui data-reveal>
           <picture class="only-light">
