@@ -4,7 +4,7 @@ import { test, expect } from '../fixtures';
 import { assertTestOrigin } from '../support/origin-guard';
 
 // #1390: on the share page a table wider than the note column keeps its first column in
-// view while the rest scrolls, the same way the editor does
+// view while the rest scrolls, when the table opted in with `pinFirstColumn` (#1528), the same way the editor does
 // (e2e/editor/table-pinned-column.spec.ts). Screenshots: desktop and phone, light and dark.
 
 const THEMES = ['light', 'dark'] as const;
@@ -64,15 +64,16 @@ const linkText = (url: string) => {
 const cell = (tag: 'tableHeader' | 'tableCell', value: string) =>
   element(tag, [paragraph([/^https?:/.test(value) ? linkText(value) : new Y.XmlText(value)])]);
 
-const table = (rows: string[][]) =>
+const table = (rows: string[][], pinFirstColumn = false) =>
   element(
     'table',
     rows.map((cells, r) => element('tableRow', cells.map((value) => cell(r === 0 ? 'tableHeader' : 'tableCell', value)))),
+    pinFirstColumn ? { pinFirstColumn: 'true' } : {},
   );
 
 function noteContent(): Buffer {
   const doc = new Y.Doc();
-  doc.getXmlFragment('prosemirror').push([paragraph([new Y.XmlText(INTRO)]), table([HEADER, ...ROWS]), table(SHORT)]);
+  doc.getXmlFragment('prosemirror').push([paragraph([new Y.XmlText(INTRO)]), table([HEADER, ...ROWS], true), table(SHORT), table([HEADER, ...ROWS])]);
   return Buffer.from(Y.encodeStateAsUpdate(doc));
 }
 
@@ -112,11 +113,12 @@ for (const theme of THEMES) {
     const article = anonPage.getByRole('article');
     await expect(article.getByRole('heading', { level: 1, name: NOTE_TITLE })).toBeVisible({ timeout: 15_000 });
     const tables = article.getByRole('table');
-    await expect(tables).toHaveCount(2);
+    await expect(tables).toHaveCount(3);
     const cfp = tables.nth(0);
     const wrapper = cfp.locator('xpath=..');
     const shortWrapper = tables.nth(1).locator('xpath=..');
     await expect(cfp.locator('th')).toHaveCount(HEADER.length);
+    const unpinnedWrapper = tables.nth(2).locator('xpath=..');
     const first = cfp.locator('tr').first().locator('th').first();
     const second = cfp.locator('tr').first().locator('th').nth(1);
 
@@ -156,6 +158,10 @@ for (const theme of THEMES) {
     await expect.poll(() => wrapper.evaluate((el) => el.hasAttribute('data-shade-end'))).toBe(false);
     expect(Math.abs((await box(first)).x - frame.x)).toBeLessThanOrEqual(1);
     await shoot(wrapper, 'pinned-end', 'mobile');
+
+    // The same wide table without the marker is not pinned.
+    expect(await unpinnedWrapper.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+    expect(await pinned(unpinnedWrapper)).toBe(false);
 
     // A table that fits is not touched.
     expect(await shortWrapper.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);

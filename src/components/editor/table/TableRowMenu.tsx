@@ -4,7 +4,7 @@ import { useFloating, offset, autoUpdate, shift } from '@floating-ui/react';
 import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { GripVertical, ArrowUp, ArrowDown, Trash2, PanelTop, Table2 } from 'lucide-react';
+import { GripVertical, ArrowUp, ArrowDown, Trash2, PanelTop, PanelLeft, Table2 } from 'lucide-react';
 import { useTableState } from './hooks';
 import { TABLE_DESTRUCTIVE_CLASS, TABLE_HANDLE_CLASS, TABLE_MENU_CLASS, TABLE_TOGGLE_CLASS } from './styles';
 import {
@@ -34,16 +34,17 @@ export function TableRowMenu({ editor }: TableRowMenuProps) {
 
   // The first row's first cell is a header cell. Read from the selection's table,
   // which onOpenChange below moves to the row the menu belongs to.
-  const hasHeaderRow = useEditorState({
+  const table = useEditorState({
     editor,
     selector: ({ editor }) => {
       const { $from } = editor.state.selection;
       for (let d = $from.depth; d > 0; d--) {
         const node = $from.node(d);
-        if (node.type.name === 'table') return node.firstChild?.firstChild?.type.name === 'tableHeader';
+        if (node.type.name === 'table') return { hasHeaderRow: node.firstChild?.firstChild?.type.name === 'tableHeader', pinFirstColumn: !!node.attrs.pinFirstColumn };
       }
-      return false;
+      return { hasHeaderRow: false, pinFirstColumn: false };
     },
+    equalityFn: (a, b) => a?.hasHeaderRow === b?.hasHeaderRow && a?.pinFirstColumn === b?.pinFirstColumn,
   });
 
   const handleOpenChange = (open: boolean) => {
@@ -148,11 +149,22 @@ export function TableRowMenu({ editor }: TableRowMenuProps) {
                 size="icon"
                 aria-label="Header row"
                 title="Header row"
-                aria-pressed={hasHeaderRow}
+                aria-pressed={table.hasHeaderRow}
                 className={TABLE_TOGGLE_CLASS}
                 onClick={() => editor.chain().focus().toggleHeaderRow().run()}
              >
                 <PanelTop />
+             </Button>
+             <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Pin first column"
+                title="Pin first column"
+                aria-pressed={table.pinFirstColumn}
+                className={TABLE_TOGGLE_CLASS}
+                onClick={() => editor.chain().focus().updateAttributes('table', { pinFirstColumn: !table.pinFirstColumn }).run()}
+             >
+                <PanelLeft />
              </Button>
              <Separator orientation="vertical" className="h-4 my-auto" />
              <Button variant="ghost" size="icon" aria-label="Delete row" title="Delete row" className={TABLE_DESTRUCTIVE_CLASS} onClick={() => editor.chain().focus().deleteRow().run()}>

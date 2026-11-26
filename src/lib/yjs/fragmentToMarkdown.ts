@@ -217,7 +217,7 @@ export function fragmentToMarkdown(
     return (hasHeader
       ? [renderRow(rows[0]), separator, ...rows.slice(1).map(renderRow)]
       : [emptyHeader, separator, ...rows.map(renderRow)]
-    ).join('\n') + '\n\n';
+    ).join('\n') + (node.getAttribute('pinFirstColumn') ? '\n<!-- pin -->' : '') + '\n\n';
   }
 
   function serializeChildren(node: Y.XmlElement, depth: number): string {

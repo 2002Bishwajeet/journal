@@ -20,6 +20,8 @@ export const sanitizeSchema = {
         ...defaultSchema.attributes,
         img: [...(defaultSchema.attributes?.img ?? []), 'width', 'dataAlign', 'dataCaption', 'dataCrop', 'dataRotate', 'dataFlip', 'dataWidth', 'dataHeight'],
         // An image gallery's layout (#601) and images per row (#1367, a number the page checks itself).
+        // A table opted in to a pinned first column (#1528): set by rehypePinMarker from `<!-- pin -->`.
+        table: [...(defaultSchema.attributes?.table ?? []), 'dataPinFirst'],
         div: [...(defaultSchema.attributes?.div ?? []), 'dataGallery', 'dataColumns'],
     },
     protocols: {

@@ -120,8 +120,9 @@ describe('trackScrollShade', () => {
   });
 
   describe('pin', () => {
-    function tableWrapper(size: { client: number; scroll: number }, firstWidth: number) {
+    function tableWrapper(size: { client: number; scroll: number }, firstWidth: number, optIn = true) {
       const el = wrapper(size);
+      el.toggleAttribute('data-pin-first', optIn);
       const cell = document.createElement('td');
       cell.getBoundingClientRect = () => ({ width: firstWidth }) as DOMRect;
       const row = document.createElement('tr');
@@ -134,6 +135,13 @@ describe('trackScrollShade', () => {
       const el = tableWrapper({ client: 300, scroll: 900 }, 100);
       trackScrollShade(el);
       expect(el.hasAttribute('data-pin')).toBe(true);
+    });
+
+    it('does not pin a table that has not opted in', () => {
+      const el = tableWrapper({ client: 300, scroll: 900 }, 100, false);
+      trackScrollShade(el);
+      expect(el.hasAttribute('data-pin')).toBe(false);
+      expect(el.hasAttribute('data-shade-end')).toBe(true);
     });
 
     it('does not pin a table that fits, and unpins one that comes to fit', () => {

@@ -2,7 +2,11 @@
 // scrollbar is an overlay on macOS and iOS, so nothing shows that more is hidden (#1389).
 // This marks the wrapper with `data-shade-start` / `data-shade-end` for each edge that
 // has hidden content; the `.prose .tableWrapper` rules in index.css fade those edges.
-// It also marks `data-pin` when the first column should stay in view while the rest scrolls (#1390).
+// It also marks `data-pin` when the first column should stay in view while the rest scrolls
+// (#1390), for a table whose wrapper opted in with `data-pin-first` (#1528).
+
+/** The wrapper attribute a table sets to opt in to a pinned first column. */
+export const PIN_FIRST_ATTR = 'data-pin-first';
 
 const EDGE = 1; // sub-pixel scroll positions must not count as hidden content
 
@@ -31,7 +35,7 @@ export function trackScrollShade(el: HTMLElement | null): (() => void) | void {
         el.toggleAttribute('data-shade-start', start);
         el.toggleAttribute('data-shade-end', end);
         const first = el.querySelector('tr > :is(th, td)');
-        el.toggleAttribute('data-pin', !!first && shouldPin(start || end, first.getBoundingClientRect().width, el.clientWidth, el.hasAttribute('data-pin')));
+        el.toggleAttribute('data-pin', !!first && el.hasAttribute(PIN_FIRST_ATTR) && shouldPin(start || end, first.getBoundingClientRect().width, el.clientWidth, el.hasAttribute('data-pin')));
     };
     update();
     el.addEventListener('scroll', update, { passive: true });
