@@ -28,8 +28,8 @@
               <h2 class="h3">What you need</h2>
               <dl>
                 <dt>A Homebase identity</dt><dd>Such as <code>alex.dotyou.cloud</code>, opened in <a href="/welcome">Journal</a> once. No identity? <a href="https://homebase.id/sign-up">Join the wait list</a>.</dd>
-                <dt>Node.js 20 or newer</dt><dd>Only for Local, except the Claude Desktop extension. From <a href="https://nodejs.org">nodejs.org</a>.</dd>
-                <dt>A Claude app</dt><dd>Claude Desktop, claude.ai or Claude Code. Cursor, Codex CLI and Hermes Agent work too.</dd>
+                <dt>Node.js 20 or newer</dt><dd>Only for Local, except the Claude Desktop extension. From <a href="https://nodejs.org">nodejs.org</a>; check with <code>node --version</code>.</dd>
+                <dt>A Claude app</dt><dd>Claude Desktop, claude.ai or Claude Code. Cursor, Codex CLI, Hermes Agent and other MCP clients work too.</dd>
               </dl>
             </div>
           </div>
@@ -426,7 +426,7 @@ args = ["-y", "journal-mcp@latest"]</code></pre>
               <h3 class="h3">Approve Journal MCP on your identity</h3>
               <p>Approve Journal MCP in your Homebase owner console. It asks for Read + write on your notes drive only. Online, you do this when you click Connect.</p>
               <p>For Local, reload the server after approving: <code>/mcp</code> and reconnect <code>journal</code> in Claude Code, reopen Claude Desktop, restart Cursor or Codex, <code>/reload-mcp</code> in Hermes. The Claude Desktop extension needs no reload.</p>
-              <p class="small">No browser, such as over SSH? Add <code>--no-browser</code> to the login command and paste the code at <code>Paste code:</code>.</p>
+              <p class="small">No browser, such as over SSH? Add <code>--no-browser</code> to the login command, approve on any device from the link it prints, and paste the code at <code>Paste code:</code>.</p>
             </div>
             <figure class="code-panel terminal" data-ui aria-labelledby="terminal-cap">
               <figcaption id="terminal-cap" class="code-head"><span>What the terminal shows</span></figcaption>
@@ -459,7 +459,7 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
             <div class="setup-copy">
               <h3 class="h3">Check that it works</h3>
               <p>Ask your agent to list your Journal folders. It calls <code>list_folders</code> and names each granted folder with <code>read</code> or <code>write</code>.</p>
-              <p>An empty list means nothing is granted yet. An error means the server isn't running.</p>
+              <p>An empty list means nothing is granted yet. An error means the server isn't running: see <a href="#fixes">the fixes</a>.</p>
             </div>
             <figure class="session check" data-ui aria-labelledby="check-cap">
               <figcaption id="check-cap" class="code-head"><span>The first request</span></figcaption>
@@ -517,7 +517,7 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
             <div><dt>Signed edits</dt><dd>Agent edits are labelled, such as <code>agent:claude-code</code>.</dd></div>
             <div><dt>Images</dt><dd><code>![alt](/absolute/path.png)</code> or a base64 <code>data:</code> URI is uploaded. PNG, JPEG or WebP, up to 5 MB, EXIF and GPS removed. One invalid image and nothing is written. <code>https://</code> images stay links.</dd></div>
             <div><dt>Note links</dt><dd><code>[label](journal:note/&lt;id&gt;)</code>, or <code>[[Note title]]</code> for the one note you can see with that title.</dd></div>
-            <div><dt>Layout warnings</dt><dd>An <code>html</code> or <code>react</code> block wider than 390px or using <code>100vh</code> is still written, with a note on how to fix it.</dd></div>
+            <div><dt>Layout warnings</dt><dd>An <code>html</code> or <code>react</code> block that sets a width over 390px or uses <code>100vh</code> is still written, with a note on how to fix it.</dd></div>
           </dl>
         </div>
 
@@ -566,7 +566,7 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
               <h4 class="tool-name" id="t-search_notes"><code>search_notes</code></h4>
               <p>Finds granted notes whose title, tags or text contain the query, ignoring case.</p>
               <dl class="tool-facts">
-                <dt>Use it when</dt><dd>Finding a note by a word in it. Matches exact text, so search one distinctive word.</dd>
+                <dt>Use it when</dt><dd>Finding a note by its words. Every word must match; double quotes keep a phrase together.</dd>
                 <dt>Try asking</dt><dd class="ask">Find my notes that mention Lisbon.</dd>
               </dl>
             </div>
@@ -597,7 +597,7 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
                 <div><dt><code>format</code> <span>"markdown" or "blocks", optional</span></dt><dd>Default <code>markdown</code>.</dd></div>
               </dl>
               <h5 class="spec-head">Returns</h5>
-              <p><code>{ id, title, folderId, modified, tags, access }</code> with <code>markdown</code>, or with <code>blocks</code>: a list of <code>{ id, type, markdown, attrs }</code>, plus <code>rows</code> of cell markdown for a table. Block ids are stable.</p>
+              <p><code>{ id, title, folderId, modified, tags, access }</code> with <code>markdown</code>, or with <code>blocks</code>: a list of <code>{ id, type, markdown, attrs }</code>, plus <code>rows</code> of cell markdown for a table. Block ids stay the same while the block exists.</p>
             </div>
           </article>
 
@@ -793,7 +793,7 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
               <h4 class="tool-name" id="t-create_image_upload"><code>create_image_upload</code></h4>
               <p>Only on the hosted server (<code>https://mcp.cloudx.run/journal</code>), which can't read your files. The agent POSTs the image to a one-time upload URL, then places it with the <code>upload://…</code> source. You can open the link and drop in a photo yourself.</p>
               <dl class="tool-facts">
-                <dt>Use it when</dt><dd>A body or cover image is a file or a photo pasted into the chat. PNG, JPEG or WebP, up to 5 MB; EXIF and GPS removed.</dd>
+                <dt>Use it when</dt><dd>A body or cover image is a file or a photo pasted into the chat.</dd>
                 <dt>Try asking</dt><dd class="ask">Put this photo at the top of my Trip plan note.</dd>
               </dl>
             </div>
@@ -900,7 +900,7 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
               <h4 class="tool-name" id="t-share_note"><code>share_note</code></h4>
               <p>Asks to make a note public, share it with people or circles, or stop sharing it.</p>
               <dl class="tool-facts">
-                <dt>Use it when</dt><dd>You want a link, or a note shared with someone. A note in a shared folder is public through it: move it with <code>update_note</code> instead.</dd>
+                <dt>Use it when</dt><dd>You want a link, or a note shared with someone. A note in a shared folder is public through the folder: move it with <code>update_note</code> instead.</dd>
                 <dt>Try asking</dt><dd class="ask">Make my Trip plan note public and give me the link.</dd>
               </dl>
             </div>
@@ -919,7 +919,7 @@ Logged in as <span class="identity">type.your.identity.here</span>. Credentials 
           <article class="tool" id="tool-publish_to_feed" aria-labelledby="t-publish_to_feed" data-reveal>
             <div class="tool-main">
               <h4 class="tool-name" id="t-publish_to_feed"><code>publish_to_feed</code></h4>
-              <p>Publishes a note to your Homebase feed as a public article, like Publish to feed in Journal. Publishing again updates the post.</p>
+              <p>Publishes a note to your Homebase feed as a public article, like Publish to feed in Journal's Share dialog. Publishing again updates the post.</p>
               <dl class="tool-facts">
                 <dt>Use it when</dt><dd>A note is ready for your followers. It needn't be public itself.</dd>
                 <dt>Try asking</dt><dd class="ask">Publish my Trip plan note to my feed.</dd>
