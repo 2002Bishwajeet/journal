@@ -3,12 +3,22 @@
   "name": "io.github.2002Bishwajeet/journal",
   "title": "Journal",
   "description": "Read, search and edit your Journal notes. Sign in with your Homebase identity.",
+  "websiteUrl": "https://journal.cloudx.run/landing/agents",
   "repository": {
     "url": "https://github.com/2002Bishwajeet/journal",
     "source": "github",
     "subfolder": "mcp"
   },
-  "version": "0.1.1",
+  "version": "0.1.2",
+  "icons": [
+    {
+      "src": "https://journal.cloudx.run/pwa-512x512.png",
+      "mimeType": "image/png",
+      "sizes": [
+        "512x512"
+      ]
+    }
+  ],
   "remotes": [
     {
       "type": "streamable-http",
