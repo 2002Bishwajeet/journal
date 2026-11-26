@@ -16,6 +16,12 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.73.32 (2026-11-26)
+
+### Changed
+
+- A wide table no longer keeps its first column in view by default. To keep it in view, open the table menu and turn on "Pin first column".
+
 ## 2.73.31 (2026-11-26)
 
 ### Changed
