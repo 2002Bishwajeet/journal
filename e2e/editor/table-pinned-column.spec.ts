@@ -3,7 +3,8 @@ import { test, expect } from '../fixtures';
 import { activeEditor, createNote, screenshotInBothThemes } from '../support/actions';
 
 // #1390: a table wider than the note column keeps its first column in view while the rest
-// scrolls. The share page runs the same table in e2e/publishing/share-table-pinned-column.spec.ts.
+// scrolls, once its "Pin first column" toggle is on (#1528: off by default). The share page runs
+// the same table in e2e/publishing/share-table-pinned-column.spec.ts.
 
 const VIEWPORTS = { desktop: { width: 1280, height: 900 }, mobile: { width: 390, height: 844 } } as const;
 
@@ -50,7 +51,17 @@ const tableHtml = (rows: string[][], header = true) =>
 const wrapperOf = (table: Locator) => table.locator('xpath=..');
 const pinned = (table: Locator) => wrapperOf(table).evaluate((el) => el.hasAttribute('data-pin'));
 
-async function buildNote(page: Page): Promise<{ cfp: Locator; short: Locator; headerless: Locator }> {
+/** Turns on "Pin first column" from the row menu of the table's first row. */
+async function pinFirstColumn(page: Page, table: Locator) {
+  await firstRow(table).first.hover();
+  await page.getByRole('button', { name: 'Row options' }).click();
+  const toggle = page.getByRole('button', { name: 'Pin first column' });
+  await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  await page.keyboard.press('Escape');
+}
+
+async function buildNote(page: Page, pin = true): Promise<{ cfp: Locator; short: Locator; headerless: Locator }> {
   await createNote(page, { title: `Pinned column ${Date.now()}`, body: 'Call for submissions tracker.' });
   const editor = activeEditor(page);
   await page.keyboard.press('Enter');
@@ -65,6 +76,10 @@ async function buildNote(page: Page): Promise<{ cfp: Locator; short: Locator; he
   );
   const tables = editor.getByRole('table');
   await expect(tables).toHaveCount(3);
+  if (pin) {
+    await pinFirstColumn(page, tables.nth(0));
+    await pinFirstColumn(page, tables.nth(2));
+  }
   return { cfp: tables.nth(0), short: tables.nth(1), headerless: tables.nth(2) };
 }
 
@@ -185,4 +200,35 @@ test('editor: the column resize handle shows at the border of the pinned column'
   const first = await box(firstRow(cfp).first);
   await app.mouse.move(first.x + first.width - 2, first.y + first.height / 2);
   await expect(activeEditor(app).locator('.column-resize-handle').first()).toHaveCSS('opacity', '1');
+});
+
+test('editor: a wide table does not pin its first column until the toggle is on', async ({ app }) => {
+  await app.setViewportSize(VIEWPORTS.desktop);
+  const { cfp } = await buildNote(app, false);
+  await app.setViewportSize(VIEWPORTS.mobile);
+  const wrapper = wrapperOf(cfp);
+  const { first } = firstRow(cfp);
+  const left = async () => (await box(first)).x - (await box(wrapper)).x;
+
+  // Off: the first column scrolls away with the rest.
+  expect(await wrapper.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+  expect(await pinned(cfp)).toBe(false);
+  await wrapper.evaluate((el) => {
+    el.scrollIntoView({ block: 'center' });
+    el.scrollTo({ left: el.scrollWidth / 2 });
+  });
+  await expect.poll(left).toBeLessThan(-1);
+  await shoot(app, cfp, 'pin-off', 'mobile');
+
+  // On: it stays at the wrapper's left edge.
+  await app.setViewportSize(VIEWPORTS.desktop);
+  await pinFirstColumn(app, cfp);
+  await app.setViewportSize(VIEWPORTS.mobile);
+  await expect.poll(() => pinned(cfp)).toBe(true);
+  await wrapper.evaluate((el) => {
+    el.scrollIntoView({ block: 'center' });
+    el.scrollTo({ left: el.scrollWidth / 2 });
+  });
+  await expect.poll(async () => Math.abs(await left())).toBeLessThanOrEqual(1);
+  await shoot(app, cfp, 'pin-on', 'mobile');
 });

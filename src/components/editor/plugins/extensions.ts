@@ -36,7 +36,7 @@ import { Callout } from '../nodes/CalloutNode';
 import { Gallery } from '../nodes/GalleryNode';
 import { Footnote, FootnoteReference, Footnotes } from '../nodes/FootnoteNodes';
 import { parseCodeInfo } from '@2002bishwajeet/live-blocks/core';
-import { trackScrollShade } from '@/lib/editor/scrollShade';
+import { PIN_FIRST_ATTR, trackScrollShade } from '@/lib/editor/scrollShade';
 
 // Re-export FileHandler for use in EditorProvider
 export { FileHandler } from './FileHandler';
@@ -45,19 +45,43 @@ export { FileHandler } from './FileHandler';
 const lowlight = createLowlight();
 
 // The table's scroll wrapper shades the edge that has hidden content (#1389).
+// A table that opted in (`pinFirstColumn`, #1528) also keeps its first column in view. The
+// attribute is part of the node's markup, so a change builds a new view.
 class ShadedTableView extends TableView {
-    private stopTracking = trackScrollShade(this.dom);
+    private stopTracking: (() => void) | void;
+    constructor(...args: ConstructorParameters<typeof TableView>) {
+        super(...args);
+        this.dom.toggleAttribute(PIN_FIRST_ATTR, !!args[0].attrs.pinFirstColumn);
+        this.stopTracking = trackScrollShade(this.dom);
+    }
     destroy() {
         this.stopTracking?.();
     }
 }
 
 // GFM has no headerless table, so an all-empty header line means "no header row" (#446).
+// A `<!-- pin -->` line right after a table opts it in to a pinned first column (#1528).
+const PINNED_TABLE = /^((?:\|[^\n]*\n)+)<!-- pin -->[ \t]*(?:\n|$)/;
+
 const HeaderlessAwareTable = Table.extend({
+    addAttributes() {
+        return { ...this.parent?.(), pinFirstColumn: { default: false, rendered: false } };
+    },
+    markdownTokenizer: {
+        name: 'table',
+        level: 'block',
+        start: (src) => src.search(/^\|/m),
+        tokenize(src, _tokens, lexer) {
+            const match = PINNED_TABLE.exec(src);
+            const table = match && lexer.blockTokens(match[1]).find((t) => t.type === 'table');
+            return table ? { ...table, raw: match[0], pinFirstColumn: true } : undefined;
+        },
+    },
     parseMarkdown(token, helpers) {
         const header = token.header as { text?: string }[] | undefined;
         const emptyHeader = !!header && header.every((cell) => !cell.text?.trim());
-        return this.parent!(emptyHeader ? { ...token, header: undefined } : token, helpers);
+        const node = this.parent!(emptyHeader ? { ...token, header: undefined } : token, helpers);
+        return token.pinFirstColumn ? { ...node, attrs: { pinFirstColumn: true } } : node;
     },
 });
 // The `language` attribute is the fence's whole info string (```html id=k3f9, #410):

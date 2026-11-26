@@ -5,7 +5,7 @@ import { PublicNoteImage } from '@/components/share/PublicNoteImage';
 import { EditedImage } from '@/components/EditedImage';
 import { editDataAttrs, editedSize, hasEdits, parseEditData } from '@/lib/images/imageEdits';
 import { readNaturalSize, type PayloadPreview } from '@/lib/images/imageSize';
-import { trackScrollShade } from '@/lib/editor/scrollShade';
+import { PIN_FIRST_ATTR, trackScrollShade } from '@/lib/editor/scrollShade';
 import { parseAttachmentSrc } from '@/lib/utils/attachmentSrc';
 import type { LightboxGallery } from '@/lib/images/lightboxGallery';
 import { CalloutAwareBlockquote } from '@/components/share/CalloutAwareBlockquote';
@@ -169,10 +169,10 @@ function ShareImage({ src, alt, node, width, ...rest }: ComponentProps<'img'> & 
 }
 
 // Same wrapper as the editor's (`.tableWrapper`): a table wider than the column scrolls inside it.
-function ShareTable({ node, ...rest }: ComponentProps<'table'> & ExtraProps) {
+function ShareTable({ node, 'data-pin-first': pinFirst, ...rest }: ComponentProps<'table'> & ExtraProps & { 'data-pin-first'?: string }) {
     void node;
     return (
-        <div className="tableWrapper" ref={trackScrollShade}>
+        <div className="tableWrapper" {...(pinFirst !== undefined && { [PIN_FIRST_ATTR]: '' })} ref={trackScrollShade}>
             <table {...rest} />
         </div>
     );

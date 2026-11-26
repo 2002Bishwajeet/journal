@@ -155,6 +155,25 @@ function rehypeGalleryRows() {
     };
 }
 
+/**
+ * A `<!-- pin -->` line right after a table opts it in to a pinned first column (#1528). The
+ * sanitizer drops comments, so the table gets the attribute first; it is allowed in the schema.
+ */
+export function rehypePinMarker() {
+    return (tree: Root) => {
+        const walk = (parent: Root | Element) => {
+            parent.children.forEach((child, i) => {
+                if (child.type !== 'element') return;
+                walk(child);
+                if (child.tagName !== 'table') return;
+                const next = parent.children.slice(i + 1).find((n) => n.type !== 'text' || n.value.trim());
+                if (next?.type === 'comment' && next.value.trim() === 'pin') child.properties.dataPinFirst = '';
+            });
+        };
+        walk(tree);
+    };
+}
+
 const CLOBBER_PREFIX = 'user-content-';
 
 /**
@@ -238,6 +257,7 @@ export const shareRemarkPlugins: Options['remarkPlugins'] = [remarkGfm, remarkMa
 export const shareRehypePlugins: Options['rehypePlugins'] = [
     rehypeKeepCodeMeta,
     rehypeRaw,
+    rehypePinMarker,
     [rehypeSanitize, sanitizeSchema],
     rehypeRestoreCodeMeta,
     rehypeSingleClobberPrefix,

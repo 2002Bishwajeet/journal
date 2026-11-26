@@ -46,7 +46,7 @@ print("hello")
 
 ### Tables
 
-GitHub-style pipe tables. A table with no header row has an empty header line.
+GitHub-style pipe tables. A table with no header row has an empty header line. Put `<!-- pin -->` on the line right after a table to keep its first column in view while a wide table scrolls sideways; without it nothing is pinned.
 
 ```markdown
 | Day | Distance | Time |
