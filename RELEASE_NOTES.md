@@ -16,6 +16,13 @@ Manual Release puts those files under the new version and stops if there are non
 
 ## Unreleased
 
+## 2.73.31 (2026-11-26)
+
+### Changed
+
+- The Agents page opens on Online, the hosted server, by default. The page text is shorter.
+- The tool cards on the Agents page list every input, including every search filter.
+
 ## 2.73.30 (2026-11-25)
 
 ### New
